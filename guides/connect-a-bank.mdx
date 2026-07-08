@@ -37,7 +37,7 @@ sequenceDiagram
     Member->>Bank: enters credentials on LedgerSync's page
     Bank-->>LS: authenticated
     LS-->>App: connection.active webhook
-    App->>LS: GET /connections/{id}/accounts
+    App->>LS: GET /accounts?client_id=&connection_id=
 ```
 
 <Info>
@@ -86,6 +86,7 @@ sequenceDiagram
         "connection": {
           "id": "con_FINICITY_41294",
           "client_id": "cli_123",
+          "source": "FINICITY",
           "status": "active"
         }
       }
