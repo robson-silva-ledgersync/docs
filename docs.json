@@ -18,7 +18,9 @@
             "group": "Get started",
             "pages": [
               "introduction",
-              "guides/connect-a-bank"
+              "guides/quickstart",
+              "guides/connect-a-bank",
+              "authentication"
             ]
           }
         ]

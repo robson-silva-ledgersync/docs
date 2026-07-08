@@ -1,0 +1,41 @@
+name: Sync OpenAPI spec
+
+# Keeps the API Reference in lockstep with the live v3 spec. Runs on a
+# schedule and on demand; commits only when the spec actually changed, which
+# in turn triggers Mintlify to redeploy.
+on:
+  schedule:
+    - cron: "0 */6 * * *" # every 6 hours
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch live v3 spec
+        run: curl -fsSL https://api.ledgersyncappv2.com/v3/openapi.yaml -o openapi.next.yaml
+
+      - name: Sanitize operation summaries
+        # Mintlify derives one file per endpoint from its `summary`, so
+        # characters that are illegal in filenames (double quotes,
+        # backslashes) must be stripped or the build fails.
+        run: |
+          sed -i -E '/^[[:space:]]*summary:/ s/["\\]//g' openapi.next.yaml
+          mv openapi.next.yaml openapi.yaml
+
+      - name: Commit if changed
+        run: |
+          if git diff --quiet -- openapi.yaml; then
+            echo "Spec unchanged."
+          else
+            git config user.name "ledgersync-docs-bot"
+            git config user.email "docs@ledgersync.com"
+            git add openapi.yaml
+            git commit -m "chore: sync OpenAPI spec from api.ledgersyncappv2.com"
+            git push
+          fi

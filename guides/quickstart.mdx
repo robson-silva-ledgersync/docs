@@ -1,0 +1,104 @@
+---
+title: "Quickstart"
+description: "From an API key to a live bank connection with transactions in your database. About 15 minutes."
+---
+
+By the end of this you'll have a working bank connection in **sandbox**, with
+accounts and transactions you can read and a webhook firing as data updates.
+
+<Note>
+  Grab a sandbox key (`sk_test_...`) from the developer portal first. Sandbox
+  hits real aggregator test banks over the real wire, so what you build here is
+  exactly what you ship.
+</Note>
+
+## The shape of it
+
+<Steps>
+  <Step title="Create a Client">
+    Your record of one end-user.
+  </Step>
+  <Step title="Register a webhook">
+    So we can tell you when things change.
+  </Step>
+  <Step title="Connect a bank">
+    The user links their account. See the [Connect a bank](/guides/connect-a-bank) guide.
+  </Step>
+  <Step title="Read their data">
+    Accounts, transactions, statements.
+  </Step>
+</Steps>
+
+## 1. Create a Client
+
+```bash
+curl https://api-sandbox.ledgersyncappv2.com/v3/clients \
+  -H "Authorization: Bearer sk_test_..." \
+  -H "Content-Type: application/json" \
+  -d '{"email":"alice@example.com","name":"Alice"}'
+```
+
+You get back a `Client` with an `id` like `cli_...`. Hold onto it.
+
+## 2. Register a webhook
+
+Connections finish **asynchronously**, so you listen for an event rather than
+poll.
+
+```bash
+curl https://api-sandbox.ledgersyncappv2.com/v3/webhooks/subscriptions \
+  -H "Authorization: Bearer sk_test_..." \
+  -H "Content-Type: application/json" \
+  -d '{"url":"https://your-app.example.com/webhooks/ledgersync","events":["connection.active"]}'
+```
+
+<Info>
+  Every delivery is signed with `X-LS-Webhook-Signature` (HMAC-SHA256 over the
+  raw body). Verify it before trusting the payload.
+</Info>
+
+## 3. Connect a bank
+
+The fastest path is a hosted link, no bank picker to build:
+
+```bash
+curl -X POST \
+  https://api-sandbox.ledgersyncappv2.com/v3/clients/cli_123/connect-session \
+  -H "Authorization: Bearer sk_test_..."
+```
+
+Email the returned `url` to your user. Full walkthrough, including the
+build-your-own-picker option, is in [Connect a bank](/guides/connect-a-bank).
+
+## 4. Receive `connection.active`
+
+When the user finishes, your webhook fires:
+
+```json
+{
+  "type": "connection.active",
+  "data": {
+    "connection": {
+      "id": "con_FINICITY_41294",
+      "client_id": "cli_123",
+      "status": "active"
+    }
+  }
+}
+```
+
+<Warning>
+  Store the **canonical** id from the active event (`con_<SOURCE>_<id>`), not the
+  temporary `con_<uuid>` placeholder from the initiate step. Only the canonical
+  id works on `/accounts`, `/transactions`, and `/statements`.
+</Warning>
+
+## 5. Read accounts and transactions
+
+```bash
+curl https://api-sandbox.ledgersyncappv2.com/v3/connections/con_FINICITY_41294/accounts \
+  -H "Authorization: Bearer sk_test_..."
+```
+
+That's the whole loop. From here, explore the full [API Reference](/api-reference)
+or read how [connections stay fresh and what each status means](/guides/connect-a-bank).

@@ -1,0 +1,41 @@
+---
+title: "Authentication"
+description: "Bearer keys, sandbox vs live, and how to keep them safe."
+---
+
+Every request carries your secret key as a Bearer token:
+
+```bash
+curl https://api-sandbox.ledgersyncappv2.com/v3/clients \
+  -H "Authorization: Bearer sk_test_..."
+```
+
+## Two environments, two key prefixes
+
+<CardGroup cols={2}>
+  <Card title="Sandbox" icon="flask">
+    Keys start with **`sk_test_`**. Free, safe to experiment, routes to
+    aggregator test banks. Base URL `https://api-sandbox.ledgersyncappv2.com/v3`.
+  </Card>
+  <Card title="Live" icon="rocket">
+    Keys start with **`sk_live_`**. Real banks, real data. Base URL
+    `https://api.ledgersyncappv2.com/v3`.
+  </Card>
+</CardGroup>
+
+<Warning>
+  Treat secret keys like passwords. Never embed them in mobile apps, browsers,
+  or anything client-side, they belong on your server only. If a key leaks,
+  roll it in the developer portal.
+</Warning>
+
+## End-user tokens
+
+A few flows act on behalf of one specific end-user (for example, submitting an
+MFA answer mid-connection). Those use a separate, short-lived token you mint
+with your API key and hand to client-side code, never your `sk_` key itself.
+
+## Getting a trace id
+
+Every response includes an `X-LS-Trace-Id` header. Paste it into any support
+request and we can jump straight to your exact call.
