@@ -71,6 +71,15 @@
       "claude"
     ]
   },
+  "redirects": [
+    { "source": "/quickstart", "destination": "/guides/quickstart", "permanent": true },
+    { "source": "/connect-a-bank", "destination": "/guides/connect-a-bank", "permanent": true },
+    { "source": "/connection-lifecycle", "destination": "/guides/connection-lifecycle", "permanent": true },
+    { "source": "/webhooks", "destination": "/guides/webhooks", "permanent": true },
+    { "source": "/errors", "destination": "/guides/errors", "permanent": true },
+    { "source": "/testing", "destination": "/guides/testing", "permanent": true },
+    { "source": "/going-live", "destination": "/guides/going-live", "permanent": true }
+  ],
   "footer": {
     "socials": {
       "website": "https://ledgersync.com"
