@@ -8,7 +8,11 @@
     "light": "#22D3EE",
     "dark": "#0E7490"
   },
-  "favicon": "/favicon.svg",
+  "favicon": "/favicon.png",
+  "logo": {
+    "light": "/logo/ledgersync-wordmark.png",
+    "dark": "/logo/ledgersync-wordmark.png"
+  },
   "navigation": {
     "tabs": [
       {

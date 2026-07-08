@@ -28,7 +28,9 @@ failure, carries the same JSON body under `error`:
 | --- | --- |
 | `code` | Stable, machine-readable. **Branch on this.** |
 | `message` | Human-readable explanation. Good for logs; safe for developers, not always for end users. |
-| `type` | Broad category: `auth_error`, `invalid_request`, `not_found`, `idempotency_error`, `rate_limit_error`, `api_error`. Useful for coarse grouping only. |
+| `type` | Stripe-style class derived from HTTP status: `auth_error`, `invalid_request`, `not_found`, `idempotency_error`, `rate_limit_error`, `api_error`. Coarse grouping only. |
+| `category` | Plaid-style class by origin: `AUTH_ERROR`, `INSTITUTION_ERROR`, `CAPABILITY_UNAVAILABLE`, `CONNECTION_ERROR`, `RATE_LIMIT`, `INVALID_REQUEST`, `RESOURCE_NOT_FOUND`, `PLATFORM_ERROR`. Orthogonal to `type`; still branch on `code`, not this. |
+| `is_user_actionable` | `true` when the **end user** (not you) can resolve it, e.g. by re-authenticating in the widget. |
 | `doc_url` | Deep link to the page for this specific code. |
 | `trace_id` | The id of this exact request in our logs. Quote it in support tickets. |
 | `param` / `errors[]` | On `validation_failed`, names the offending field(s). |
@@ -83,6 +85,8 @@ and each `error.doc_url` deep-links to one entry.
 | `method_not_allowed` | 405 | Right route, wrong HTTP method. | Use the documented method; regenerate clients from the spec. |
 | `idempotency_conflict` | 409 | Same `Idempotency-Key`, different body/path. | Reuse the exact original body to retry, or a new key for a new request. |
 | `version_conflict` | 409 | Write carried a stale `row_version` (someone else moved the row). | Re-fetch to get the current `row_version` and state, then retry if still needed. |
+| `read_only_client` | 403 | The target Client is read-only — an aliased/linked pre-existing v2 client. Writes and connection mutations are rejected. | Only mutate native `cli_` clients; treat aliased linked clients as read-only. |
+| `billing_managed_externally` | 409 | A billing action was attempted on a customer whose billing is managed outside the API. | Manage that customer's billing through the configured external flow, not the API. |
 | `not_found` | 404 | No resource matches the id, or it belongs to another customer. | Verify the id (stored the `cli_...`, not your `external_id`?). |
 | `statement_extraction_failed` | 422 | A `statement.extract` operation finished `failed` (bad scan, not a statement, corrupt pages). Arrives **inside the polled operation's `error`**, not as a direct HTTP response. | Fix the document (clearer scan, all pages, real bank PDF) and re-`POST /v3/statements/extract`. |
 
@@ -108,9 +112,9 @@ on `type`**. They group cleanly by the action they require:
 
 <Warning>
   The wire `error.category` is too coarse to branch on. `CAPABILITY_UNAVAILABLE`
-  covers `statements_not_supported`, `fde_unsupported`, **and**
-  `refresh_not_supported`; `CONNECTION_ERROR` covers both `mfa_required` and
-  `reauthorization_required`. Always switch on `error.code`.
+  covers `agreement_required`, `statements_not_supported`, `fde_unsupported`,
+  **and** `refresh_not_supported`; `CONNECTION_ERROR` covers both `mfa_required`
+  and `reauthorization_required`. Always switch on `error.code`.
 </Warning>
 
 **Send the end user back through the widget (re-authenticate):**
