@@ -112,6 +112,28 @@ There is **no auto-timeout to `failed` today**. A connection stays `requires_act
 
 So if a user wanders off mid-link, nothing breaks. Re-surface the same widget URL, or start over with a new `POST /connections`.
 
+### MFA and reauthorization
+
+MFA is handled entirely inside the widget. When a real bank challenges the user for a one-time code or security question, that challenge is presented and answered **in the LedgerSync-hosted page** — the same `widget_url` you already opened. You route the user back to it and they finish there.
+
+<Warning>
+There is **no programmatic MFA endpoint**. You never receive, submit, or store bank credentials or MFA answers through the API. That is the point of the hosted model: raw secrets never touch your servers.
+</Warning>
+
+So handling `requires_action` for MFA is the same as handling it for the initial link: re-open the connection's `widget_url` (or re-initiate to mint a fresh one) and wait for `connection.active`.
+
+The `action` object on a `requires_action` connection is a tagged union — read its `kind` to know what to render:
+
+| `action.kind` | Fields | Status |
+| --- | --- | --- |
+| `widget_url` | `widget_url`, `expires_at` | **The only kind emitted today.** Open the URL in a browser, iframe, or webview. |
+| `reauthorize` | `reauth_url`, `expires_at` | Reserved for a future release — not emitted today. |
+| `mfa_challenge` | `challenge_id`, `questions[]` | Reserved for a future release — not emitted today. There is intentionally no inline MFA-answer flow. |
+
+<Note>
+Because `mfa_challenge` and `reauthorize` are not emitted yet, a live connection that needs the user — whether for first-time MFA, a step-up challenge, or reauthorization after a password change — always surfaces `action.kind = "widget_url"`. Branch on `kind` anyway so your integration keeps working when the other kinds ship.
+</Note>
+
 ## Handling failed and disconnected
 
 Both statuses mean the same thing to your UI: **the user needs to re-link.** Show a clear call to action and re-initiate the connection.
@@ -156,6 +178,41 @@ curl "https://api-sandbox.ledgersyncappv2.com/v3/accounts?client_id=cli_01HXYZ..
 <Warning>
 Reads are **Client-scoped**. Always pass `client_id` on every read, alongside the canonical `connection_id`.
 </Warning>
+
+## Account types
+
+Every account you read off an `active` connection carries a `type`. LedgerSync normalizes each aggregator's native account type (Finicity and FDE report lowercase, MX reports UPPERCASE) down to one coarse, lowercase enum, so you branch on the same six values regardless of source:
+
+| `type` | What it is |
+| --- | --- |
+| `checking` | Everyday transaction / demand-deposit account. |
+| `savings` | Savings, money-market, CD. |
+| `credit_card` | Revolving credit card. |
+| `loan` | Term loan, mortgage, auto loan, line of credit. |
+| `investment` | Brokerage, IRA, 401(k), and other holdings accounts. |
+| `other` | Anything the source didn't classify into the above. |
+
+### Asset vs liability
+
+For balance-sheet math, map `type` to a side. A positive `current_balance` means different things depending on the side, so decide sign handling from this table, not from the number alone:
+
+| Side | Types |
+| --- | --- |
+| Asset | `checking`, `savings`, `investment` |
+| Liability | `credit_card`, `loan` |
+| Ambiguous | `other` |
+
+<Warning>
+Treat `other` as unknown, not as an asset. Don't fold it into a net-worth total without inspecting the account. New or unclassified account kinds land here.
+</Warning>
+
+### The enum is intentionally coarse
+
+Banks expose far richer sub-types than these six. An investment household might show up as IRA, 401(k), or brokerage; a lending product as mortgage, auto loan, or line of credit. Those rich labels **collapse** into the coarse enum — IRA/401(k)/brokerage all become `investment`, mortgage/auto loan/line of credit all become `loan`. If you need the bank's original label, keep the account's `name` (e.g. "Home Mortgage", "Roth IRA"); the `type` alone won't recover it.
+
+<Info>
+Per-account data availability is **not** derived from `type`. A `savings` account isn't guaranteed to expose statements, and a `loan` isn't guaranteed to expose transactions. Read each account's `realized_capabilities` block to know what's actually available. (Today the backend tracks capability status at the bank level, so accounts within one connection share the same snapshot — see [Per-capability health](#per-capability-health).)
+</Info>
 
 ## Test the whole lifecycle in sandbox
 

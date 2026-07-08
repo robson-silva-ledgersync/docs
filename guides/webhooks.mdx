@@ -230,6 +230,33 @@ return "", 200
 Order is not guaranteed under retries. Design handlers to be self-contained: react to the state in `data`, don't assume the previous event already landed.
 </Info>
 
+## Ordering
+
+Webhooks are **not** delivered in order. There is no sequence counter on the envelope, and retries run on their own schedule — a delivery that failed and is being retried can arrive *after* an event that was produced later. Concretely:
+
+- A `connection.failed` can land before the `connection.requires_action` that preceded it.
+- A slow-retried `account.refresh.completed` can arrive after a newer refresh for the same account.
+- Two events produced milliseconds apart can arrive in either order.
+
+So don't build a state machine that assumes the previous event already landed. **Treat every webhook as a signal, not a source of truth:** it tells you *something changed on this connection* — then you re-fetch the current state to act on it.
+
+```text The pattern
+1. Verify the signature.
+2. Dedupe on event_id (X-LS-Webhook-Event-Id) — skip if seen.
+3. GET /v3/connections/{id} to read the CURRENT status.
+4. Reconcile your local state to what the API returns.
+```
+
+Because step 3 always reads current truth, out-of-order arrival is harmless: even if `connection.failed` shows up before `connection.requires_action`, the `GET /v3/connections/{id}` you run for each one returns the connection's real, latest status — so you converge on the right state regardless of arrival order.
+
+<Info>
+Every envelope carries `created_at` — the time the event was **produced**. If you need a tiebreaker (e.g. to ignore a stale event you've already superseded), compare `created_at`, not the `X-LS-Webhook-Timestamp` header. The header is regenerated on **each delivery attempt** (it's the send time, used for replay protection), so a retried event's header timestamp reflects when it was *re-sent*, not when it happened. `created_at` is stable across retries.
+</Info>
+
+<Warning>
+Never treat a webhook payload's `status` as authoritative when order matters. The `data` in a late-arriving retry reflects the state **at the time that event was produced**, which may already be stale. When you need to act, re-fetch with `GET /v3/connections/{id}`.
+</Warning>
+
 ## Test-fire a delivery
 
 Once a subscription exists, send yourself a real signed delivery:

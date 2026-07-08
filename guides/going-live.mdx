@@ -89,3 +89,79 @@ swapping the key. Walk this checklist before your first real user.
   Same endpoints, same webhook shapes, same routing. If it worked against the
   [FinBank smoke test](/guides/testing), it works live.
 </Check>
+
+## Rate limits
+
+Every API key is rate-limited per environment. The **live** tier trades a lower
+sustained rate for a much larger daily budget and a short burst allowance; the
+**sandbox** tier lets you hammer it faster while you build but caps the daily
+total.
+
+| Limit | Sandbox | Live |
+| --- | --- | --- |
+| Requests / minute | 120 | 60 |
+| Requests / day | 10,000 | 50,000 |
+| Burst | none | 2× over 60s |
+
+Every response, success or error, carries these headers:
+
+| Header | Meaning |
+| --- | --- |
+| `X-RateLimit-Limit` | Requests allowed in the per-minute window |
+| `X-RateLimit-Remaining` | Lowest remaining count across all active windows |
+| `X-RateLimit-Reset` | Unix seconds when the per-minute window resets |
+| `X-RateLimit-Policy` | Every enforced window, e.g. `60;w=60, 50000;w=86400` |
+
+Read `X-RateLimit-Remaining` and back off *before* you hit zero rather than
+waiting for the `429`. Because live gets a 2× burst, a single spike can pass
+while the minute window is technically full, then the next request trips.
+
+### When you get throttled
+
+Over the limit, the API returns `429` with the standard error envelope and a
+`Retry-After` header (seconds):
+
+```json
+{
+  "error": {
+    "type": "rate_limit_error",
+    "code": "rate_limit_exceeded",
+    "message": "Rate limit exceeded"
+  }
+}
+```
+
+```
+HTTP/1.1 429 Too Many Requests
+Retry-After: 60
+X-RateLimit-Policy: 60;w=60, 50000;w=86400
+```
+
+Honor `Retry-After` exactly: on a per-minute trip it's the seconds to the next
+minute boundary; on a daily-budget trip it's the seconds until the day rolls
+over, which can be hours.
+
+### Service-layer caps
+
+Some limits are enforced deeper in the stack and are **not** reflected in the
+`X-RateLimit-*` headers. You'll still see a `429` (`rate_limit_exceeded`) when
+you cross them:
+
+| Cap | Sandbox | Live |
+| --- | --- | --- |
+| Concurrent open connection flows | 10 | 50 |
+| Webhook events / day | 5,000 | 25,000 |
+| Statement extractions / day | 50 | 500 |
+| Concurrent statement extractions | 2 | 3 |
+
+<Info>
+  Statement extractions are capped separately because each one burns a real
+  OCR-provider call, even on sandbox keys. Queue extraction jobs and cap your
+  own concurrency rather than firing them all at once.
+</Info>
+
+<Warning>
+  Don't hardcode these numbers into retry logic. Drive backoff off
+  `X-RateLimit-Remaining` and `Retry-After` so your integration keeps working
+  if a tier changes.
+</Warning>

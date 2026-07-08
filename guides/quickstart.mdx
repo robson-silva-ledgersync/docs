@@ -322,6 +322,49 @@ Two things to internalize now, because they save debugging later:
 
 </Steps>
 
+## The transaction object
+
+Every row in a `/transactions` response has the same shape, whatever aggregator served it. The fields:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | string | Stable v3 id, `txn_<SOURCE>_<n>`. Use it as your idempotency key — see dedupe below. |
+| `account_id` | string | The owning account, `acc_<SOURCE>_<n>`. |
+| `external_id` | string \| null | The upstream aggregator's own transaction id (Finicity, MX, …), when it exposes one. |
+| `amount` | number | Signed decimal in the account's currency. Sign convention below. |
+| `iso_currency_code` | string | ISO-4217, e.g. `USD`. Defaults to `USD` when the source omits it. |
+| `date` | string (`YYYY-MM-DD`) | Posted date — when the transaction cleared. |
+| `description` | string | Raw bank description, e.g. `STARBUCKS #1234 SEATTLE WA`. |
+| `merchant_name` | string \| null | Cleaned merchant, when the source provides one. |
+| `category` | string \| null | LedgerSync's normalized category (best-effort across sources). |
+| `pending` | boolean | `true` while the charge is still pending, `false` once posted. |
+
+That's the complete set. There is no `subcategory`, `type`, or `location` field.
+
+### Amount sign
+
+`amount` is a **signed passthrough** of the source aggregator's value — LedgerSync does not flip or normalize it. In practice the convention you'll see is:
+
+- **Money out (charges, purchases, withdrawals) is negative.** A $28.34 card purchase comes through as `-28.34`.
+- **Money in (deposits, payroll, credits) is positive.** A $1,500 payroll deposit comes through as `+1500.00`.
+
+```json
+{
+  "data": [
+    { "id": "txn_FINICITY_1", "amount": -28.34, "description": "STARBUCKS #1234 SEATTLE WA", "category": "Food and Drink", "pending": false },
+    { "id": "txn_FINICITY_2", "amount": 1500.00, "description": "PAYROLL DEPOSIT", "category": "Income", "pending": false }
+  ]
+}
+```
+
+<Warning>
+  Because the sign is a passthrough, treat it as source-driven rather than a LedgerSync guarantee. Before you post amounts into a ledger, confirm the sign against your own sandbox data with FinBank — the fixtures above are exactly what the sandbox returns, so a quick read tells you which way is which for your integration.
+</Warning>
+
+<Tip>
+  **Dedupe on `id`.** The `txn_<SOURCE>_<n>` id is stable across refreshes, so use it as your upsert/idempotency key. Re-pulling a date range that overlaps a previous pull returns the same ids — key on `id` and you'll never double-count a transaction.
+</Tip>
+
 ## Testing with FinBank
 
 <Note>
