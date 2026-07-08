@@ -1,21 +1,25 @@
 ---
 title: "Errors"
-description: "How LedgerSync reports errors, how to handle them, and how to get help fast."
+description: "The error envelope, the full error-code catalog, and exactly what to do for each one."
 ---
 
-Every error we return has the same shape and a stable machine-readable `code`. Branch on the `code`, show your user something friendly, and log the trace id. That's the whole game.
+Every error we return has the same shape and a stable, machine-readable `code`.
+Branch on the `code`, show your user something friendly, log the trace id, and
+consult the catalog below for the exact action. That's the whole game.
 
 ## The error envelope
 
-Every error response — validation, auth, not found, rate limit, or server — carries the same JSON body:
+Every error response, validation, auth, not found, rate limit, or a bank-side
+failure, carries the same JSON body under `error`:
 
 ```json
 {
   "error": {
-    "code": "institution_not_found",
-    "message": "No institution matches id 'ins_deadbeef'.",
-    "doc_url": "https://docs.ledgersyncappv2.com/guides/errors",
-    "type": "invalid_request"
+    "code": "not_found",
+    "message": "No client matches id 'cli_deadbeef'.",
+    "type": "not_found",
+    "doc_url": "https://portal.ledgersyncappv2.com/errors/not_found",
+    "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736"
   }
 }
 ```
@@ -23,52 +27,128 @@ Every error response — validation, auth, not found, rate limit, or server — 
 | Field | What it's for |
 | --- | --- |
 | `code` | Stable, machine-readable. **Branch on this.** |
-| `message` | Human-readable explanation. Good for logs; safe to surface to developers, not always to end users. |
-| `doc_url` | A link into these docs for the specific error. |
-| `type` | Broad category (e.g. `invalid_request`, `authentication_error`, `rate_limit_error`, `api_error`). Useful for coarse grouping. |
+| `message` | Human-readable explanation. Good for logs; safe for developers, not always for end users. |
+| `type` | Broad category: `auth_error`, `invalid_request`, `not_found`, `idempotency_error`, `rate_limit_error`, `api_error`. Useful for coarse grouping only. |
+| `doc_url` | Deep link to the page for this specific code. |
+| `trace_id` | The id of this exact request in our logs. Quote it in support tickets. |
+| `param` / `errors[]` | On `validation_failed`, names the offending field(s). |
+| `source_diagnostic_code` | On bank-side errors, the raw upstream code (`FIN-103`, `MX-DENIED`, `FDE-INTERNAL`). For **support triage, not control flow**. |
 
 <Warning>
-  Branch your code on `code`, never on `message`. We reword messages for clarity over time — the `code` is the contract and won't change out from under you.
+  Branch on `code`, never on `message` and never on `type`. We reword messages
+  over time, and `type` is deliberately coarse, several very different `code`s
+  share `type: api_error`. The `code` is the contract.
 </Warning>
 
-## HTTP status codes
-
-The HTTP status tells you the broad category before you even parse the body.
+## HTTP status, at a glance
 
 | Status | Meaning | Typical fix |
 | --- | --- | --- |
-| `400` | **Validation** — the request was malformed or a field was invalid. | Read `error.message`, fix the offending field, retry. Don't retry unchanged. |
-| `401` | **Auth** — missing, malformed, or wrong API key. | Send `Authorization: Bearer sk_test_...`. Check you're using the right key for the right base URL (test key → sandbox, live key → live). |
-| `404` | **Not found** — the id doesn't exist, or isn't visible to your key. | Confirm the id and that it belongs to this environment. A canonical `con_FINICITY_...` id won't resolve in sandbox, and vice versa. |
-| `429` | **Rate limit** — too many requests too fast. | Back off and retry. See [Rate limiting](#rate-limiting) below. |
-| `5xx` | **Server** — something broke on our side. | Retry with backoff. If it persists, open a ticket and quote the trace id. |
+| `400` | Validation / malformed request | Read `error.message` (and `error.param`), fix the field, retry. Don't retry unchanged. |
+| `401` | Auth: missing, malformed, or wrong key/signature | Send `Authorization: Bearer sk_test_...`; check the key matches the environment. |
+| `403` | Authenticated but not allowed (scope, unapproved access, billing) | Fix the key's scope or finish the portal step named in the message. |
+| `404` | Not found or not visible to your key | Confirm the id and its environment. |
+| `405` | Right route, wrong HTTP method | Use the method the API reference documents. |
+| `409` | Conflict (idempotency key reuse, stale `row_version`) | Re-fetch, then retry with fresh token/body. |
+| `422` | Accepted but couldn't be processed (statement extraction) | Read the operation's `error.message`; fix the input. |
+| `429` | Rate limit against **your** quota | Back off with jitter; honor `Retry-After`. |
+| `5xx` | Our side or the bank's side | Retry with backoff; escalate with the trace id. |
 
-<Note>
-  A `404` on `/accounts` or `/transactions` is often a real-vs-placeholder id mixup. Those endpoints only accept the **canonical** connection id (`con_FINICITY_41294`), never the pending placeholder `con_<uuid>`. See [Connection lifecycle](/guides/connection-lifecycle).
-</Note>
+## Error-code catalog
 
-## The trace id
+Every code the API can return. The catalog is also browsable at
+[portal.ledgersyncappv2.com/errors](https://portal.ledgersyncappv2.com/errors),
+and each `error.doc_url` deep-links to one entry.
 
-Every response — success or error — includes an `X-LS-Trace-Id` header:
+### Authentication & authorization
 
-```
-X-LS-Trace-Id: 7b3f9c2a1e4d40a8b6c0f1e2d3a4b5c6
-```
+| Code | HTTP | When it fires | What to do |
+| --- | --- | --- | --- |
+| `missing_auth_headers` | 401 | No `Authorization` header. | Add `Authorization: Bearer sk_...`. |
+| `unknown_api_key` | 401 | Bearer token matches no key (typo, wrong env, revoked). | Check the value and that the key matches the base URL. |
+| `revoked_api_key` | 401 | Key was valid but has been revoked/rotated. | Mint a new key in the portal, update config. |
+| `invalid_signature` | 401 | HMAC signature didn't match the computed one. | Sign over the **raw** bytes you send; confirm the current secret. Prefer our signing helper. |
+| `invalid_timestamp` | 401 | `X-LS-Timestamp` is more than 5 min off our clock. | Fix the machine's clock (NTP), resend. |
+| `replayed_nonce` | 401 | `X-LS-Nonce` was already used. | Generate a fresh 16+ byte random nonce per request. |
+| `insufficient_scope` | 403 | Key authenticated but lacks the scope for this operation. | Grant the scope named in `message`, or mint a key with it. |
+| `access_request_not_approved` | 403 | Minting a key for an env whose access request isn't `APPROVED`. | Finish/resubmit the access request for that env in the portal. |
+| `billing_not_configured` | 403 | Live request with no billing subscription linked. | Add a payment method in the portal (Activate Live → Payment). |
 
-Log it on every request. When you open a support ticket, **quote the trace id** for the exact failing call. It lets us jump straight to your request in our logs instead of guessing — it's the single fastest way to get an answer.
+### Request problems
 
-<Tip>
-  Log the trace id even on **successful** calls. When something looks wrong downstream ("this account has no transactions"), the trace id from the original read is what we need.
-</Tip>
+| Code | HTTP | When it fires | What to do |
+| --- | --- | --- | --- |
+| `validation_failed` | 400 | A field failed schema validation. `error.param` / `error.errors[]` name it. | Fix the named field(s), resubmit. |
+| `invalid_request` | 400 | Rejected for a non-schema reason (bad state transition, unsupported source, idempotency-key reused with a different body). | Read `message`; use a fresh `Idempotency-Key` if retrying with a changed body. |
+| `method_not_allowed` | 405 | Right route, wrong HTTP method. | Use the documented method; regenerate clients from the spec. |
+| `idempotency_conflict` | 409 | Same `Idempotency-Key`, different body/path. | Reuse the exact original body to retry, or a new key for a new request. |
+| `version_conflict` | 409 | Write carried a stale `row_version` (someone else moved the row). | Re-fetch to get the current `row_version` and state, then retry if still needed. |
+| `not_found` | 404 | No resource matches the id, or it belongs to another customer. | Verify the id (stored the `cli_...`, not your `external_id`?). |
+| `statement_extraction_failed` | 422 | A `statement.extract` operation finished `failed` (bad scan, not a statement, corrupt pages). Arrives **inside the polled operation's `error`**, not as a direct HTTP response. | Fix the document (clearer scan, all pages, real bank PDF) and re-`POST /v3/statements/extract`. |
+
+### Rate limit
+
+| Code | HTTP | When it fires | What to do |
+| --- | --- | --- | --- |
+| `rate_limit_exceeded` | 429 | More requests than the per-key limit. `X-RateLimit-Reset` / `Retry-After` describe the window. | Back off and retry after `Retry-After`; batch or ask support for a higher quota. |
+
+### Server
+
+| Code | HTTP | When it fires | What to do |
+| --- | --- | --- | --- |
+| `internal_error` | 500 | Something broke on our side (usually transient). | Retry once with backoff; escalate with the `trace_id`. |
+| `upstream_unavailable` | 502 | A service v3 depends on (the main LedgerSync backend behind the bridge) is unreachable. Distinct from `source_internal_error`, our platform leg, not the aggregator. | Retry with exponential backoff; escalate with the `trace_id` if it persists. |
+
+### Connection & source errors (the bank side)
+
+These come back on connection operations, most often **inside the polled
+operation's `error`**, with the raw upstream code in `error.source_diagnostic_code`.
+All carry `type: api_error` and HTTP `502`, so **you must branch on `code`, not
+on `type`**. They group cleanly by the action they require:
+
+<Warning>
+  The wire `error.category` is too coarse to branch on. `CAPABILITY_UNAVAILABLE`
+  covers `statements_not_supported`, `fde_unsupported`, **and**
+  `refresh_not_supported`; `CONNECTION_ERROR` covers both `mfa_required` and
+  `reauthorization_required`. Always switch on `error.code`.
+</Warning>
+
+**Send the end user back through the widget (re-authenticate):**
+
+| Code | When it fires |
+| --- | --- |
+| `credentials_invalid` | Bank rejected the login (changed password, re-enrolled creds). `FIN-103/185/948`, `MX-DENIED`. |
+| `mfa_required` | Bank is challenging for a second factor. `FIN-187`, MX `CHALLENGED/MFA_REQUIRED`, FDE `USER_ACTION`. |
+| `mfa_expired` | User didn't answer the MFA challenge in time. MX `EXPIRED/MFA_EXPIRED`. |
+| `reauthorization_required` | Saved session invalid; bank wants re-consent. MX `CREDENTIALS_UPDATE_REQUIRED` / `USER_INTERACTION_REQUIRED`. |
+| `agreement_required` | Bank needs a new agreement/consent accepted. `FIN-38006`, `MX-AGREEMENT_REQUIRED`. |
+
+**Don't re-auth, retry with backoff (credentials are fine):**
+
+| Code | When it fires |
+| --- | --- |
+| `institution_unavailable` | Bank is down/impaired/transient. Finicity `931/946/990-998`, MX `SITE_DOWN/IMPAIRED`, FDE `INSTITUTION_DOWN`. Show "your bank is having issues," retry minutes-to-hours later. |
+| `source_rate_limited` | Aggregator/bank throttled back-to-back pulls. `FIN-947`. Back off; don't tighten your loop. |
+| `source_internal_error` | Aggregator returned a generic internal failure. Untranslated `FIN-*`, `*-INTERNAL`, `MX-UNKNOWN`. Small retry budget (2–3), then escalate. |
+
+**Don't retry, the capability isn't there:**
+
+| Code | When it fires |
+| --- | --- |
+| `statements_not_supported` | Institution doesn't expose statements. `FIN-6004`. Hide "view statements"; transactions/balances still work. |
+| `refresh_not_supported` | Source has no on-demand refresh (MX). Subscribe to `account.refresh.completed` instead. |
+| `fde_unsupported` | FDE-backed connection doesn't expose this capability. Gate the feature by connection source. |
+
+**User must act at the bank (not in your widget):**
+
+| Code | When it fires |
+| --- | --- |
+| `account_locked_by_institution` | Bank locked the account (too many attempts / fraud hold). `FIN-109`, `MX-LOCKED`. Tell the user to unlock with their bank; re-auth won't help. |
 
 ## A handling pattern
 
-The same four steps work in any language:
-
-1. **Check the HTTP status.** 2xx? You're done.
-2. **Parse the envelope** to get `error.code`.
-3. **Branch on `code`** to decide what to do (fix input, re-auth, back off, surface to user).
-4. **Log the trace id** from `X-LS-Trace-Id` alongside the code.
+The same steps work in any language: check the status, parse the envelope,
+branch on `code`, log the trace id.
 
 <CodeGroup>
 
@@ -87,21 +167,22 @@ if resp.ok:
     operation = resp.json()
 else:
     err = resp.json()["error"]
-    log.warning("LedgerSync error code=%s status=%s trace=%s",
+    log.warning("LedgerSync code=%s status=%s trace=%s",
                 err["code"], resp.status_code, trace_id)
 
-    if err["code"] == "institution_not_found":
-        # fix the institution_id and retry
-        ...
+    code = err["code"]
+    if code in ("credentials_invalid", "mfa_required", "mfa_expired",
+                "reauthorization_required", "agreement_required"):
+        send_user_back_through_widget(...)      # re-auth
+    elif code in ("institution_unavailable", "source_rate_limited",
+                  "source_internal_error", "upstream_unavailable"):
+        retry_with_backoff(...)                 # credentials are fine
+    elif code == "not_found":
+        ...                                     # fix the id
     elif resp.status_code == 401:
-        # bad/missing key — don't retry, fix credentials
-        ...
+        ...                                     # bad key — don't retry
     elif resp.status_code == 429:
-        # back off and retry (see Rate limiting)
-        ...
-    elif resp.status_code >= 500:
-        # transient — retry with backoff, then escalate with trace_id
-        ...
+        backoff_and_retry(...)                  # see Rate limiting
 ```
 
 ```javascript errors.js
@@ -119,28 +200,20 @@ const resp = await fetch(
 
 const traceId = resp.headers.get("X-LS-Trace-Id");
 
-if (resp.ok) {
-  const operation = await resp.json();
-} else {
+if (!resp.ok) {
   const { error } = await resp.json();
-  console.warn(
-    `LedgerSync error code=${error.code} status=${resp.status} trace=${traceId}`
-  );
+  console.warn(`LedgerSync code=${error.code} status=${resp.status} trace=${traceId}`);
 
-  switch (true) {
-    case error.code === "institution_not_found":
-      // fix institution_id and retry
-      break;
-    case resp.status === 401:
-      // bad/missing key — fix credentials, don't retry
-      break;
-    case resp.status === 429:
-      // back off and retry (see Rate limiting)
-      break;
-    case resp.status >= 500:
-      // transient — retry with backoff, then escalate with traceId
-      break;
-  }
+  const reauth = ["credentials_invalid", "mfa_required", "mfa_expired",
+                  "reauthorization_required", "agreement_required"];
+  const retry = ["institution_unavailable", "source_rate_limited",
+                 "source_internal_error", "upstream_unavailable"];
+
+  if (reauth.includes(error.code)) sendUserBackThroughWidget();
+  else if (retry.includes(error.code)) retryWithBackoff();
+  else if (error.code === "not_found") { /* fix the id */ }
+  else if (resp.status === 401) { /* bad key — don't retry */ }
+  else if (resp.status === 429) backoffAndRetry();
 }
 ```
 
@@ -148,9 +221,8 @@ if (resp.ok) {
 
 ## Rate limiting
 
-A `429` means you've sent too many requests too quickly. It's not an error in your code — just a signal to slow down. Retry the same request after a short wait.
-
-Use **exponential backoff with jitter**: wait, retry, and double the wait each time a `429` comes back (e.g. 1s, 2s, 4s, 8s...) with a little randomness so many clients don't retry in lockstep. Cap the number of attempts.
+A `429` (`rate_limit_exceeded`) just means slow down. Use **exponential backoff
+with jitter**, and honor `Retry-After` when present.
 
 <CodeGroup>
 
@@ -162,7 +234,7 @@ def call_with_backoff(do_request, max_attempts=5):
         resp = do_request()
         if resp.status_code != 429:
             return resp
-        wait = (2 ** attempt) + random.random()
+        wait = float(resp.headers.get("Retry-After", (2 ** attempt))) + random.random()
         time.sleep(wait)
     return resp  # give up; log the trace id and escalate
 ```
@@ -173,8 +245,8 @@ async function callWithBackoff(doRequest, maxAttempts = 5) {
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     resp = await doRequest();
     if (resp.status !== 429) return resp;
-    const wait = (2 ** attempt) * 1000 + Math.random() * 1000;
-    await new Promise((r) => setTimeout(r, wait));
+    const retryAfter = Number(resp.headers.get("Retry-After")) || 2 ** attempt;
+    await new Promise((r) => setTimeout(r, retryAfter * 1000 + Math.random() * 1000));
   }
   return resp; // give up; log the trace id and escalate
 }
@@ -183,20 +255,37 @@ async function callWithBackoff(doRequest, maxAttempts = 5) {
 </CodeGroup>
 
 <Tip>
-  The same backoff pattern is the right response to `5xx` errors too — they're usually transient. Only `4xx` errors (other than `429`) mean "don't retry until you change something."
+  The same backoff is the right response to `5xx` and the retryable bank-side
+  codes above. Only non-`429` `4xx` errors mean "don't retry until you change
+  something."
 </Tip>
+
+## The trace id
+
+Every response, success or error, includes an `X-LS-Trace-Id` header (also
+mirrored as `error.trace_id` in error bodies):
+
+```
+X-LS-Trace-Id: 7b3f9c2a1e4d40a8b6c0f1e2d3a4b5c6
+```
+
+Log it on **every** request, even successful ones. When something looks wrong
+downstream ("this account has no transactions"), the trace id from the original
+read is what we need.
 
 ## Getting help
 
 <Check>
-  When you file a ticket, include: the `X-LS-Trace-Id`, the `error.code`, the endpoint you called, and whether you were in sandbox or live. That's everything we need to find your exact request.
+  When you file a ticket, include: the `X-LS-Trace-Id` (or `error.trace_id`),
+  the `error.code`, the endpoint, and whether you were in sandbox or live.
+  That's everything we need to find your exact request.
 </Check>
 
 <CardGroup cols={2}>
-  <Card title="Testing playbook" icon="flask" href="/guides/testing">
-    Reproduce and explore error paths safely with sandbox test banks and keys.
+  <Card title="Testing in sandbox" icon="flask" href="/guides/testing">
+    Reproduce every error path on purpose with sandbox test banks.
   </Card>
   <Card title="Connection lifecycle" icon="bolt" href="/guides/connection-lifecycle">
-    Most `404`s trace back to placeholder-vs-canonical connection ids.
+    Most bank-side codes surface as a `connection.failed` transition.
   </Card>
 </CardGroup>

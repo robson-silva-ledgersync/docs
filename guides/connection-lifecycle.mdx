@@ -24,10 +24,11 @@ stateDiagram-v2
     active --> [*]
 ```
 
-A connection has exactly four statuses:
+A connection has five statuses:
 
 | Status | Meaning | What you do |
 | --- | --- | --- |
+| `initiated` | You've kicked off the link; the widget URL isn't ready yet. Brief and transient. | Nothing — poll the operation; you'll see `requires_action` almost immediately. |
 | `requires_action` | The user still needs to finish in the widget. | Keep the widget open, or re-open the same `widget_url`. No auto-timeout. |
 | `active` | Linked and healthy. Accounts, transactions, and statements are flowing. | Read data. Watch capability and refresh events. |
 | `failed` | Bad credentials or an aggregator-reported failure. | Show a re-link CTA and re-initiate. |

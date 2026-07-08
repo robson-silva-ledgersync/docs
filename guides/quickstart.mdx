@@ -9,6 +9,41 @@ This is the end-to-end path: mint a key, register a webhook, create a Client, fi
   **Base URL (sandbox):** `https://api-sandbox.ledgersyncappv2.com/v3` &nbsp;·&nbsp; **Auth:** `Authorization: Bearer sk_test_...` &nbsp;·&nbsp; Every response carries an `X-LS-Trace-Id` header — grab it if you ever open a support ticket.
 </Info>
 
+## Prefer Postman?
+
+Import our collection and run the whole flow without leaving Postman. The
+**Quickstart** folder chains every step below and captures ids for you, so you
+can run it top-to-bottom.
+
+<Steps>
+  <Step title="Import the collection">
+    In Postman, **Import → Link** and paste the hosted URL (or download it and **Import → File**):
+
+    ```
+    https://portal.ledgersyncappv2.com/ledgersync-v3.postman_collection.json
+    ```
+
+    It ships folders for every resource — Clients, Connections, Accounts, Transactions, Statements, Operations, Webhooks, Institutions, and more — plus the chained **Quickstart** folder.
+  </Step>
+  <Step title="Set two variables">
+    On the collection, set `api_key` to your key and point `base_url` at the environment you're testing:
+
+    | Variable | Sandbox | Live |
+    | --- | --- | --- |
+    | `api_key` | your `sk_test_...` | your `sk_live_...` |
+    | `base_url` | `https://api-sandbox.ledgersyncappv2.com/v3` | `https://api.ledgersyncappv2.com/v3` |
+  </Step>
+  <Step title="Run the Quickstart folder">
+    Run it top-to-bottom — it creates a Client, discovers an institution, initiates a connection, and captures each returned id into the collection variables for the next request.
+  </Step>
+</Steps>
+
+<Tip>
+  Prefer a raw, always-current endpoint list? Postman can import our OpenAPI
+  spec directly: **Import → Link** →
+  `https://api.ledgersyncappv2.com/v3/openapi.yaml`.
+</Tip>
+
 ## The mental model
 
 Four objects, one line of descent. A **Client** is your record of one end-user. Each Client owns one or more **Connections** (one per linked bank). Each Connection exposes **Accounts**, and each Account has **Transactions** and **Statements**.
@@ -300,10 +335,11 @@ Every error returns the same envelope — branch on `code`, not on the HTTP stat
 ```json
 {
   "error": {
-    "code": "institution_not_found",
+    "code": "not_found",
     "message": "No institution matches ins_deadbeef.",
-    "type": "invalid_request",
-    "doc_url": "https://docs.ledgersyncappv2.com/guides/errors"
+    "type": "not_found",
+    "doc_url": "https://portal.ledgersyncappv2.com/errors/not_found",
+    "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736"
   }
 }
 ```

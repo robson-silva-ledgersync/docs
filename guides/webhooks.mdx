@@ -74,24 +74,32 @@ See [Connection lifecycle](/guides/connection-lifecycle) for how `initiated → 
 
 ## Delivery shape
 
-Every delivery is an HTTP `POST` to your URL with a JSON body and three `X-LS-Webhook-*` headers:
+Every delivery is an HTTP `POST` to your URL with a JSON body and these `X-LS-Webhook-*` headers:
 
 | Header | Meaning |
 | --- | --- |
+| `X-LS-Webhook-Event-Id` | Stable unique id for this event. **Dedupe on it** (same value as `event_id` in the body). |
 | `X-LS-Webhook-Event-Type` | The event type, e.g. `connection.active`. Lets you route before parsing. |
-| `X-LS-Webhook-Timestamp` | Unix seconds when we sent the delivery. Used in signature checks and replay protection. |
-| `X-LS-Webhook-Signature` | HMAC-SHA256 hex of the **raw** request body, keyed with your signing secret. |
+| `X-LS-Webhook-Timestamp` | Unix seconds when we produced the event. Part of the signed payload and used for replay protection. |
+| `X-LS-Webhook-Signature` | `hex(HMAC-SHA256(signing_secret, timestamp + "." + raw_body))`. Verify before trusting anything. |
+| `X-LS-Webhook-Signature-Prev` | Present **only** for 24h after you rotate the signing secret — the same signature under your *previous* secret. Accept either while you roll your verifier so a rotation never drops a delivery. |
 
-The body:
+Every body shares the same base fields — `event_id`, `type`, `created_at`,
+`api_version`, `livemode` — plus a `data` object whose shape depends on the
+event:
 
 ```json Example delivery body
 {
   "event_id": "evt_01HXYZ...",
   "type": "connection.active",
+  "created_at": "2026-07-07T14:22:05Z",
+  "api_version": "2026-05-22",
+  "livemode": false,
   "data": {
     "connection": {
       "id": "con_FINICITY_41294",
       "client_id": "cli_01HXYZ...",
+      "source": "FINICITY",
       "status": "active"
     }
   }
@@ -100,10 +108,20 @@ The body:
 
 ## Verify the signature
 
-Never trust a delivery you haven't verified. Compute HMAC-SHA256 over the **raw, unparsed** request body using your signing secret, and compare it to `X-LS-Webhook-Signature` in constant time. Also reject anything whose `X-LS-Webhook-Timestamp` is more than five minutes old — that stops replay attacks.
+Never trust a delivery you haven't verified. The **signed payload** is the
+timestamp header, a literal `.`, then the raw body:
+
+```
+signed_payload = X-LS-Webhook-Timestamp + "." + raw_body
+expected       = hex( HMAC-SHA256( signing_secret, signed_payload ) )
+```
+
+Compare `expected` to `X-LS-Webhook-Signature` in constant time. Also reject
+anything whose `X-LS-Webhook-Timestamp` is more than five minutes old — that
+stops replay attacks.
 
 <Warning>
-Verify against the **raw bytes** of the body, exactly as received. If your framework parses JSON and re-serializes it, the bytes change and the signature won't match. Capture the raw body before any JSON middleware touches it.
+Sign the **raw bytes** of the body, exactly as received, prefixed with `timestamp + "."`. If your framework parses JSON and re-serializes it, the bytes change and the signature won't match. Capture the raw body before any JSON middleware touches it.
 </Warning>
 
 <CodeGroup>
@@ -126,7 +144,9 @@ def handle():
     if not timestamp.isdigit() or abs(time.time() - int(timestamp)) > MAX_AGE_SECONDS:
         abort(400)
 
-    expected = hmac.new(SIGNING_SECRET, raw, hashlib.sha256).hexdigest()
+    # Signed payload = timestamp + "." + raw body
+    signed = (timestamp + ".").encode("utf-8") + raw
+    expected = hmac.new(SIGNING_SECRET, signed, hashlib.sha256).hexdigest()
     if not hmac.compare_digest(expected, signature):
         abort(401)
 
@@ -159,9 +179,11 @@ app.post(
       return res.sendStatus(400);
     }
 
+    // Signed payload = timestamp + "." + raw body
+    const signed = Buffer.concat([Buffer.from(timestamp + "."), raw]);
     const expected = crypto
       .createHmac("sha256", SIGNING_SECRET)
-      .update(raw)
+      .update(signed)
       .digest("hex");
 
     const a = Buffer.from(expected);
@@ -177,6 +199,13 @@ app.post(
 );
 ```
 </CodeGroup>
+
+<Info>
+**During a secret rotation**, deliveries also carry `X-LS-Webhook-Signature-Prev`
+for 24h — the same payload signed with your previous secret. Accept a match on
+*either* header while you roll the new secret across your instances, and a
+rotation never drops an event.
+</Info>
 
 <Check>
 Use a constant-time comparison — `hmac.compare_digest` in Python, `crypto.timingSafeEqual` in Node. A plain `==` leaks timing information an attacker can use to forge signatures.
@@ -244,22 +273,35 @@ This debounce keeps a single transient error from spamming you. The event fires 
 {
   "event_id": "evt_01HXYZ...",
   "type": "connection.capability_changed",
+  "created_at": "2026-07-07T14:22:05Z",
+  "api_version": "2026-05-22",
+  "livemode": false,
   "data": {
     "connection": {
       "id": "con_FINICITY_41294",
       "client_id": "cli_01HXYZ...",
-      "status": "active"
+      "source": "FINICITY"
     },
-    "capability": "statements",
-    "previous_status": "succeeded",
-    "status": "failed",
-    "consecutive_observations": 3,
-    "observed_at": "2026-07-07T14:22:05Z"
+    "change": {
+      "capability": "statements",
+      "previous_status": "succeeded",
+      "current_status": "failed",
+      "consecutive_observations": 3,
+      "last_error": {
+        "code": "statements_not_supported",
+        "message": "This institution doesn't expose statements.",
+        "type": "api_error",
+        "category": "CAPABILITY_UNAVAILABLE"
+      }
+    }
   }
 }
 ```
 
-`previous_status` and `status` tell you the direction of the flip; `consecutive_observations` is how many in a row triggered it (3 for a fail, 2 for a recovery); `observed_at` is when the deciding observation landed.
+The per-capability detail lives under `data.change`. `previous_status` and
+`current_status` tell you the direction of the flip; `consecutive_observations`
+is how many in a row triggered it (3 for a fail, 2 for a recovery); `last_error`
+is populated only when `current_status` is `failed`.
 
 ## Next steps
 
