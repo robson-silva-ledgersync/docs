@@ -1,0 +1,39 @@
+---
+title: "Welcome to LedgerSync"
+description: "One API to connect your users' bank accounts and pull their transactions, statements, and balances."
+---
+
+LedgerSync connects to your end-users' bank accounts and gives you back their
+**accounts, balances, transactions, and statements** through one clean,
+source-agnostic REST API. Under the hood we route across multiple data sources;
+you only ever touch one interface.
+
+<CardGroup cols={2}>
+  <Card title="Connect a bank" icon="link" href="/guides/connect-a-bank" horizontal>
+    The five-minute path from an API key to a live bank connection.
+  </Card>
+  <Card title="API reference" icon="terminal" href="/api-reference" horizontal>
+    Every endpoint and schema, with a live "try it" console.
+  </Card>
+</CardGroup>
+
+## The mental model
+
+<Steps>
+  <Step title="Create a Client">
+    A **Client** is your record of one end-user, the person whose bank you'll read.
+  </Step>
+  <Step title="Open a Connection">
+    A **Connection** links one bank to that client. You start it, the user logs
+    in, we handle the aggregation.
+  </Step>
+  <Step title="Read their data">
+    Once active, pull **accounts**, **transactions**, and **statements**, and
+    receive **webhooks** as things change.
+  </Step>
+</Steps>
+
+<Note>
+  Everything is JSON over HTTPS, and sandbox is one key away. Bank credentials
+  are entered only on LedgerSync-hosted pages, never through your servers.
+</Note>

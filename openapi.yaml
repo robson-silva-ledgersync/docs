@@ -1,0 +1,3559 @@
+openapi: 3.1.0
+
+info:
+  title: LedgerSync API
+  version: '2026-05-22'
+  summary: A modern REST API for connecting bank accounts and pulling financial data
+  description: |
+    > **First time here?** The [**Getting started** guide](https://portal.ledgersyncappv2.com/dashboard/getting-started) walks the full integration end-to-end (about 15 minutes). This page is the endpoint reference for after you've read it.
+
+    Welcome. This is LedgerSync's API for connecting your users' bank
+    accounts and pulling their transactions, statements, and account
+    details.
+
+    Everything is JSON over HTTPS. Errors are easy to read. Webhooks
+    fire as state changes. Sandbox is one key away.
+
+    ## Connection lifecycle and the two `connection.id` formats
+
+    A Connection's `id` changes shape once the user finishes linking
+    their bank — there are two distinct identifiers, and you must
+    only use the canonical one to read accounts, transactions, or
+    statements.
+
+    1. **Placeholder id (pending state).** `POST /v3/clients/{id}/connections`
+       returns `202 Accepted`. The initiate operation first surfaces
+       a `connection_with_action` result whose embedded
+       `connection.id` is a UUID-prefixed placeholder of the form
+       `con_<uuid>` (e.g. `con_01HXYZ8A6N7K2W9PQ4T5Z3V6E0`), paired
+       with a `widget_url`. The placeholder is **not** a valid id for
+       any other endpoint — calling
+       `GET /v3/connections/{placeholder_uuid}` returns
+       `400 Bad Request` with `missing source separator`. Treat it as
+       opaque routing state for the widget step only.
+    2. **Canonical id (active state).** Once the user finishes the
+       widget and the source pushes its first callback, the
+       connection moves to `status=active` and the
+       `connection.active` webhook fires. From that point on every
+       surface — `GET /v3/clients/{id}/connections`,
+       `GET /v3/connections/{id}`, the webhook payload, and the
+       `connection.initiate` operation when re-polled — reports the
+       canonical id `con_<SOURCE>_<bankAccountId>` (for example
+       `con_FINICITY_41294`, `con_MX_1224`). **This** is the id every
+       other endpoint accepts (`/accounts`, `/transactions`,
+       `/statements`, refresh, delete).
+
+    The correct integration pattern is therefore:
+
+    - Initiate the connection, capture `operation_id`.
+    - Poll `GET /v3/operations/{operation_id}` (or wait for the
+      `connection.active` webhook) until `status=succeeded`.
+    - Read `result.connection.id` **from the succeeded operation** —
+      that is the canonical id. Store it; do not store the
+      placeholder.
+
+    Do not try to `GET /v3/connections/{placeholder_uuid}` during the
+    pending window. Listing endpoints
+    (`GET /v3/clients/{id}/connections`, `GET /v3/connections/{id}`)
+    only ever return canonical ids, because they only surface
+    connections that have reached `active`.
+
+    ## Quick start
+
+    Mint a sandbox key in the developer portal, then create your first
+    **Client** (your end-user — the person whose bank we'll be reading):
+
+    ```bash
+    curl \
+      https://api-sandbox.ledgersyncappv2.com/v3/clients \
+      -H "Authorization: Bearer sk_test_..." \
+      -H "Content-Type: application/json" \
+      -d '{"email":"alice@example.com","name":"Alice"}'
+    ```
+
+    You'll get back a `Client` object with an `id`. From there the
+    full flow is:
+
+    1. **Register a webhook** at `POST /v3/webhooks/subscriptions` so
+       you can be notified when the connection progresses.
+    2. **Initiate a connection** at
+       `POST /v3/clients/{id}/connections` with an `institution_id`
+       from `GET /v3/institutions`. LedgerSync's router picks the
+       underlying source. Every source hands back a `widget_url` in
+       the `connection.requires_action` result — for FDE it points at
+       a LedgerSync-hosted connect page where credentials are entered,
+       never sent to the API.
+    3. **Open the widget URL** in your user's browser. They pick
+       their bank, log in, and choose accounts to share.
+    4. **Receive `connection.active`** on your webhook URL. List
+       accounts and transactions.
+
+    **Don't want to build your own bank picker?** Skip steps 2–3: call
+    `POST /v3/clients/{id}/connect-session` to get a LedgerSync-hosted
+    link, and email it to your member. They open it, search for their
+    own bank, pick it, and connect it — all on a page we host, with no
+    `institution_id` needed up front. You still receive
+    `connection.active` on your webhook exactly as above. Revoke a link
+    at any time with `DELETE /v3/clients/{id}/connect-session/{sid}`.
+    (This is the v3 replacement for the old `account/add/lite` widget.)
+
+    Want a step-by-step walkthrough with curl per step plus a sandbox
+    shortcut that skips the widget? Read the
+    [Getting started guide](https://portal.ledgersyncappv2.com/dashboard/getting-started).
+
+    ## Authentication
+
+    Pass your secret key in the `Authorization` header as a Bearer
+    token: `Authorization: Bearer sk_test_...` (sandbox) or
+    `Bearer sk_live_...` (production). Treat secret keys like
+    passwords — never embed them in mobile apps or front-end code.
+
+    ## Conventions
+
+    **Sync vs async.** Most endpoints respond synchronously — you
+    get the resource back right away. A handful of flows are
+    genuinely async (initiating a bank connection, extracting a
+    statement, generating a verification report); those return
+    `202 Accepted`
+    with an `operation_id` you can poll, and the matching webhook
+    fires when the work finishes.
+
+    **Errors.** Every error is `{ "error": { "code", "message", "doc_url", "type" } }`.
+    Branch on `code`. Click `doc_url` for the troubleshooting page.
+    Every response carries an `X-LS-Trace-Id` header — paste it in
+    support tickets and we can jump straight to your request.
+
+    **Webhooks.** Every delivery carries `X-LS-Webhook-Signature`,
+    computed over the **raw request body** with HMAC-SHA256. Verify
+    it before trusting the payload. Full event catalog + signature
+    example on the [Webhooks tab](#webhooks).
+
+    ## Need help?
+
+    Email [support@ledgersync.com](mailto:support@ledgersync.com) or
+    open a thread in the developer portal. Quote the `X-LS-Trace-Id`
+    from your response — it makes everything faster.
+  contact:
+    name: LedgerSync Developer Support
+    email: support@ledgersync.com
+    url: https://portal.ledgersyncappv2.com
+  license:
+    name: Proprietary
+    url: https://ledgersync.com/terms
+
+servers:
+  - url: https://api-sandbox.ledgersyncappv2.com/v3
+    description: Sandbox — use `sk_test_...` keys from the developer portal. Routes to the real Finicity and MX sandbox banks (FinBank, mxbank) via the same connector code paths as production.
+  - url: https://api.ledgersyncappv2.com/v3
+    description: Production — use `sk_live_...` keys. Hits real banks via Finicity, MX, or FDE depending on the connection.
+
+tags:
+  - name: Clients
+    description: |
+      A **Client** is the end-user whose bank accounts you're managing
+      — usually a real person or business. You create one Client per
+      user before linking any accounts. Pass your own
+      `external_id` to join Clients back to records in your system.
+  - name: Connections
+    description: |
+      A **Connection** links a Client to a bank or financial-data
+      source (Finicity, MX, or FDE). One Client can have many
+      Connections — one per bank they've linked. You initiate a
+      Connection, the user finishes it (widget or MFA), and a
+      `connection.active` webhook tells you when it's ready.
+  - name: Accounts
+    description: |
+      Once a Connection goes active, the bank's accounts (checking,
+      savings, credit, loans) show up here. Use these endpoints to
+      list, inspect, and refresh them.
+  - name: Transactions
+    description: |
+      Posted transactions and pending charges for an account. New
+      transactions are surfaced by a future push-delivery event for
+      transactions after each refresh; you can also list/page them
+      directly.
+  - name: Statements
+    description: |
+      Period statements (usually monthly PDFs) the bank publishes.
+      For FDE-sourced statements, extracted line items are attached
+      after OCR completes.
+  - name: Operations
+    description: |
+      The handful of LedgerSync calls that genuinely run asynchronously
+      return an `operation_id`. Poll it here, or just listen for the
+      matching webhook — your call.
+  - name: Webhooks
+    description: |
+      Manage where LedgerSync delivers event notifications. Each
+      subscription has its own HMAC signing secret. Rotate it whenever
+      you want — the old secret stays valid for 24 hours so deploys
+      don't break verification.
+  - name: ApiKeys
+    description: |
+      Create, list, and revoke API keys. Keys are scoped to one
+      environment (sandbox or live). The plaintext secret is returned
+      exactly once at creation — store it somewhere safe.
+  - name: Institutions
+    description: |
+      The unified v3 institution catalog. Search by name; pick a row;
+      pass its `id` to `POST /clients/{client_id}/connections`.
+      LedgerSync's router decides which underlying source (Finicity,
+      MX) to use — integrators don't pick a source.
+  - name: Settings
+    description: |
+      Account-level settings the integrator manages once per environment.
+      Currently exposes the redirect-URL allowlist consulted at
+      `/connections/initiate`. Same scope as Stripe Connect / Plaid Link /
+      OAuth — register your app's redirect URIs once, not per end-user.
+  - name: Sandbox
+    description: |
+      Sandbox-only helpers. Use `GET /sandbox/institutions` to list
+      the sandbox-eligible test banks you can target when creating a
+      sandbox connection (Finicity FinBank, MX `mxbank`, FDE test
+      extractors). Lifecycle transitions and webhooks come from the
+      same real connector paths as live traffic — no synthetic
+      lifecycle driver, no replay fixtures. Drive the widget with
+      the public test bank credentials documented in the developer
+      portal.
+  - name: Metrics
+    description: |
+      Read-only aggregations powering the developer portal's "Metrics"
+      page. Every endpoint is scoped to the authenticated principal's
+      customer and environment — `sandbox` and `live` data never mix
+      across the wire. Default window when `from`/`to` are omitted is
+      the last 30 days (max 366).
+  - name: Health
+    description: A simple liveness probe. No auth required.
+  - name: PortalGating
+    description: |
+      Developer-portal access-request endpoints (sandbox + live gating).
+      These are HMAC-signed calls from the LedgerSync portal to v3 and not
+      part of the integrator-facing API surface. Documented here so the
+      single spec stays authoritative.
+
+security:
+  - bearer: []
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      operationId: getHealth
+      summary: Service health check
+      description: Returns `200` when the service is alive. Unauthenticated.
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+        '503':
+          description: |
+            Service is starting up or draining for a deploy. Retry
+            with backoff — should clear in seconds.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+  # ---------- Clients ----------
+  /clients:
+    get:
+      tags: [Clients]
+      operationId: listClients
+      summary: List clients
+      description: |
+        Page through the Clients you've created. Use `cursor` for
+        pagination (it's opaque — just hand back what we sent) and
+        filter by `email` to look up a specific user.
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - in: query
+          name: email
+          description: Look up a Client by exact email match. Useful when you only know the user by their email.
+          schema: { type: string, format: email }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Client' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '5XX': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Clients]
+      operationId: createClient
+      summary: Create a client
+      description: |
+        Create a Client (your end-user) before linking any bank
+        accounts. The only field we need is something to identify
+        them — use `external_id` to join back to a user record in
+        your system, plus optional `email` and `name` for display.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ClientCreateRequest' }
+      responses:
+        '201':
+          description: |
+            Client created. The returned `id` (e.g.
+            `cli_01HXYZ...`) is what you'll pass to every connection
+            and account call.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Client' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '5XX': { $ref: '#/components/responses/ServerError' }
+
+  /clients/{client_id}:
+    parameters:
+      - in: path
+        name: client_id
+        required: true
+        schema: { type: string }
+    get:
+      tags: [Clients]
+      operationId: getClient
+      summary: Get a client
+      description: |
+        Fetch a single Client by id. Returns everything you sent at
+        creation plus the LedgerSync-assigned `id` and timestamps.
+      responses:
+        '200':
+          description: The Client.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Client' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Clients]
+      operationId: updateClient
+      summary: Update a client
+      description: |
+        Partial update — send only the fields you want to change.
+        Omitted fields stay as they are. Useful for keeping `name`
+        or `metadata` in sync with your own user record.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ClientUpdateRequest' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Client' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Clients]
+      operationId: deleteClient
+      summary: Delete a client and everything attached
+      description: |
+        Destructive. Removes the Client, every Connection they own,
+        and all derived accounts / transactions / statements. This
+        also revokes any active aggregator-side authorizations.
+
+        There's no undo and no soft-delete — make sure your user
+        intends to disconnect before calling this. A clean
+        end-of-relationship offboarding usually looks like: revoke
+        connection-by-connection first, then delete the Client when
+        nothing's left.
+      responses:
+        '204':
+          description: Client and all associated data removed.
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /clients/{client_id}/end-user-token:
+    parameters:
+      - in: path
+        name: client_id
+        required: true
+        schema: { type: string }
+    post:
+      tags: [Clients]
+      operationId: mintEndUserToken
+      summary: Mint a short-lived end-user token
+      description: |
+        A few endpoints act on behalf of a specific end-user — for
+        example, submitting an MFA challenge during connection
+        setup. Those use a different credential than your normal API
+        key: a short-lived (5-minute) bearer token bound to one
+        Client.
+
+        Call this with your normal API key to mint one when you need
+        it. Keep it server-side and short-scoped.
+      responses:
+        '200':
+          description: A fresh end-user token.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [token, expires_at]
+                properties:
+                  token:
+                    type: string
+                    description: "Pass as `Authorization: Bearer <token>` on end-user-scoped endpoints."
+                  expires_at:
+                    type: string
+                    format: date-time
+                    description: When this token stops working. Mint a new one if you need more time.
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /clients/{client_id}/connect-session:
+    parameters:
+      - in: path
+        name: client_id
+        required: true
+        schema: { type: string }
+    post:
+      tags: [Clients]
+      operationId: createConnectSession
+      summary: Create a hosted pick-and-connect link for a client
+      description: |
+        Returns a LedgerSync-hosted URL you email to an end-user (a member).
+        They open it, search for their own bank, pick it, and connect it — no
+        `institution_id` needed up front. This is the v3 replacement for the
+        old "add/lite" widget for integrators who don't want to build their
+        own bank picker.
+
+        Call this with your normal API key. Optionally pass a `redirect_url`
+        (which must be on your environment's allowlist) to send the member
+        back to your app after they finish connecting.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                redirect_url:
+                  type: string
+                  format: uri
+                  description: |
+                    Where to send the member after a successful connect. Must
+                    exactly match one of your allowlisted redirect URLs for this
+                    environment. Omit to end on the connect widget's own success
+                    screen.
+      responses:
+        '201':
+          description: A hosted connect link.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [url, expires_at]
+                properties:
+                  url:
+                    type: string
+                    format: uri
+                    description: The LedgerSync-hosted page to send the member to.
+                  expires_at:
+                    type: string
+                    format: date-time
+                    description: When the link stops working. Revoke it earlier with DELETE if needed.
+        '400':
+          description: The request or `redirect_url` was invalid. Body carries the canonical `ErrorEnvelope`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /clients/{client_id}/connect-session/{sid}:
+    parameters:
+      - in: path
+        name: client_id
+        required: true
+        schema: { type: string }
+      - in: path
+        name: sid
+        required: true
+        schema: { type: string }
+    delete:
+      tags: [Clients]
+      operationId: revokeConnectSession
+      summary: Revoke a hosted connect link
+      description: |
+        Invalidate a previously created connect link so it can no longer be
+        opened. Scoped to your account: an unknown, already-revoked, or
+        foreign session returns `404`.
+      responses:
+        '204': { description: The link was revoked. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ---------- Connections ----------
+  /clients/{client_id}/connections:
+    parameters:
+      - in: path
+        name: client_id
+        required: true
+        schema: { type: string }
+    get:
+      tags: [Connections]
+      operationId: listConnections
+      summary: List a client's connections
+      description: |
+        List every Connection a Client has linked. Filter by `source`
+        (Finicity / MX / FDE) or by `status` to find the connections
+        you care about — for example, all `requires_action` connections
+        so you can nudge the user back into the widget.
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - in: query
+          name: source
+          description: Filter to one source — useful when your app handles multiple aggregators.
+          schema: { $ref: '#/components/schemas/Source' }
+        - in: query
+          name: status
+          description: Filter by lifecycle status — e.g. `requires_action` to find the connections needing user input.
+          schema: { $ref: '#/components/schemas/ConnectionStatus' }
+      responses:
+        '200':
+          description: A page of Connections.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Connection' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [Connections]
+      operationId: initiateConnection
+      summary: Start a new bank connection
+      description: |
+        Kick off a connection between a Client and a bank. Send only
+        `institution_id` (a v3 catalog id from `GET /v3/institutions`).
+        LedgerSync's router picks the underlying source (Finicity vs
+        MX) per its routing rules — integrators don't pick a source.
+
+        The response:
+
+        - **Finicity / MX** — we hand back a widget URL. Open it in
+          the user's browser (or your mobile webview) and they'll
+          finish linking. For MX the URL points at a
+          LedgerSync-hosted wrapper page
+          (`GET /connections/mx-wrapper`) that embeds the MX widget
+          and gives you the same `redirect_url` + `ls_token`
+          completion hop as Finicity (verify it at
+          `POST /connections/redirect-token/verify`).
+        - **FDE** — we return a `widget_url` to a LedgerSync-hosted
+          connect page where the end user enters their bank
+          credentials and answers any security questions in-session.
+          Raw credentials are never sent to the API.
+
+        This one's genuinely async — the bank or document pipeline
+        takes a few seconds to a minute. You get `202 Accepted` and an
+        `operation_id` right away; the `connection.active` (or
+        `connection.requires_action` / `connection.failed`) webhook
+        fires when it's done. Poll `GET /operations/{operation_id}`
+        if you can't run a webhook handler.
+
+        **Note on `connection.id`.** While this operation is
+        `queued`/`running`, the embedded `result.connection.id` is a
+        UUID-prefixed **placeholder** (`con_<uuid>`) and cannot be used
+        with any other endpoint. The canonical id —
+        `con_<SOURCE>_<bankAccountId>` such as `con_FINICITY_41294` or
+        `con_MX_1224` — is only assigned once the user finishes the
+        widget and the source pushes its first callback. Read the
+        canonical id from
+        `GET /operations/{operation_id}` once `status=succeeded`, or
+        from the `connection.active` webhook. See the
+        **Connection lifecycle** section at the top of this reference
+        for the full handshake.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ConnectionInitiateRequest' }
+      responses:
+        '202': { $ref: '#/components/responses/Accepted' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '5XX': { $ref: '#/components/responses/ServerError' }
+
+  /connections/{connection_id}:
+    parameters:
+      - in: path
+        name: connection_id
+        required: true
+        description: |
+          Canonical Connection id of the form `con_<SOURCE>_<bankAccountId>`
+          (e.g. `con_FINICITY_41294`, `con_MX_1224`, `con_FDE_5009`). Only
+          the canonical shape is accepted here. The placeholder UUID id
+          returned by `POST /v3/clients/{id}/connections`
+          (`con_<uuid>`, e.g. `con_01HXYZ8A6N7K2W9PQ4T5Z3V6E0`) is **not**
+          a valid value — calls with it return 400 with
+          `missing source separator`. See the lifecycle prose at the top
+          of this document for the full id-format contract.
+        schema:
+          type: string
+          example: con_FINICITY_41294
+    get:
+      tags: [Connections]
+      operationId: getConnection
+      summary: Get a connection
+      description: |
+        Look up a Connection by id. The `status` field tells you
+        where it is in its lifecycle and `last_error` carries any
+        recent failure details.
+      parameters:
+        - $ref: '#/components/parameters/ClientId'
+      responses:
+        '200':
+          description: The Connection.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Connection' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Connections]
+      operationId: deleteConnection
+      summary: Disconnect and remove a connection
+      description: |
+        Revokes our access to the user's bank for this connection and
+        removes the Connection record. Accounts and transactions are
+        kept for your historical reference unless you delete the
+        whole Client.
+      responses:
+        '204': { description: Connection removed. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # MFA challenge submission is reserved for a future release —
+  # connection.requires_action webhooks fire today for real-bank flows,
+  # but inline MFA submission is not yet exposed.
+
+  /connections/{connection_id}/refresh:
+    parameters:
+      - in: path
+        name: connection_id
+        required: true
+        description: |
+          Canonical Connection id (`con_<SOURCE>_<bankAccountId>`). The
+          placeholder UUID returned during initiate is rejected here with
+          400 — only `active` connections can be refreshed.
+        schema:
+          type: string
+          example: con_FINICITY_41294
+    post:
+      tags: [Connections]
+      operationId: refreshConnection
+      summary: Refresh a connection
+      description: |
+        Force a re-pull of accounts and recent transactions for this
+        Connection. Banks usually post new transactions once a day so
+        we already refresh active connections automatically — call
+        this only when you have a specific reason to need fresher
+        data (user just clicked a "refresh" button, you're
+        reconciling something time-sensitive).
+
+        ### Source-specific behavior
+
+        On-demand refresh is not uniformly available across sources.
+        The HTTP outcome depends on the connection's `source`:
+
+        - **Finicity (`con_FINICITY_*`)** — returns `202 Accepted`
+          with an `operation_id`. The backend queues the refresh
+          asynchronously; on success the `account.refresh.completed`
+          webhook fires when the bank call finishes, and on terminal
+          failure the `account.refresh.failed` webhook fires instead.
+        - **MX (`con_MX_*`)** — returns `502 Bad Gateway` with
+          `error.code = "refresh_not_supported"` and
+          `error.category = "CAPABILITY_UNAVAILABLE"`. MX does not
+          expose an on-demand refresh API — fresh data arrives only
+          via aggregator-driven `account.refresh.completed` (and
+          `account.refresh.failed` on terminal failure) webhooks.
+          The v3 layer short-circuits before any operation row is
+          created, so no zombie operation is left behind.
+        - **FDE (`con_FDE_*`)** — returns `202 Accepted` with an
+          `operation_id`. FDE re-runs its document extraction
+          pipeline; on success the `account.refresh.completed`
+          webhook fires on completion, and on terminal failure the
+          `account.refresh.failed` webhook fires instead.
+
+        ### Checking refresh capability ahead of time
+
+        Whether `/refresh` will succeed is enumerated on the
+        connection's `realized_capabilities.transactions` and
+        `realized_capabilities.balance` blocks. If either has
+        `status = "unsupported"`, calling `/refresh` for that
+        connection will return `502` with
+        `error.code = "refresh_not_supported"`. Branch on
+        `realized_capabilities` instead of probing `/refresh` to
+        discover capability gaps.
+
+        ### Empty-body POST
+
+        This endpoint takes no request body. Send an explicit
+        `Content-Length: 0` header — Google's HTTPS load balancer
+        in front of the API rejects body-less POSTs without one
+        with `411 Length Required`. Most HTTP clients add this
+        automatically; some (raw `fetch`, certain SDKs in
+        keep-alive mode) do not.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: false
+        description: |
+          No body. Send `Content-Length: 0` so the upstream load
+          balancer doesn't reject the request with 411.
+        content:
+          application/json:
+            schema:
+              type: object
+              nullable: true
+      responses:
+        '202': { $ref: '#/components/responses/Accepted' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '411':
+          description: |
+            Returned by the upstream HTTPS load balancer when a POST
+            arrives without a `Content-Length` header. Retry with
+            `Content-Length: 0` set explicitly.
+        '502':
+          description: |
+            On-demand refresh is not supported by the connection's
+            source (MX today). Body carries the canonical
+            `ErrorEnvelope` with `error.code = "refresh_not_supported"`
+            and `error.category = "CAPABILITY_UNAVAILABLE"`. Don't
+            retry — wait for the `account.refresh.completed` or
+            `account.refresh.failed` webhook instead.
+          headers:
+            X-LS-Trace-Id: { $ref: '#/components/headers/X-LS-Trace-Id' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+  /connections/redirect-token/verify:
+    post:
+      tags: [Connections]
+      operationId: verifyRedirectToken
+      summary: Verify a redirect-token (ls_token) from the post-Connect callback
+      description: |
+        Public, unauthenticated endpoint. After a Finicity Connect widget
+        completes, the integrator's `redirect_url` is hit with an
+        `ls_token` query parameter — a short-lived HS256 JWT minted by
+        v3. The integrator's frontend POSTs that token to this endpoint
+        to retrieve the canonical `connection_id`, the original
+        `redirect_url` it was bound to, and the `client_id`.
+
+        CORS-enabled so a browser-side integrator page can call this
+        directly. No API key is required because the token itself is the
+        capability; its HMAC signature is verified against
+        `V3_REDIRECT_TOKEN_SECRET`. Tampered, expired, or missing tokens
+        return `400`.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RedirectTokenVerifyRequest' }
+      responses:
+        '200':
+          description: Token was valid; the bound connection metadata is returned.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RedirectTokenVerifyResponse' }
+        '400':
+          description: |
+            Token was missing, malformed, signature-invalid, or expired.
+            Body carries the canonical `ErrorEnvelope`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+  /connections/mx-wrapper:
+    get:
+      tags: [Connections]
+      operationId: getMxWrapperPage
+      summary: LedgerSync-hosted MX Connect wrapper page (browser-facing)
+      description: |
+        Browser-facing HTML page — **not** an integrator API call. When a
+        connection routes to MX, the `widget_url` action returned by
+        `POST /clients/{client_id}/connections` points here (MX Connect
+        has no native post-Connect redirect of its own). Open it in the
+        user's browser or iframe it, exactly like Finicity Connect.
+
+        The page verifies the short-lived wrapper token, embeds the MX
+        Connect widget, and when the user finishes linking either
+        redirects its own window to your registered `redirect_url` with
+        an `ls_token` query parameter — the **same** contract as the
+        Finicity flow, verified at
+        `POST /connections/redirect-token/verify` — or shows a
+        "Connected" end state when no `redirect_url` was supplied at
+        initiate time.
+
+        No API key is required: the HS256 wrapper token in the query
+        string is the capability. Tampered, expired, or missing tokens
+        render a static error page (`text/html`, not the JSON error
+        envelope).
+      security: []
+      parameters:
+        - in: query
+          name: token
+          required: true
+          description: |
+            HS256 wrapper token minted when the MX connection was
+            initiated. Re-renderable within its 30-minute TTL (browser
+            refresh mid-flow is safe); the embedded `ls_token` stays
+            strictly single-use at verify time.
+          schema: { type: string }
+      responses:
+        '200':
+          description: The wrapper page.
+          content:
+            text/html:
+              schema: { type: string }
+        '400':
+          description: |
+            Token was missing, malformed, signature-invalid, or expired.
+            A static error page is rendered (`text/html`, not the JSON
+            error envelope — this endpoint faces a browser).
+          content:
+            text/html:
+              schema: { type: string }
+
+  /connect-session:
+    get:
+      tags: [Connections]
+      operationId: getConnectSessionPage
+      summary: LedgerSync-hosted pick-and-connect page (browser-facing)
+      description: |
+        Browser-facing HTML page — **not** an integrator API call. A member
+        lands here when they open the `url` returned by
+        `POST /clients/{client_id}/connect-session`. They search for their own
+        bank, pick it, and are handed off to the per-source connect widget
+        (Finicity Connect / the MX wrapper page / the FDE connect page) to
+        enter credentials. LedgerSync never collects bank credentials on this
+        page.
+
+        No API key is required: the opaque session token in the query string
+        is the capability. Tampered, expired, or revoked tokens render a static
+        error page (`text/html`, not the JSON error envelope). The page drives
+        its own same-origin search/connect/poll calls under `/connect-session/*`
+        — those are internal browser plumbing, not part of the integrator API.
+      security: []
+      parameters:
+        - in: query
+          name: token
+          required: true
+          description: The opaque connect-session token from the emailed link.
+          schema: { type: string }
+      responses:
+        '200':
+          description: The pick-and-connect page.
+          content:
+            text/html:
+              schema: { type: string }
+        '400':
+          description: |
+            Token was missing, malformed, signature-invalid, expired, or
+            revoked. A static error page is rendered (`text/html`).
+          content:
+            text/html:
+              schema: { type: string }
+
+  # ---------- Account-level settings ----------
+  /settings/redirect-urls:
+    get:
+      tags: [Settings]
+      operationId: getRedirectUrls
+      summary: Read the redirect-URL allowlist for the current account + environment
+      description: |
+        Returns the redirect URLs registered for your account in the
+        environment of the API key used to call this endpoint (sandbox or
+        live). Empty list means "no allowlist row configured" — any
+        subsequent `/connections/initiate` carrying a `redirect_url`
+        returns `400`.
+
+        Scoped to `(customer_id, environment)` so a sandbox key only sees
+        the sandbox row.
+      responses:
+        '200':
+          description: Current allowlist for the calling key's environment.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RedirectUrlsView' }
+    post:
+      tags: [Settings]
+      operationId: setRedirectUrls
+      summary: Replace the redirect-URL allowlist for the current account + environment
+      description: |
+        Overwrites the full allowlist (no add/remove primitives, no
+        half-applied state). Up to 20 entries, each up to 2048 chars.
+        Every URL must be `https://`, must have a host, must not include
+        a `userinfo` (user:password@) component, and must not resolve to
+        a private/loopback/link-local/cloud-metadata range.
+
+        Sending an empty list stores an empty row, which the runtime
+        validator treats as deny-all. To remove the row entirely (and
+        return to the "no allowlist configured" denial shape) call
+        `DELETE /v3/settings/redirect-urls`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RedirectUrlsRequest' }
+      responses:
+        '200':
+          description: The new allowlist for the calling key's environment.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RedirectUrlsView' }
+        '400':
+          description: |
+            One or more entries failed the URL-shape / SSRF guard, or the
+            request exceeded the size cap. Body carries the canonical
+            `ErrorEnvelope`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    delete:
+      tags: [Settings]
+      operationId: clearRedirectUrls
+      summary: Delete the redirect-URL allowlist row for the current account + environment
+      description: |
+        Drops the allowlist row entirely. After this call, any
+        `/connections/initiate` carrying a `redirect_url` is rejected
+        with `400`. To keep the row but disable all redirects, POST an
+        empty array instead.
+      responses:
+        '204':
+          description: Allowlist row removed (no body).
+
+  # ---------- Institutions (unified v3 catalog) ----------
+  /institutions:
+    get:
+      tags: [Institutions]
+      operationId: listInstitutions
+      summary: List or search the unified institution catalog
+      description: |
+        Returns rows from the unified v3 institution catalog. Each row
+        carries a v3 catalog id (`ins_...`) and a `capabilities` block
+        advertising what LedgerSync can deliver (OAuth, transactions,
+        statements, check images) for this institution.
+
+        Use the returned `id` when initiating a connection —
+        LedgerSync's router picks the underlying source.
+
+        Catalog is populated nightly from upstream Finicity, MX, and FDE
+        institution data. Stale matches (rows added/removed upstream
+        since the last reconciliation) may appear; the catalog
+        converges within 24h.
+      parameters:
+        - in: query
+          name: q
+          description: |
+            Optional name search (case-insensitive substring). Omit to
+            return the full catalog (paginated in a later phase).
+          schema: { type: string }
+      responses:
+        '200':
+          description: A list of institutions matching the query.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Institution' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /institutions/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    get:
+      tags: [Institutions]
+      operationId: getInstitution
+      summary: Get one institution by v3 catalog id
+      description: |
+        Returns the v3 catalog row for a single institution, including
+        provider routing metadata, supported product capabilities, and
+        the integrator-facing name and logo. Use this after a search to
+        confirm the selected institution before opening a connection.
+      responses:
+        '200':
+          description: The institution.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Institution' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ---------- Accounts ----------
+  /accounts:
+    get:
+      tags: [Accounts]
+      operationId: listAccounts
+      summary: List accounts
+      description: |
+        List every Account across all of your Clients. Filter to one
+        Client, one Connection, or one source if you only want a
+        subset. Balances on each Account reflect the most recent
+        refresh — check `last_refreshed_at` to see how fresh that is.
+      parameters:
+        - $ref: '#/components/parameters/ClientId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - in: query
+          name: connection_id
+          description: |
+            Only return Accounts surfaced by this Connection. Must be the
+            canonical id (`con_<SOURCE>_<bankAccountId>`, e.g.
+            `con_FINICITY_41294`); the placeholder UUID returned during
+            initiate is rejected with 400.
+          schema:
+            type: string
+            example: con_FINICITY_41294
+        - in: query
+          name: source
+          description: Only return Accounts from this aggregation source.
+          schema: { $ref: '#/components/schemas/Source' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Account' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /accounts/{account_id}:
+    parameters:
+      - in: path
+        name: account_id
+        required: true
+        schema: { type: string }
+    get:
+      tags: [Accounts]
+      operationId: getAccount
+      summary: Get an account
+      description: |
+        Look up a single Account by id. Returns name, type, current
+        balance, mask (last 4 of the account number), and the
+        Connection it came from.
+      parameters:
+        - $ref: '#/components/parameters/ClientId'
+      responses:
+        '200':
+          description: The Account.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Account' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ---------- Transactions ----------
+  /accounts/{account_id}/transactions:
+    parameters:
+      - in: path
+        name: account_id
+        required: true
+        schema: { type: string }
+    get:
+      tags: [Transactions]
+      operationId: listTransactions
+      summary: List transactions for an account
+      description: |
+        Page through an account's transactions, optionally filtered
+        by date range. Pending and posted are both included — check
+        the `status` field. New transactions land here after each
+        refresh (auto-daily or your manual `POST /refresh` call);
+        a future push-delivery event for transactions will be offered
+        for push consumers.
+      parameters:
+        - $ref: '#/components/parameters/ClientId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - in: query
+          name: from
+          description: Only include transactions on or after this date (RFC 3339, e.g. `2026-01-01`).
+          schema: { type: string, format: date }
+        - in: query
+          name: to
+          description: Only include transactions before this date — upper bound is exclusive.
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: A page of transactions, newest first.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Transaction' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /transactions/{transaction_id}:
+    parameters:
+      - in: path
+        name: transaction_id
+        required: true
+        schema: { type: string }
+    get:
+      tags: [Transactions]
+      operationId: getTransaction
+      summary: Get a single transaction
+      description: |
+        Look up one transaction by id. Useful when a webhook just
+        fired for a specific `transaction_id` and you want the
+        full record.
+      parameters:
+        - $ref: '#/components/parameters/ClientId'
+      responses:
+        '200':
+          description: The Transaction.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Transaction' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ---------- Statements ----------
+  /accounts/{account_id}/statements:
+    parameters:
+      - in: path
+        name: account_id
+        required: true
+        schema: { type: string }
+    get:
+      tags: [Statements]
+      operationId: listStatements
+      summary: List an account's statements
+      description: |
+        Period statements (usually monthly) the bank publishes. For
+        FDE connections, statements come from the document the user
+        uploaded; for Finicity/MX they come from the bank's statement
+        feed when available.
+      parameters:
+        - $ref: '#/components/parameters/ClientId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: A page of statements, newest first.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Statement' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /statements/{statement_id}:
+    parameters:
+      - in: path
+        name: statement_id
+        required: true
+        schema: { type: string }
+    get:
+      tags: [Statements]
+      operationId: getStatement
+      summary: Get a statement
+      description: |
+        Returns the statement metadata plus, when available, a
+        time-limited signed URL to download the original PDF. For
+        FDE connections this is the document the user uploaded; for
+        bank-sourced statements it's the bank's published file.
+      parameters:
+        - $ref: '#/components/parameters/ClientId'
+      responses:
+        '200':
+          description: The Statement, with a signed download URL when one exists.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Statement' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /statements/extract:
+    post:
+      tags: [Statements]
+      operationId: extractStatementTransactions
+      summary: Extract transactions from an uploaded bank-statement PDF
+      description: |
+        Upload a bank-statement PDF and get back the OCR-extracted
+        transactions — the same engine behind the LedgerSync app's Bank
+        Statement Converter.
+
+        Unlike the other statement endpoints, this call is
+        **customer-level**: no `client_id` is required, and the upload is
+        standalone — it never attaches to a connection, account, or
+        stored statement.
+
+        Constraints: the file must be a PDF (`%PDF-` header) of at most
+        **30 MB** — larger uploads are rejected with `413`, and requests
+        over 32 MB may be cut at our edge with a non-JSON 413. Requires
+        the `write:statements` scope. Concurrency and daily budgets
+        apply per customer beyond the standard request-rate tiers
+        (each extraction runs a real OCR pass); exceeding them returns
+        `429 rate_limit_exceeded`.
+
+        This one's genuinely async: you get a `202` with an
+        `operation_id`. Poll [`GET /operations/{operation_id}`](#operation/getOperation)
+        — a typical statement completes in well under a minute. On
+        success the operation's `result` carries
+        `kind: statement_extraction` with the extracted transactions;
+        output is JSON only (no CSV/XLSX export). There is no webhook
+        for this operation type today — polling is the only completion
+        signal.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: The bank-statement PDF. Max 30 MB.
+      responses:
+        '202': { $ref: '#/components/responses/Accepted' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ServerError' }
+        '502':
+          description: |
+            The statement converter behind this endpoint was
+            unreachable while enqueueing your upload. Nothing was
+            accepted — no `operation_id` exists. Body carries the
+            canonical `ErrorEnvelope` with
+            `error.code = "upstream_unavailable"`; retry shortly.
+          headers:
+            X-LS-Trace-Id: { $ref: '#/components/headers/X-LS-Trace-Id' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+  # extract-on-demand for an EXISTING statement
+  # (POST /statements/{statement_id}/extract) is reserved.
+
+  /statements/{statement_id}/download:
+    parameters:
+      - in: path
+        name: statement_id
+        required: true
+        schema: { type: string }
+    get:
+      tags: [Statements]
+      operationId: downloadStatement
+      summary: Download the statement PDF
+      description: |
+        Streams the original statement PDF bytes for the given
+        statement. This is the same URL exposed in
+        `Statement.download_url` — call it directly with your API key.
+      parameters:
+        - $ref: '#/components/parameters/ClientId'
+      responses:
+        '200':
+          description: The statement PDF bytes.
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ---------- Operations ----------
+  /operations/{operation_id}:
+    parameters:
+      - in: path
+        name: operation_id
+        required: true
+        schema: { type: string }
+    get:
+      tags: [Operations]
+      operationId: getOperation
+      summary: Check on an async operation
+      description: |
+        A handful of endpoints (initiate connection, refresh) hand
+        you back an `operation_id`. Polling
+        here is the fallback if you can't run a webhook handler —
+        usually you'll get the result via webhook first. The
+        `result` field is populated when `status=succeeded`; `error`
+        when `status=failed`.
+
+        **For `connection.initiate` operations specifically:** while
+        the operation is `queued`/`running` the embedded
+        `result.connection.id` is a UUID-prefixed placeholder
+        (`con_<uuid>`) that is **not** valid against any other
+        endpoint. Once `status=succeeded`, `result.connection.id`
+        is the canonical
+        `con_<SOURCE>_<bankAccountId>` (e.g. `con_FINICITY_41294`,
+        `con_MX_1224`) — store **that** id and use it for subsequent
+        `/connections`, `/accounts`, `/transactions`, and
+        `/statements` calls. See the **Connection lifecycle** section
+        at the top of this reference for the full handshake.
+      responses:
+        '200':
+          description: The Operation, with `result` or `error` once it's done.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Operation' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ---------- Webhooks ----------
+  /webhooks/subscriptions:
+    get:
+      tags: [Webhooks]
+      operationId: listWebhookSubscriptions
+      summary: List webhook subscriptions
+      description: |
+        Every URL we're currently delivering events to, plus the
+        event types each one is subscribed to. The signing secret
+        isn't returned here — that only comes back at creation /
+        rotation.
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: A page of webhook subscriptions.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/WebhookSubscription' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [Webhooks]
+      operationId: createWebhookSubscription
+      summary: Create a webhook subscription
+      description: |
+        Register a URL to receive event notifications. Pick which
+        event types to subscribe to via `event_types`, or use `"*"`
+        to subscribe to every event. We deliver via HTTPS POST and
+        sign every body with HMAC-SHA256 — see the **Webhooks** tab
+        for the full signature scheme.
+
+        The response includes `signing_secret` exactly once. Save it
+        somewhere safe; we can't show it again. (You can always
+        rotate it later if you lose track.)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WebhookSubscriptionCreateRequest' }
+      responses:
+        '201':
+          description: |
+            Subscription created. The `signing_secret` field is the
+            **only** time the plaintext secret is returned —
+            store it somewhere safe.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WebhookSubscriptionWithSecret' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /webhooks/subscriptions/{subscription_id}:
+    parameters:
+      - in: path
+        name: subscription_id
+        required: true
+        schema: { type: string }
+    get:
+      tags: [Webhooks]
+      operationId: getWebhookSubscription
+      summary: Get a webhook subscription
+      description: Fetch one subscription by id. The signing secret is omitted — use rotate-secret if you've lost it.
+      responses:
+        '200':
+          description: The subscription.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WebhookSubscription' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Webhooks]
+      operationId: updateWebhookSubscription
+      summary: Update a webhook subscription
+      description: |
+        Change the delivery URL, the subscribed event types, or pause/resume
+        delivery (`status` active ↔ paused). All fields are optional; omitted
+        fields are left unchanged. Use DELETE to permanently disable.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                url: { type: string, format: uri }
+                event_types:
+                  type: array
+                  items: { type: string }
+                status:
+                  type: string
+                  enum: [active, paused]
+                  description: Pause or resume delivery. To stop permanently, DELETE instead.
+      responses:
+        '200':
+          description: The updated subscription.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WebhookSubscription' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Webhooks]
+      operationId: deleteWebhookSubscription
+      summary: Delete a webhook subscription
+      description: |
+        Stop delivering events to this URL. We immediately drop any
+        retries already queued for it. Past delivery attempts stay in
+        the audit log.
+      responses:
+        '204': { description: Subscription removed. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /webhooks/subscriptions/{subscription_id}/rotate-secret:
+    parameters:
+      - in: path
+        name: subscription_id
+        required: true
+        schema: { type: string }
+    post:
+      tags: [Webhooks]
+      operationId: rotateWebhookSecret
+      summary: Rotate the signing secret
+      description: |
+        Generate a fresh signing secret. The old one stays valid for
+        a 24-hour grace period so you can deploy your new verifier
+        without dropping a delivery. After that, only the new secret
+        will pass signature checks.
+
+        Store the returned `signing_secret` immediately — same deal
+        as creation, you only get to see it once.
+
+        ### Empty-body POST
+
+        This endpoint takes no request body. Send an explicit
+        `Content-Length: 0` header — Google's HTTPS load balancer
+        in front of the API rejects body-less POSTs without one
+        with `411 Length Required`.
+      requestBody:
+        required: false
+        description: |
+          No body. Send `Content-Length: 0` so the upstream load
+          balancer doesn't reject the request with 411.
+        content:
+          application/json:
+            schema:
+              type: object
+              nullable: true
+      responses:
+        '200':
+          description: The new signing secret (returned exactly once).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WebhookSubscriptionWithSecret' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '411':
+          description: |
+            Returned by the upstream HTTPS load balancer when a POST
+            arrives without a `Content-Length` header. Retry with
+            `Content-Length: 0` set explicitly.
+
+  /webhooks/subscriptions/{subscription_id}/test:
+    parameters:
+      - in: path
+        name: subscription_id
+        required: true
+        schema: { type: string }
+    post:
+      tags: [Webhooks]
+      operationId: testWebhookSubscription
+      summary: Send a test event
+      description: |
+        Fire a synthetic `webhook.test` event to this subscription's
+        URL, signed the exact same way real events are. Great for
+        verifying your handler and signature scheme before going live.
+
+        ### Empty-body POST
+
+        This endpoint takes no request body. Send an explicit
+        `Content-Length: 0` header — Google's HTTPS load balancer
+        in front of the API rejects body-less POSTs without one
+        with `411 Length Required`.
+      requestBody:
+        required: false
+        description: |
+          No body. Send `Content-Length: 0` so the upstream load
+          balancer doesn't reject the request with 411.
+        content:
+          application/json:
+            schema:
+              type: object
+              nullable: true
+      responses:
+        '202': { $ref: '#/components/responses/Accepted' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '411':
+          description: |
+            Returned by the upstream HTTPS load balancer when a POST
+            arrives without a `Content-Length` header. Retry with
+            `Content-Length: 0` set explicitly.
+
+  # ---------- API Keys ----------
+  /api-keys:
+    get:
+      tags: [ApiKeys]
+      operationId: listApiKeys
+      summary: List your API keys
+      description: |
+        All keys belonging to your customer. The plaintext secret
+        isn't returned — keys are identified by their prefix and the
+        `id`. Filter by `environment` (`sandbox` or `live`) when
+        you're managing them separately.
+      parameters:
+        - in: query
+          name: environment
+          description: Limit results to `sandbox` keys or `live` keys.
+          schema: { $ref: '#/components/schemas/Environment' }
+      responses:
+        '200':
+          description: A page of API keys (no secrets).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/ApiKey' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [ApiKeys]
+      operationId: createApiKey
+      summary: Create an API key
+      description: |
+        Mint a new API key for one environment. The plaintext
+        `secret` is returned exactly once in this response — store
+        it somewhere safe (a secrets manager, an env var on your
+        server) right away. We only keep a hash on our side, so we
+        can't recover it for you later.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ApiKeyCreateRequest' }
+      responses:
+        '201':
+          description: |
+            Key created. The `secret` field is the **only** time
+            we show you the plaintext value — copy it now.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiKeyWithSecret' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api-keys/{api_key_id}:
+    parameters:
+      - in: path
+        name: api_key_id
+        required: true
+        schema: { type: string }
+    delete:
+      tags: [ApiKeys]
+      operationId: revokeApiKey
+      summary: Revoke an API key
+      description: |
+        Immediately stop accepting requests signed by this key. There's
+        no undo — if you revoked the wrong one, just create a new key.
+        Any in-flight requests already past auth keep running.
+      responses:
+        '204': { description: Key revoked. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /sandbox/institutions:
+    get:
+      tags: [Sandbox]
+      operationId: listSandboxInstitutions
+      summary: List sandbox-eligible test banks
+      description: |
+        Returns the canonical sandbox FIXTURE catalog
+        (`ins_sandbox_001` / `ins_sandbox_002`) for synthetic flows.
+
+        NOTE: real sandbox bank routing uses the standard
+        `/v3/institutions` catalog; `ins_0a01a5430925d0b2`
+        (FinBank M, Finicity sandbox) and `ins_eaee71edf17fdacd`
+        (MX Bank, MX sandbox) live there. This endpoint exists for
+        backward-compat with early sandbox readers.
+
+        Drive the widget end-to-end with the public test bank
+        credentials documented in the developer portal's testing
+        playbook (`customer1` / `go` for Finicity, `mxuser` / `correct`
+        for MX).
+
+        Calling this with a live key returns 403.
+      responses:
+        '200':
+          description: Sandbox fixture catalog.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string, example: ins_sandbox_001 }
+                        name: { type: string, example: Sandbox Bank One }
+                        logo_url: { type: string, format: uri }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  # ---------- Metrics ----------
+  /metrics/summary:
+    get:
+      tags: [Metrics]
+      operationId: getMetricsSummary
+      summary: Headline counts for the portal tile grid
+      description: |
+        Six aggregated counts powering the at-a-glance tile grid: total
+        clients, active connections, linked accounts, statements and
+        transactions in the window, and the count of accounts the
+        proactive-staleness job has flagged.
+
+        All counts are scoped to the authenticated customer and
+        environment. Window defaults to the last 30 days when
+        `from`/`to` are omitted (max 366 days).
+      parameters:
+        - $ref: '#/components/parameters/MetricsFrom'
+        - $ref: '#/components/parameters/MetricsTo'
+      responses:
+        '200':
+          description: Aggregated counts.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MetricsSummary' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '5XX': { $ref: '#/components/responses/ServerError' }
+
+  /metrics/connection-health:
+    get:
+      tags: [Metrics]
+      operationId: getMetricsConnectionHealth
+      summary: Connection counts broken down by health state
+      description: |
+        Donut-chart fuel: how many of your active connections fall in
+        each health bucket (`HEALTHY`, `NEEDS_REAUTH`, `FAILING`,
+        `DISCONNECTED`). Buckets with zero count are still returned so
+        the chart can render an empty-state outline.
+
+        Not windowed — this is the current health snapshot, not a
+        time-bounded count.
+      responses:
+        '200':
+          description: Health-state counts.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConnectionHealthResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '5XX': { $ref: '#/components/responses/ServerError' }
+
+  /metrics/time-series:
+    get:
+      tags: [Metrics]
+      operationId: getMetricsTimeSeries
+      summary: Bucketed time-series for one metric
+      description: |
+        Returns a dense (gap-filled) time-series for the requested
+        metric. The portal renders this directly into a line/area chart
+        without client-side reindexing.
+
+        Available metrics:
+        - `api_requests` — count of `/v3/*` requests in `v3.request_log`
+        - `errors` — subset of `api_requests` with `status >= 400`
+        - `webhook_deliveries` — count of `v3.webhook_event_attempt` rows
+        - `transactions` — bridged from the main backend
+        - `statements` — bridged from the main backend
+
+        `bucket` granularity is one of `hour`, `day` (default), `week`,
+        `month`.
+      parameters:
+        - in: query
+          name: metric
+          required: true
+          description: Which metric to fetch.
+          schema:
+            type: string
+            enum: [api_requests, errors, webhook_deliveries, transactions, statements]
+        - in: query
+          name: bucket
+          required: false
+          description: Granularity of each row.
+          schema:
+            type: string
+            enum: [hour, day, week, month]
+            default: day
+        - $ref: '#/components/parameters/MetricsFrom'
+        - $ref: '#/components/parameters/MetricsTo'
+      responses:
+        '200':
+          description: Dense bucketed series for the requested metric.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TimeSeriesResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '5XX': { $ref: '#/components/responses/ServerError' }
+
+  /metrics/top-institutions:
+    get:
+      tags: [Metrics]
+      operationId: getMetricsTopInstitutions
+      summary: Top-N institutions ranked by count or failure rate
+      description: |
+        Returns the top-N institutions ordered by the requested key.
+        - `by=connection_count` (default) ranks by active connection count.
+        - `by=failure_rate` ranks by ratio of failed refreshes in window.
+
+        Defaults: `limit=10`, max `50`. Tie-breaking is by institution
+        id (stable across calls).
+      parameters:
+        - in: query
+          name: by
+          required: false
+          description: Sort key.
+          schema:
+            type: string
+            enum: [connection_count, failure_rate]
+            default: connection_count
+        - in: query
+          name: limit
+          required: false
+          description: Max rows returned (1-50).
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+        - $ref: '#/components/parameters/MetricsFrom'
+        - $ref: '#/components/parameters/MetricsTo'
+      responses:
+        '200':
+          description: Top-N institutions for the requested sort key.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TopInstitutionsResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '5XX': { $ref: '#/components/responses/ServerError' }
+
+  /metrics/api-usage:
+    get:
+      tags: [Metrics]
+      operationId: getMetricsApiUsage
+      summary: API request volume, error rate, and latency percentiles
+      description: |
+        Aggregated traffic snapshot for the authenticated customer +
+        environment over the requested window. Returns total volume,
+        success vs error counts, p50/p95 latency in milliseconds, and
+        the 10 most-trafficked `method + path` combinations.
+
+        Latency percentiles use PostgreSQL's
+        `percentile_cont(0.5/0.95) within group (order by duration_ms)`
+        over `v3.request_log`.
+      parameters:
+        - $ref: '#/components/parameters/MetricsFrom'
+        - $ref: '#/components/parameters/MetricsTo'
+      responses:
+        '200':
+          description: Aggregated request stats.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiUsageResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '5XX': { $ref: '#/components/responses/ServerError' }
+
+  /metrics/webhook-delivery:
+    get:
+      tags: [Metrics]
+      operationId: getMetricsWebhookDelivery
+      summary: Webhook delivery volume, success rate, and latency
+      description: |
+        Aggregated webhook-attempt stats over the requested window.
+        Returns total deliveries, success vs failure counts, p95
+        end-to-end latency (event creation to attempted delivery), and
+        the top failing event types (top 10 by failure count).
+      parameters:
+        - $ref: '#/components/parameters/MetricsFrom'
+        - $ref: '#/components/parameters/MetricsTo'
+      responses:
+        '200':
+          description: Aggregated webhook-delivery stats.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WebhookDeliveryResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '5XX': { $ref: '#/components/responses/ServerError' }
+
+  # ---------- Portal gating (HMAC-signed, not bearer-auth) ----------
+  /portal/access-request:
+    post:
+      tags: [PortalGating]
+      operationId: createAccessRequest
+      summary: Submit a sandbox access request
+      description: |
+        Records a developer's sandbox sign-up. The portal calls this
+        immediately after the WorkOS sign-up flow completes; the request
+        is HMAC-signed with the shared bootstrap secret
+        (`X-Portal-Bootstrap-Signature` header), so the embedded
+        `workos_user_id` is trusted without an additional JWT round-trip.
+
+        The endpoint:
+
+        - Verifies the Cloudflare Turnstile token against the canonical
+          `https://challenges.cloudflare.com/turnstile/v0/siteverify`
+          endpoint using `TURNSTILE_SECRET_KEY`.
+        - Normalizes the email (strip `+tag`, gmail dot-stripping) and
+          rejects when the source IP exceeds 3 sign-ups in 24h or the
+          email domain exceeds 10 in 24h.
+        - Inserts a `v3.access_request` row with `status=PENDING`
+          and `environment=SANDBOX`.
+
+        Feature-flagged behind `ledgersync.v3.portal-gating.enabled`;
+        with the flag off, returns 503.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/PortalBootstrapSignature'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AccessRequestBody' }
+      responses:
+        '201':
+          description: The access-request was recorded as `PENDING`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccessRequestResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401':
+          description: Bootstrap signature did not verify.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '429':
+          description: |
+            The submitter's IP or email domain exceeded the 24h limit
+            (3/IP, 10/domain). Try again later.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '503':
+          description: Portal gating is not enabled in this environment.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+  /portal/live-request:
+    post:
+      tags: [PortalGating]
+      operationId: createLiveRequest
+      summary: Submit a live-environment access request
+      description: |
+        Same auth + rate-limit shape as `POST /portal/access-request`,
+        with the production-readiness fields collected by the live
+        application form. Writes both an `access_request` row
+        (`environment=LIVE`) and a `live_profile` sidecar row in a single
+        transaction.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/PortalBootstrapSignature'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LiveRequestBody' }
+      responses:
+        '201':
+          description: The live application was recorded as `PENDING`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccessRequestResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401':
+          description: Bootstrap signature did not verify.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '429':
+          description: Rate limit exceeded (3/IP/24h or 10/domain/24h).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '503':
+          description: Portal gating is not enabled in this environment.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    patch:
+      tags: [PortalGating]
+      operationId: updateLiveRequest
+      summary: Edit a live application while still under review
+      description: |
+        Patches the integrator-supplied fields of a live application
+        that is still `PENDING` or in `NEEDS_INFO`. Reviewer-managed
+        fields (status, denial codes) are immutable here. Returns 400
+        when the row is already `APPROVED` or `DENIED`.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/PortalBootstrapSignature'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LiveRequestPatchBody' }
+      responses:
+        '200':
+          description: The application was updated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccessRequestResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404':
+          description: No open live application exists for this user.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '503':
+          description: Portal gating is not enabled in this environment.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+  /portal/access-request/status:
+    get:
+      tags: [PortalGating]
+      operationId: getAccessRequestStatus
+      summary: Read the gating status for the signed-in user
+      description: |
+        Returns the latest sandbox + live status for the WorkOS user
+        whose id is supplied as the `X-Portal-Workos-User-Id` header.
+        The HMAC signature is computed over that header value (the
+        endpoint has no body), keeping the identity unforgeable.
+
+        Either status field is null when the user has not yet filed a
+        sandbox or live application.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/PortalBootstrapSignature'
+        - in: header
+          name: X-Portal-Workos-User-Id
+          required: true
+          description: WorkOS user id whose gating status is being read.
+          schema: { type: string }
+      responses:
+        '200':
+          description: Latest sandbox and live status.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccessRequestStatusResponse' }
+        '401':
+          description: Bootstrap signature did not verify.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '503':
+          description: Portal gating is not enabled in this environment.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: LedgerSync API key
+      description: |
+        Pass your secret key in the `Authorization` header as a Bearer
+        token: `Authorization: Bearer sk_test_...` (sandbox) or
+        `Bearer sk_live_...` (production).
+
+        Keys are created in the developer portal and the plaintext
+        secret is shown exactly once at creation. Treat them like
+        passwords — never embed them in mobile apps or front-end code.
+
+    end-user-token:
+      type: http
+      scheme: bearer
+      bearerFormat: LedgerSync end-user token
+      description: |
+        Short-lived (5-minute TTL) token bound to a specific Client.
+        Required for endpoints that act on behalf of the end-user bank
+        user (e.g. submitting an MFA challenge). Mint one with
+        `POST /clients/{client_id}/end-user-token` using your normal API key.
+
+  parameters:
+    PortalBootstrapSignature:
+      name: X-Portal-Bootstrap-Signature
+      in: header
+      required: true
+      description: |
+        Hex HMAC-SHA256 of the raw request body (or, for the GET
+        status endpoint, of the `X-Portal-Workos-User-Id` header
+        value) computed with the shared portal bootstrap secret.
+      schema:
+        type: string
+
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: |
+        Safe-retry key for POSTs. Send any unique string per logical
+        request (a UUIDv4 is great). If the network drops and you retry
+        with the same `Idempotency-Key` within 24 hours, you get the
+        exact same response back instead of creating a duplicate.
+
+        **Cached responses include failures (4xx and 5xx) too.** If a
+        call failed because of a bad input and you want to try again
+        with the corrected input, use a **fresh** key — otherwise
+        you'll keep getting the cached failure.
+      schema:
+        type: string
+        maxLength: 255
+        example: 6f1a8c50-3e9c-4d4a-b1f5-2c5b9a2f7d11
+
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: Opaque cursor returned by a previous list response.
+      schema:
+        type: string
+
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: Max items per page (1–100).
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 25
+
+    ClientId:
+      name: client_id
+      in: query
+      required: true
+      description: |
+        The Client (`cli_…`) to scope the read to. Required on account,
+        transaction, and statement reads — LedgerSync's backend data APIs
+        are scoped per end-user, so these resources are resolved within a
+        single Client.
+      schema:
+        type: string
+
+    MetricsFrom:
+      name: from
+      in: query
+      required: false
+      description: |
+        Inclusive lower bound (ISO-8601 timestamp). Defaults to
+        `now - 30 days` when omitted.
+      schema:
+        type: string
+        format: date-time
+
+    MetricsTo:
+      name: to
+      in: query
+      required: false
+      description: |
+        Exclusive upper bound (ISO-8601 timestamp). Defaults to `now`
+        when omitted.
+      schema:
+        type: string
+        format: date-time
+
+  headers:
+    X-LS-Trace-Id:
+      description: Distributed-trace ID for this request. Quote in support tickets.
+      schema:
+        type: string
+        example: 4bf92f3577b34da6a3ce929d0e0e4736
+
+    X-RateLimit-Limit:
+      description: |
+        Requests allowed in the per-minute window. The day-window and the
+        live-tier burst (2x over 60s) are advertised via
+        `X-RateLimit-Policy`. Per-environment numbers:
+          - sandbox: 120 req/min, 10,000 req/day
+          - live:    60 req/min,  50,000 req/day, 2x burst over 60s
+        Connection-initiation concurrency (sandbox 10 / live 50) and
+        webhook-event/day budgets (sandbox 5k / live 25k) are enforced
+        at the service layer and are NOT counted in these headers.
+      schema: { type: integer }
+    X-RateLimit-Remaining:
+      description: Lowest remaining count across all active windows.
+      schema: { type: integer }
+    X-RateLimit-Reset:
+      description: Unix seconds when the per-minute window resets.
+      schema: { type: integer }
+    X-RateLimit-Policy:
+      description: |
+        IETF draft-ietf-httpapi-ratelimit-headers — comma-separated
+        policy entries `<limit>;w=<seconds>` advertising every enforced
+        window so an SDK consumer can tell which window tripped them.
+        Example: `60;w=60, 50000;w=86400`.
+      schema: { type: string }
+    Retry-After:
+      description: Seconds to wait before retrying (on 429 / 503).
+      schema: { type: integer }
+
+  schemas:
+    RedirectTokenVerifyRequest:
+      type: object
+      required: [ls_token]
+      properties:
+        ls_token:
+          type: string
+          description: |
+            The opaque `ls_token` query-string value the Connect widget
+            appended to your `redirect_url`. Internally an HS256 JWT
+            (header `{alg:HS256,typ:JWT}`; payload includes `v=1`,
+            `iss=ls-v3`, `iat`, `exp`, `connection_id`, `redirect_url`,
+            `client_id`) but integrators should treat it as opaque.
+
+    RedirectTokenVerifyResponse:
+      type: object
+      required: [redirect_url, connection_id, client_id]
+      properties:
+        redirect_url:
+          type: string
+          format: uri
+          description: The originally-bound `redirect_url`, as registered in the client allowlist.
+          example: https://myapp.example.com/cb
+        connection_id:
+          type: string
+          description: Connection id the widget session was bound to. Placeholder during pending; canonical after `connection.active`.
+          example: con_FINICITY_41294
+        client_id:
+          type: string
+          description: The Client id the connection belongs to.
+          example: cli_smoke
+
+    RedirectUrlsRequest:
+      type: object
+      required: [allowed_redirect_urls]
+      properties:
+        allowed_redirect_urls:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+            format: uri
+            maxLength: 2048
+            description: HTTPS URL with no userinfo component; rejected if it resolves to a private/loopback/cloud-metadata range.
+          description: |
+            The full set of redirect URLs allowed for this
+            account+environment. Each POST overwrites the previous set;
+            an empty array stores deny-all.
+      example:
+        allowed_redirect_urls:
+          - https://myapp.example.com/cb
+          - https://dcp-staging.d.atrvd.com/
+
+    RedirectUrlsView:
+      type: object
+      required: [environment, allowed_redirect_urls]
+      properties:
+        environment:
+          type: string
+          enum: [sandbox, live]
+          description: The environment of the API key used (the row this view describes).
+        allowed_redirect_urls:
+          type: array
+          items: { type: string, format: uri }
+      example:
+        environment: sandbox
+        allowed_redirect_urls:
+          - https://myapp.example.com/cb
+
+    AccessRequestBody:
+      type: object
+      required: [workos_user_id, email, first_name, last_name, company_name, country, turnstile_token]
+      properties:
+        workos_user_id:
+          type: string
+          description: The WorkOS user id of the signed-in developer.
+        email:
+          type: string
+          format: email
+          maxLength: 255
+        first_name:
+          type: string
+          maxLength: 128
+        last_name:
+          type: string
+          maxLength: 128
+        company_name:
+          type: string
+          maxLength: 255
+        country:
+          type: string
+          minLength: 2
+          maxLength: 2
+          description: ISO 3166-1 alpha-2 country code, e.g. `US`.
+        use_case:
+          type: string
+          maxLength: 2000
+          description: Free-text "what are you building" summary.
+        turnstile_token:
+          type: string
+          description: Cloudflare Turnstile token from the portal widget.
+        client_ip:
+          type: string
+          description: Source IP captured by the portal (used for rate-limiting).
+
+    LiveRequestBody:
+      allOf:
+        - $ref: '#/components/schemas/AccessRequestBody'
+        - type: object
+          properties:
+            legal_entity_name:
+              type: string
+              maxLength: 255
+            business_website:
+              type: string
+              maxLength: 512
+            data_protection_contact:
+              type: string
+              maxLength: 255
+            expected_monthly_volume:
+              type: string
+              maxLength: 64
+            go_live_target_date:
+              type: string
+              format: date
+            production_use_case:
+              type: string
+              maxLength: 2000
+
+    LiveRequestPatchBody:
+      type: object
+      required: [workos_user_id]
+      properties:
+        workos_user_id: { type: string }
+        company_name: { type: string, maxLength: 255 }
+        country: { type: string, minLength: 2, maxLength: 2 }
+        use_case: { type: string, maxLength: 2000 }
+        legal_entity_name: { type: string, maxLength: 255 }
+        business_website: { type: string, maxLength: 512 }
+        data_protection_contact: { type: string, maxLength: 255 }
+        expected_monthly_volume: { type: string, maxLength: 64 }
+        go_live_target_date: { type: string, format: date }
+        production_use_case: { type: string, maxLength: 2000 }
+
+    AccessRequestResponse:
+      type: object
+      required: [request_id, status, environment, created_at]
+      properties:
+        request_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [PENDING, APPROVED, DENIED, NEEDS_INFO]
+        environment:
+          type: string
+          enum: [SANDBOX, LIVE]
+        created_at:
+          type: string
+          format: date-time
+
+    AccessRequestStatusResponse:
+      type: object
+      properties:
+        sandbox_status:
+          type: [string, 'null']
+          enum: [PENDING, APPROVED, DENIED, NEEDS_INFO]
+        live_status:
+          type: [string, 'null']
+          enum: [PENDING, APPROVED, DENIED, NEEDS_INFO]
+        sandbox_denial_reason_code_public:
+          type: [string, 'null']
+        live_denial_reason_code_public:
+          type: [string, 'null']
+
+    Health:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+        version:
+          type: string
+          description: Build version (commit SHA or semver).
+          example: 0.1.0
+
+    Source:
+      type: string
+      description: |
+        Financial-data source backing a connection. All sources wrap
+        upstream aggregators or extraction pipelines.
+
+        Values:
+        - `FINICITY` — Finicity aggregation
+        - `MX` — MX aggregation
+        - `FDE` — Financial Document Extraction (LedgerSync proprietary)
+      enum:
+        - FINICITY
+        - MX
+        - FDE
+      x-enum-descriptions:
+        - Finicity aggregation
+        - MX aggregation
+        - Financial Document Extraction (LedgerSync proprietary)
+
+    Environment:
+      type: string
+      enum: [sandbox, live]
+
+    ErrorInfo:
+      type: object
+      description: |
+        The inner error payload. Used as the top-level body of an
+        HTTP error response (wrapped in `ErrorEnvelope`) and as the
+        embedded `error` field on resources that record a failure
+        (like `Operation.error`).
+      required: [code, message, type]
+      properties:
+        code:
+          type: string
+          description: |
+            Stable machine-readable identifier. Branch on this in
+            your code, not on `message`.
+          example: unknown_api_key
+        message:
+          type: string
+          description: Plain-English explanation safe to log.
+          example: The API key you presented doesn't match any active key.
+        doc_url:
+          type: string
+          format: uri
+          description: |
+            Link to the docs page for this specific error code.
+            Shareable with teammates in support tickets.
+          example: https://portal.ledgersyncappv2.com/errors/unknown_api_key
+        type:
+          type: string
+          description: |
+            Stripe-style broad failure-mode category — useful for
+            "treat all of these the same way" branches. Derived
+            from the HTTP status. Orthogonal to `category`, which
+            classifies by origin.
+          enum:
+            - auth_error
+            - invalid_request
+            - rate_limit_error
+            - idempotency_error
+            - not_found
+            - api_error
+          example: auth_error
+        category:
+          type: string
+          description: |
+            Plaid-style coarse classification by origin. Branch on
+            this for routing logic — retry the request, surface to
+            the end user in the widget, or page on-call. Orthogonal
+            to `type` (which is HTTP-status-derived).
+          enum:
+            - AUTH_ERROR
+            - INSTITUTION_ERROR
+            - CAPABILITY_UNAVAILABLE
+            - CONNECTION_ERROR
+            - RATE_LIMIT
+            - INVALID_REQUEST
+            - RESOURCE_NOT_FOUND
+            - PLATFORM_ERROR
+          example: AUTH_ERROR
+        is_user_actionable:
+          type: boolean
+          description: |
+            True when the end user can resolve this error (re-enter
+            credentials, complete MFA, accept an updated
+            agreement). False when the error requires
+            institution-side or LS platform-side action. Useful for
+            deciding whether to send the end user back to the
+            widget or surface an "operational issue" banner.
+          example: true
+        source_diagnostic_code:
+          type: string
+          pattern: '^(FIN|MX|FDE)-[A-Z0-9_]+$'
+          description: |
+            Opaque upstream-source diagnostic identifier (e.g.
+            `FIN-103`, `MX-DENIED`). Present only on errors that
+            originated at an aggregator/extractor. Use for support
+            triage — do NOT branch on this value; the unified
+            `code` and `category` are the integrator-facing
+            vocabulary.
+          example: FIN-103
+        param:
+          type: string
+          description: |
+            For validation failures (4xx), the request field that
+            tripped the check. Dot-separated path for nested
+            fields.
+          example: client.email
+        trace_id:
+          type: string
+          description: |
+            Same as the `X-LS-Trace-Id` response header — paste in
+            a support ticket to jump to the request.
+          example: 4bf92f3577b34da6a3ce929d0e0e4736
+        errors:
+          type: array
+          description: |
+            Per-field validation errors (only present on 400 when
+            multiple fields failed at once).
+          items:
+            type: object
+            required: [param, message]
+            properties:
+              param: { type: string, example: client.email }
+              message: { type: string, example: must be a valid email address }
+              code: { type: string, example: invalid_email }
+
+    ErrorEnvelope:
+      type: object
+      description: |
+        Error envelope returned as the top-level body of every non-2xx
+        HTTP response. The actual error payload lives in the `error`
+        field — branch on `error.code`.
+      required: [error]
+      properties:
+        error:
+          $ref: '#/components/schemas/ErrorInfo'
+
+    Operation:
+      type: object
+      description: Tracks an async operation's progress.
+      required: [id, type, status, created_at]
+      properties:
+        id:
+          type: string
+          example: op_01HXYZ8A6N7K2W9PQ4T5Z3V6E0
+        type:
+          type: string
+          enum:
+            - connection.initiate
+            - connection.complete
+            - account.refresh
+            - statement.extract
+            - transaction.sync
+          example: account.refresh
+        status:
+          type: string
+          enum: [queued, running, succeeded, failed]
+        result:
+          description: |
+            Resource produced by the operation, present only when
+            `status=succeeded`. The `kind` field discriminates the
+            variant for SDK code generation.
+          oneOf:
+            - $ref: '#/components/schemas/OperationResultConnection'
+            - $ref: '#/components/schemas/OperationResultConnectionWithAction'
+            - $ref: '#/components/schemas/OperationResultStatement'
+            - $ref: '#/components/schemas/OperationResultStatementExtraction'
+            - $ref: '#/components/schemas/OperationResultTransactionSync'
+          discriminator:
+            propertyName: kind
+            mapping:
+              connection: '#/components/schemas/OperationResultConnection'
+              connection_with_action: '#/components/schemas/OperationResultConnectionWithAction'
+              statement: '#/components/schemas/OperationResultStatement'
+              statement_extraction: '#/components/schemas/OperationResultStatementExtraction'
+              transaction_sync: '#/components/schemas/OperationResultTransactionSync'
+        error:
+          allOf:
+            - $ref: '#/components/schemas/ErrorInfo'
+          description: |
+            Populated when `status=failed`. Same shape as `error.*`
+            in an HTTP error response — branch on `code`.
+        created_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: [string, 'null']
+          format: date-time
+
+    OperationResultConnection:
+      type: object
+      required: [kind, connection]
+      properties:
+        kind: { type: string, enum: [connection] }
+        connection: { $ref: '#/components/schemas/Connection' }
+
+    OperationResultConnectionWithAction:
+      type: object
+      required: [kind, connection]
+      properties:
+        kind: { type: string, enum: [connection_with_action] }
+        connection: { $ref: '#/components/schemas/ConnectionWithAction' }
+
+    OperationResultStatement:
+      type: object
+      required: [kind, statement]
+      properties:
+        kind: { type: string, enum: [statement] }
+        statement: { $ref: '#/components/schemas/Statement' }
+
+    OperationResultStatementExtraction:
+      type: object
+      description: |
+        Result of a `statement.extract` operation started via
+        `POST /statements/extract`: the transactions OCR-extracted from
+        the uploaded PDF. Standalone — no Statement resource is created.
+      required: [kind, page_count, transaction_count, transactions]
+      properties:
+        kind: { type: string, enum: [statement_extraction] }
+        page_count:
+          type: [integer, 'null']
+          description: Pages in the uploaded PDF.
+        transaction_count:
+          type: integer
+          description: Number of extracted transactions.
+        validated:
+          type: [boolean, 'null']
+          description: |
+            Whether the extracted rows reconciled against the balances
+            printed on the statement. `null` when the statement carries
+            no reconcilable balances.
+        validation_message:
+          type: [string, 'null']
+        transactions:
+          type: array
+          items: { $ref: '#/components/schemas/ExtractedStatementTransaction' }
+
+    ExtractedStatementTransaction:
+      type: object
+      required: [date, description, amount]
+      properties:
+        date:
+          type: string
+          description: |
+            Transaction date as printed on the statement, normalized by
+            the extractor — not guaranteed ISO-8601.
+        description: { type: string }
+        amount:
+          type: number
+          description: Signed decimal amount (deposits positive, charges negative).
+        running_balance:
+          type: [number, 'null']
+          description: Printed per-row running balance, when the statement has one.
+        principal_amount:
+          type: [number, 'null']
+          description: Principal portion for loan/mortgage statements that print one.
+
+    OperationResultTransactionSync:
+      type: object
+      required: [kind, account_id, new_transaction_count]
+      properties:
+        kind: { type: string, enum: [transaction_sync] }
+        account_id: { type: string }
+        new_transaction_count: { type: integer }
+
+    OperationAck:
+      type: object
+      description: Returned with 202 Accepted for async operations.
+      required: [operation_id, status, poll_url]
+      properties:
+        operation_id:
+          type: string
+          example: op_01HXYZ8A6N7K2W9PQ4T5Z3V6E0
+        status:
+          type: string
+          enum: [queued]
+        poll_url:
+          type: string
+          format: uri
+          example: https://api-sandbox.ledgersyncappv2.com/v3/operations/op_01HXYZ8A6N7K2W9PQ4T5Z3V6E0
+        estimated_seconds:
+          type: integer
+          description: Rough ETA for completion. Best-effort.
+
+    # ---------- Client ----------
+    Client:
+      type: object
+      required: [id, created_at]
+      properties:
+        id: { type: string, example: cli_01HXYZ8A6N7K2W9PQ4T5Z3V6E0 }
+        external_id:
+          type: [string, 'null']
+          description: Integrator-supplied identifier; useful for joining to your own systems.
+        email: { type: [string, 'null'], format: email }
+        name: { type: [string, 'null'] }
+        metadata:
+          type: object
+          additionalProperties: { type: string }
+          description: Free-form key-value pairs for integrator use. Max 20 keys.
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    ClientCreateRequest:
+      type: object
+      properties:
+        external_id: { type: [string, 'null'] }
+        email: { type: [string, 'null'], format: email }
+        name: { type: [string, 'null'] }
+        metadata:
+          type: object
+          additionalProperties: { type: string }
+
+    ClientUpdateRequest:
+      type: object
+      description: All fields optional; only fields present are updated.
+      properties:
+        external_id: { type: [string, 'null'] }
+        email: { type: [string, 'null'], format: email }
+        name: { type: [string, 'null'] }
+        metadata:
+          type: object
+          additionalProperties: { type: string }
+
+    # ---------- Connection ----------
+    ConnectionStatus:
+      type: string
+      description: |
+        Connection lifecycle status.
+
+        - `initiated` — Connection started, waiting for end-user or upstream to complete
+        - `requires_action` — Awaiting MFA or reauthorization from the end-user
+        - `active` — Healthy, refreshing on schedule
+        - `failed` — Connection failed; review `last_error`
+        - `disconnected` — End-user revoked or LedgerSync disconnected
+      enum: [initiated, requires_action, active, failed, disconnected]
+      x-enum-descriptions:
+        - Connection started, waiting for end-user or upstream to complete
+        - Awaiting MFA or reauthorization from the end-user
+        - Healthy, refreshing on schedule
+        - Connection failed; review last_error
+        - End-user revoked or LedgerSync disconnected
+
+    # ---------- Capabilities (chunk 3) ----------
+    CapabilityPromise:
+      type: string
+      description: |
+        Plaid-style 4-tier promise tier for a single capability.
+        `always` — source guarantees delivery (e.g. Finicity
+        transactions on a known-good FI). `usually` — supported,
+        historical success rate is high. `sometimes` — supported but
+        reliability is variable or unknown. `never` — source
+        structurally cannot deliver this capability.
+      enum: [always, usually, sometimes, never]
+
+    CapabilityRealizedStatus:
+      type: string
+      description: |
+        Observed outcome of the most recent attempt at a capability.
+        `succeeded` — last attempt delivered data; `last_success_at` is
+        populated. `failed` — last attempt errored; `last_error` carries
+        the source-translated diagnostic. `skipped` — capability not
+        attempted this cycle (catch-up exhausted, integrator opt-out).
+        `unsupported` — matching `expected_capabilities` promise is
+        `never`; entry is still emitted so integrators don't have to
+        disambiguate "missing means unsupported" from "not yet
+        attempted". `pending` — initial sync running or attempt
+        in flight.
+      enum: [succeeded, failed, skipped, unsupported, pending]
+
+    ExpectedCapability:
+      type: object
+      required: [promise]
+      properties:
+        promise: { $ref: '#/components/schemas/CapabilityPromise' }
+
+    ExpectedCapabilities:
+      type: object
+      description: |
+        Catalog-derived promise for each capability we may deliver on a
+        connection. Exhaustive — every capability key is always present
+        so integrators don't need to branch on key existence.
+      required: [transactions, balance, available_balance, statements, check_images]
+      properties:
+        transactions:      { $ref: '#/components/schemas/ExpectedCapability' }
+        balance:           { $ref: '#/components/schemas/ExpectedCapability' }
+        available_balance: { $ref: '#/components/schemas/ExpectedCapability' }
+        statements:        { $ref: '#/components/schemas/ExpectedCapability' }
+        check_images:      { $ref: '#/components/schemas/ExpectedCapability' }
+
+    RealizedCapability:
+      type: object
+      required: [status]
+      properties:
+        status: { $ref: '#/components/schemas/CapabilityRealizedStatus' }
+        last_success_at:
+          type: [string, 'null']
+          format: date-time
+          description: Timestamp of the most recent successful delivery, when known.
+        next_refresh_after:
+          type: [string, 'null']
+          format: date-time
+          description: |
+            Earliest moment the next attempt is expected to fire.
+            Null when no further attempt is scheduled (e.g. `unsupported`).
+        last_error:
+          description: |
+            Source-translated error from the most recent failed attempt.
+            Same shape as the top-level `ErrorInfo` envelope; only
+            populated when `status=failed`.
+          oneOf:
+            - $ref: '#/components/schemas/ErrorInfo'
+            - type: 'null'
+
+    RealizedCapabilities:
+      type: object
+      description: |
+        Observed per-capability outcomes. Exhaustive — every capability
+        key is always present. Rolled-up across accounts at the
+        Connection level; per-account ground truth at the Account level.
+      required: [transactions, balance, available_balance, statements, check_images]
+      properties:
+        transactions:      { $ref: '#/components/schemas/RealizedCapability' }
+        balance:           { $ref: '#/components/schemas/RealizedCapability' }
+        available_balance: { $ref: '#/components/schemas/RealizedCapability' }
+        statements:        { $ref: '#/components/schemas/RealizedCapability' }
+        check_images:      { $ref: '#/components/schemas/RealizedCapability' }
+
+    ConnectionDebug:
+      type: object
+      x-stability: experimental
+      description: |
+        Observable-only debug metadata. **Do not parse, do not branch
+        routing on these values.** Fields under `_debug` may be removed,
+        renamed, or hashed at any time. Use the documented
+        `realized_capabilities` and `last_error` blocks for capability
+        and failure data.
+      properties:
+        source_used:
+          type: [string, 'null']
+          description: |
+            Internal source identifier that handled this connection.
+            For troubleshooting only — integrators should treat this as
+            opaque. Example values: `FINICITY`, `MX`, `FDE`.
+
+    Connection:
+      type: object
+      required: [id, client_id, source, status, created_at]
+      properties:
+        id:
+          type: string
+          description: |
+            Connection identifier. Two shapes can appear depending on
+            lifecycle state:
+
+            - `con_<uuid>` — placeholder id surfaced during the
+              `connection_with_action` result while the connection is
+              `pending`. Used only to route the widget step. Calling
+              `GET /v3/connections/{placeholder_uuid}` returns 400 with
+              `missing source separator`.
+            - `con_<SOURCE>_<bankAccountId>` — canonical id once the
+              connection reaches `active`. Every other endpoint
+              (`/accounts`, `/transactions`, `/statements`, refresh,
+              delete) expects this form.
+
+            See the lifecycle prose at the top of this document.
+          example: con_FINICITY_41294
+        client_id: { type: string, example: cli_01HXYZ8A6N7K2W9PQ4T5Z3V6E0 }
+        source: { $ref: '#/components/schemas/Source' }
+        status: { $ref: '#/components/schemas/ConnectionStatus' }
+        institution:
+          type: [object, 'null']
+          properties:
+            id: { type: string }
+            name: { type: string, example: Chase }
+            logo_url: { type: [string, 'null'], format: uri }
+        last_refreshed_at: { type: [string, 'null'], format: date-time }
+        last_error:
+          oneOf:
+            - $ref: '#/components/schemas/ErrorInfo'
+            - type: 'null'
+        expected_capabilities:
+          description: |
+            Catalog-derived promise for each capability we may deliver
+            on this connection. Plaid-style 4-tier:
+            `always`/`usually`/`sometimes`/`never`. Set when the
+            connection enters `active` and refreshed when the underlying
+            catalog row changes. Phase 1 emits only `always`/`never`
+            (per-FI tiering uses a profile catalog scheduled for Phase 2).
+          oneOf:
+            - $ref: '#/components/schemas/ExpectedCapabilities'
+            - type: 'null'
+        realized_capabilities:
+          description: |
+            Observed outcome of the most recent attempt at each
+            capability. Rolled-up across the connection's accounts —
+            worst-status-wins per capability. See
+            `RealizedCapabilities` for the per-capability shape.
+          oneOf:
+            - $ref: '#/components/schemas/RealizedCapabilities'
+            - type: 'null'
+        _debug:
+          $ref: '#/components/schemas/ConnectionDebug'
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    ConnectionWithAction:
+      allOf:
+        - $ref: '#/components/schemas/Connection'
+        - type: object
+          required: [action]
+          properties:
+            action:
+              oneOf:
+                - $ref: '#/components/schemas/ConnectionActionWidget'
+                - $ref: '#/components/schemas/ConnectionActionMfa'
+                - $ref: '#/components/schemas/ConnectionActionReauthorize'
+              discriminator:
+                propertyName: kind
+                mapping:
+                  widget_url: '#/components/schemas/ConnectionActionWidget'
+                  mfa_challenge: '#/components/schemas/ConnectionActionMfa'
+                  reauthorize: '#/components/schemas/ConnectionActionReauthorize'
+
+    ConnectionActionWidget:
+      type: object
+      required: [kind, widget_url, expires_at]
+      properties:
+        kind: { type: string, enum: [widget_url] }
+        widget_url:
+          type: string
+          format: uri
+          description: |
+            Hosted widget URL the end-user must open. For Finicity this
+            is the Finicity Connect URL; for MX it is a
+            LedgerSync-hosted wrapper page
+            (`GET /connections/mx-wrapper?token=...`) that embeds the MX
+            widget and completes with the same `redirect_url` +
+            `ls_token` hop as Finicity. Same shape either way — open it
+            and wait for your redirect/webhook.
+        expires_at: { type: string, format: date-time }
+
+    ConnectionActionMfa:
+      type: object
+      required: [kind, challenge_id, questions]
+      properties:
+        kind: { type: string, enum: [mfa_challenge] }
+        challenge_id: { type: string }
+        questions:
+          type: array
+          items:
+            type: object
+            required: [id, prompt, type]
+            properties:
+              id: { type: string }
+              prompt: { type: string }
+              type:
+                type: string
+                enum: [text, choice, image_choice]
+              choices:
+                type: array
+                items: { type: string }
+
+    ConnectionActionReauthorize:
+      type: object
+      required: [kind, reauth_url, expires_at]
+      properties:
+        kind: { type: string, enum: [reauthorize] }
+        reauth_url: { type: string, format: uri }
+        expires_at: { type: string, format: date-time }
+
+    ConnectionInitiateRequest:
+      type: object
+      description: |
+        Source-hiding initiate-connection shape. The integrator passes
+        only `institution_id` (a v3 catalog id from
+        `GET /v3/institutions`); LedgerSync's router picks the underlying
+        source. No `source` field.
+      required: [institution_id]
+      properties:
+        institution_id:
+          type: string
+          description: A v3 catalog id (e.g., `ins_01HZX9CHASE`) from `GET /v3/institutions`.
+        redirect_url:
+          type: [string, 'null']
+          format: uri
+          description: URL the widget redirects to on completion.
+        credentials:
+          type: [object, 'null']
+          deprecated: true
+          description: |
+            Ignored. FDE connects via a LedgerSync-hosted page, so raw
+            bank credentials are never accepted over the API. Retained
+            only so a body that still carries it is not rejected.
+          additionalProperties: true
+
+    # ---------- Institution (unified catalog) ----------
+    Institution:
+      type: object
+      description: |
+        A row in the unified v3 institution catalog. Returned by
+        `GET /v3/institutions` and used as `institution_id` when initiating
+        a connection.
+      required: [id, name, capabilities]
+      properties:
+        id:
+          type: string
+          example: ins_01HZX9CHASE
+        name:
+          type: string
+        home_url:
+          type: [string, 'null']
+          format: uri
+        capabilities:
+          $ref: '#/components/schemas/InstitutionCapabilities'
+
+    InstitutionCapabilities:
+      type: object
+      description: |
+        Capability flags advertised by the catalog. Computed as the union
+        across the underlying sources LedgerSync would route to for this
+        institution. `null` on any flag means "unknown / not yet
+        reconciled" — the router will still attempt to dispatch.
+      properties:
+        oauth:
+          type: [boolean, 'null']
+          description: At least one routable source offers OAuth for this institution.
+        transactions:
+          type: [boolean, 'null']
+        statements:
+          type: [boolean, 'null']
+        check_images:
+          type: [boolean, 'null']
+          description: |
+            True when a routable source (currently FDE) supplies check
+            images for this institution; `null` when unknown / not yet
+            reconciled.
+
+    # ---------- Account ----------
+    Account:
+      type: object
+      required: [id, source, iso_currency_code]
+      properties:
+        id: { type: string, example: acc_FINICITY_45 }
+        connection_id:
+          type: [string, 'null']
+          description: >-
+            Owning connection — canonical id
+            (`con_<SOURCE>_<bankAccountId>`). Null on a sandbox
+            single-fetch (a sandbox account id doesn't encode its
+            connection). Always present when listing accounts by
+            connection.
+          example: con_FINICITY_41294
+        client_id: { type: string }
+        source: { $ref: '#/components/schemas/Source' }
+        name: { type: string }
+        type:
+          type: string
+          enum: [checking, savings, credit_card, loan, investment, other]
+        mask:
+          type: [string, 'null']
+          description: Last 4 digits of the account number (Plaid-style mask).
+          example: "1234"
+        iso_currency_code:
+          type: string
+          description: ISO-4217 currency code. Defaults to USD when the source omits it.
+          example: USD
+        current_balance:
+          type: [number, 'null']
+          description: >-
+            Most recent balance in the account's currency, as a decimal. Null
+            when the source hasn't reported one yet.
+          example: 1234.56
+        available_balance:
+          type: [number, 'null']
+          description: >-
+            Available balance, when the source distinguishes it from the
+            current balance. Often null.
+        last_refreshed_at: { type: [string, 'null'], format: date-time }
+        realized_capabilities:
+          description: |
+            Per-account observed outcome of the most recent attempt at
+            each capability. Today the backend tracks status at the
+            bank level — accounts within the same connection share this
+            snapshot. Per-account divergence (one account in a
+            connection failed but others succeeded) requires a backend
+            extension and is deferred.
+          oneOf:
+            - $ref: '#/components/schemas/RealizedCapabilities'
+            - type: 'null'
+        created_at: { type: [string, 'null'], format: date-time }
+        updated_at: { type: [string, 'null'], format: date-time }
+
+    # ---------- Transaction ----------
+    Transaction:
+      type: object
+      required: [id, account_id, amount, iso_currency_code, date, description]
+      properties:
+        id: { type: string, example: txn_FINICITY_8837 }
+        account_id: { type: string }
+        external_id:
+          type: [string, 'null']
+          description: Upstream aggregator's transaction ID (Finicity, MX, etc.) if available.
+        amount:
+          type: number
+          description: >-
+            Signed decimal amount in the account's currency. The sign follows
+            the upstream aggregator's convention (matches Plaid/MX/Finicity).
+          example: -28.34
+        iso_currency_code:
+          type: string
+          description: ISO-4217 currency code. Defaults to USD when the source omits it.
+          example: USD
+        date:
+          type: string
+          format: date
+          description: Posted date — the date the transaction cleared (Plaid-style `date`).
+        description: { type: string, example: "STARBUCKS #1234 SEATTLE WA" }
+        merchant_name: { type: [string, 'null'] }
+        category:
+          type: [string, 'null']
+          description: LedgerSync's normalized category (best-effort across sources).
+        pending: { type: boolean }
+
+    # ---------- Statement ----------
+    Statement:
+      type: object
+      required: [id, statement_date]
+      properties:
+        id: { type: string, example: stmt_FINICITY_551 }
+        account_id:
+          type: [string, 'null']
+          description: >-
+            The owning account id. Populated when listing an account's
+            statements; null on single get-by-id (the backend statement record
+            carries no fin-account id to map back).
+        source: { $ref: '#/components/schemas/Source' }
+        statement_date: { type: string, format: date }
+        download_url:
+          type: [string, 'null']
+          format: uri
+          description: >-
+            Relative v3 URL to download the statement PDF, auth-scoped to your
+            API key. Resolves to
+            [`GET /statements/{statement_id}/download`](#operation/downloadStatement);
+            GET it to stream the PDF bytes.
+        exported_to:
+          type: [string, 'null']
+          description: Accounting platform the statement was exported to, if any.
+
+    # ---------- Webhook subscription ----------
+    WebhookSubscription:
+      type: object
+      required: [id, url, event_types, status, created_at]
+      properties:
+        id: { type: string, example: whk_01HXYZ8A6N7K2W9PQ4T5Z3V6E0 }
+        url: { type: string, format: uri }
+        event_types:
+          type: array
+          items: { type: string }
+          example:
+            - connection.requires_action
+            - connection.active
+            - connection.failed
+            - connection.disconnected
+            - connection.capability_changed
+            - account.refresh.completed
+            - account.refresh.failed
+        status:
+          type: string
+          enum: [active, paused, disabled]
+        created_at: { type: string, format: date-time }
+        last_success_at: { type: [string, 'null'], format: date-time }
+        last_failure_at: { type: [string, 'null'], format: date-time }
+
+    WebhookSubscriptionCreateRequest:
+      type: object
+      required: [url, event_types]
+      properties:
+        url:
+          type: string
+          format: uri
+          description: HTTPS URL LedgerSync will POST to. Must be reachable from the public internet.
+        event_types:
+          type: array
+          minItems: 1
+          items: { type: string }
+          description: Event type subscriptions. Use `*` to receive every event.
+
+    WebhookSubscriptionWithSecret:
+      allOf:
+        - $ref: '#/components/schemas/WebhookSubscription'
+        - type: object
+          required: [signing_secret]
+          properties:
+            signing_secret:
+              type: string
+              description: |
+                Plaintext signing secret. Use HMAC-SHA256 with this secret
+                to verify the `X-LS-Webhook-Signature` header on incoming
+                deliveries. Returned ONCE; store it securely.
+
+    # ---------- API key ----------
+    ApiKey:
+      type: object
+      required: [id, environment, prefix, scopes, status, created_at]
+      properties:
+        id:
+          type: string
+          description: |
+            Plain UUID v4 (e.g. `15a81d54-0471-...`). No prefix is
+            applied today. SDKs should treat the value as opaque.
+          example: 15a81d54-0471-4f3c-9c1f-2f0a0c7b8d31
+        environment: { $ref: '#/components/schemas/Environment' }
+        prefix:
+          type: string
+          description: |
+            First few characters of the key, safe to display in lists
+            and logs (the rest is irrecoverable after creation).
+          example: sk_test_a89d15d0
+        scopes:
+          type: array
+          items:
+            type: string
+            enum:
+              - read:clients
+              - write:clients
+              - read:connections
+              - write:connections
+              - read:accounts
+              - read:transactions
+              - read:statements
+              - write:statements
+              - manage:webhooks
+              - read:webhooks
+              - write:webhooks
+              - read:api-keys
+              - write:api-keys
+        status:
+          type: string
+          enum: [active, revoked]
+        last_used_at: { type: [string, 'null'], format: date-time }
+        created_at: { type: string, format: date-time }
+        revoked_at: { type: [string, 'null'], format: date-time }
+
+    ApiKeyCreateRequest:
+      type: object
+      required: [environment, scopes]
+      properties:
+        environment: { $ref: '#/components/schemas/Environment' }
+        scopes:
+          type: array
+          minItems: 1
+          items: { type: string }
+
+    ApiKeyWithSecret:
+      allOf:
+        - $ref: '#/components/schemas/ApiKey'
+        - type: object
+          required: [secret]
+          properties:
+            secret:
+              type: string
+              description: |
+                The full plaintext API key — pass this as
+                `Authorization: Bearer <secret>` on every request.
+
+                Returned **once** at creation (or rotation). We only
+                keep a hash on our side, so if you lose it you'll
+                need to create a new key.
+
+                The first few characters (visible in `prefix`) start
+                with `sk_test_` for sandbox keys or `sk_live_` for
+                live keys.
+              example: sk_test_a89d15d0805c041eb058f040669c3a6d
+
+    MetricsSummary:
+      type: object
+      required:
+        - total_clients
+        - active_connections
+        - linked_accounts
+        - statements_in_period
+        - transactions_in_period
+        - stale_accounts_count
+      properties:
+        total_clients:
+          type: integer
+          format: int64
+          minimum: 0
+          description: All-time clients created under this customer + environment.
+        active_connections:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Connections currently in an `active` state.
+        linked_accounts:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Accounts attached to any active connection.
+        statements_in_period:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Statements created in the requested window.
+        transactions_in_period:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Transactions created in the requested window.
+        stale_accounts_count:
+          type: integer
+          format: int64
+          minimum: 0
+          description: |
+            Accounts flagged by the proactive-staleness job (NEEDS_REAUTH,
+            FAILING, CATCHUP_EXHAUSTED, STALE_NOT_POLLED, or
+            SKIPPED_INACTIVE_BANK).
+
+    ConnectionHealthSlice:
+      type: object
+      required: [state, count]
+      properties:
+        state:
+          type: string
+          enum: [HEALTHY, NEEDS_REAUTH, FAILING, DISCONNECTED]
+          description: Health bucket.
+        count:
+          type: integer
+          format: int64
+          minimum: 0
+
+    ConnectionHealthResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/ConnectionHealthSlice' }
+
+    TimeSeriesPoint:
+      type: object
+      required: [bucket_start, value]
+      properties:
+        bucket_start:
+          type: string
+          format: date-time
+          description: Inclusive start of the bucket (UTC).
+        value:
+          type: number
+          description: |
+            Bucket value. Counts are returned as integers; rates (when
+            future metrics surface them) as floats.
+
+    TimeSeriesResponse:
+      type: object
+      required: [metric, bucket, data]
+      properties:
+        metric:
+          type: string
+          enum: [api_requests, errors, webhook_deliveries, transactions, statements]
+        bucket:
+          type: string
+          enum: [hour, day, week, month]
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/TimeSeriesPoint' }
+
+    TopInstitution:
+      type: object
+      required: [institution_id, institution_name, value]
+      properties:
+        institution_id:
+          type: string
+        institution_name:
+          type: string
+        value:
+          type: number
+          description: |
+            Count when sorted by `connection_count`; ratio in `[0, 1]`
+            when sorted by `failure_rate`.
+
+    TopInstitutionsResponse:
+      type: object
+      required: [by, data]
+      properties:
+        by:
+          type: string
+          enum: [connection_count, failure_rate]
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/TopInstitution' }
+
+    TopEndpoint:
+      type: object
+      required: [path, count]
+      properties:
+        path:
+          type: string
+          description: |
+            Concatenated `METHOD /path` to disambiguate route + verb
+            without forcing the client to read two fields.
+        count:
+          type: integer
+          format: int64
+          minimum: 0
+
+    ApiUsageResponse:
+      type: object
+      required:
+        - total_requests
+        - success_count
+        - error_count
+        - p50_latency_ms
+        - p95_latency_ms
+        - top_endpoints
+      properties:
+        total_requests:
+          type: integer
+          format: int64
+          minimum: 0
+        success_count:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Requests with `status < 400`.
+        error_count:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Requests with `status >= 400`.
+        p50_latency_ms:
+          type: number
+          minimum: 0
+        p95_latency_ms:
+          type: number
+          minimum: 0
+        top_endpoints:
+          type: array
+          items: { $ref: '#/components/schemas/TopEndpoint' }
+
+    WebhookFailureSlice:
+      type: object
+      required: [event_type, count]
+      properties:
+        event_type:
+          type: string
+        count:
+          type: integer
+          format: int64
+          minimum: 0
+
+    WebhookDeliveryResponse:
+      type: object
+      required:
+        - total_deliveries
+        - success_count
+        - failure_count
+        - p95_latency_ms
+        - failures_by_event
+      properties:
+        total_deliveries:
+          type: integer
+          format: int64
+          minimum: 0
+        success_count:
+          type: integer
+          format: int64
+          minimum: 0
+        failure_count:
+          type: integer
+          format: int64
+          minimum: 0
+        p95_latency_ms:
+          type: number
+          minimum: 0
+          description: |
+            Latency proxy: `attempted_at - webhook_event.created_at`,
+            in milliseconds. The attempt row carries no per-attempt
+            duration today; this is the closest available signal.
+        failures_by_event:
+          type: array
+          items: { $ref: '#/components/schemas/WebhookFailureSlice' }
+
+  responses:
+    BadRequest:
+      description: |
+        Something in the request body or query string didn't pass
+        validation. The response carries `error.param` (or
+        `error.errors[]` for multi-field failures) so you know which
+        field to fix.
+      headers:
+        X-LS-Trace-Id: { $ref: '#/components/headers/X-LS-Trace-Id' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Unauthorized:
+      description: |
+        Either the `Authorization` header is missing or the bearer
+        token doesn't match an active API key. Double-check the key
+        and the environment — sandbox keys can't be used against the
+        production base URL and vice versa.
+      headers:
+        X-LS-Trace-Id: { $ref: '#/components/headers/X-LS-Trace-Id' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Forbidden:
+      description: |
+        The key is valid but doesn't have permission for this
+        operation. Either the key lacks the required scope, or the
+        endpoint is sandbox-only and you're using a live key (or vice
+        versa).
+      headers:
+        X-LS-Trace-Id: { $ref: '#/components/headers/X-LS-Trace-Id' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    NotFound:
+      description: |
+        We didn't find a resource matching the path parameters. Common
+        causes: the id belongs to a different customer's key, the
+        resource was deleted, or there's a typo in the id.
+      headers:
+        X-LS-Trace-Id: { $ref: '#/components/headers/X-LS-Trace-Id' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Conflict:
+      description: |
+        Two common cases: the resource already exists, or you reused
+        an `Idempotency-Key` with a different request body than the
+        original call.
+      headers:
+        X-LS-Trace-Id: { $ref: '#/components/headers/X-LS-Trace-Id' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    TooManyRequests:
+      description: |
+        You hit the rate limit. Back off, then retry after the number
+        of seconds in the `Retry-After` header. The
+        `X-RateLimit-Remaining` and `X-RateLimit-Reset` headers tell
+        you the current window state.
+      headers:
+        X-LS-Trace-Id: { $ref: '#/components/headers/X-LS-Trace-Id' }
+        X-RateLimit-Limit: { $ref: '#/components/headers/X-RateLimit-Limit' }
+        X-RateLimit-Remaining: { $ref: '#/components/headers/X-RateLimit-Remaining' }
+        X-RateLimit-Reset: { $ref: '#/components/headers/X-RateLimit-Reset' }
+        X-RateLimit-Policy: { $ref: '#/components/headers/X-RateLimit-Policy' }
+        Retry-After: { $ref: '#/components/headers/Retry-After' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    ServerError:
+      description: |
+        Something broke on our side. Grab `X-LS-Trace-Id` from the
+        response headers and ping us at support@ledgersync.com — that
+        trace id lets us jump straight to your request.
+      headers:
+        X-LS-Trace-Id: { $ref: '#/components/headers/X-LS-Trace-Id' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    PayloadTooLarge:
+      description: |
+        The uploaded file exceeds the documented size limit (30 MB for
+        statement PDFs). Note that requests over 32 MB may be rejected
+        at our edge before reaching the API, with a non-JSON 413.
+      headers:
+        X-LS-Trace-Id: { $ref: '#/components/headers/X-LS-Trace-Id' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Accepted:
+      description: |
+        The request was accepted but the underlying work runs
+        asynchronously. Use the returned `operation_id` to poll
+        `GET /operations/{operation_id}` or just wait for the matching
+        webhook event.
+      headers:
+        X-LS-Trace-Id: { $ref: '#/components/headers/X-LS-Trace-Id' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/OperationAck' }
