@@ -32,6 +32,7 @@
             "pages": [
               "guides/connection-lifecycle",
               "guides/webhooks",
+              "guides/pagination",
               "guides/errors"
             ]
           },
@@ -78,7 +79,8 @@
     { "source": "/webhooks", "destination": "/guides/webhooks", "permanent": true },
     { "source": "/errors", "destination": "/guides/errors", "permanent": true },
     { "source": "/testing", "destination": "/guides/testing", "permanent": true },
-    { "source": "/going-live", "destination": "/guides/going-live", "permanent": true }
+    { "source": "/going-live", "destination": "/guides/going-live", "permanent": true },
+    { "source": "/pagination", "destination": "/guides/pagination", "permanent": true }
   ],
   "footer": {
     "socials": {

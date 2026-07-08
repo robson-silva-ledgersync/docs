@@ -1,0 +1,82 @@
+---
+title: "Pagination"
+description: "Every list endpoint returns a page plus an opaque cursor. Loop until has_more is false to read the full set."
+---
+
+List endpoints return a **page** of results, not the whole set. Each response carries an opaque `next_cursor` and a `has_more` flag. To read everything, pass `next_cursor` back as the `cursor` query param and repeat until `has_more` is `false`.
+
+<Info>
+This applies to every list endpoint: `GET /clients`, `GET /clients/{id}/connections`, `GET /accounts`, `GET /accounts/{id}/transactions`, `GET /accounts/{id}/statements`, and `GET /webhooks/subscriptions`.
+</Info>
+
+## The response envelope
+
+```json
+{
+  "data": [ /* this page's items */ ],
+  "next_cursor": "cur_1.dHhu...",
+  "has_more": true
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `data` | The items on this page. |
+| `next_cursor` | Opaque token. Pass it as `cursor` to fetch the next page. `null` (or absent) when `has_more` is `false`. |
+| `has_more` | `true` if more items exist beyond this page. |
+
+## Request params
+
+| Param | Default | Notes |
+| --- | --- | --- |
+| `limit` | `100` | Items per page, 1–500. Values above 500 are capped, not rejected. |
+| `cursor` | — | The `next_cursor` from the previous response. Omit for the first page. |
+
+The cursor is **opaque** — don't parse or construct it. It is also scoped to the exact query it was minted for: reusing a cursor from one account (or a different date window / filter) against another returns `400 invalid_request`.
+
+## Loop until done
+
+```bash
+LS_KEY=sk_test_...
+LS_BASE=https://api-sandbox.ledgersyncappv2.com/v3
+ACCT=acc_FINICITY_41294
+CLIENT=cli_9f2a
+
+cursor=""
+while : ; do
+  resp=$(curl -s "$LS_BASE/accounts/$ACCT/transactions?client_id=$CLIENT&limit=200&cursor=$cursor" \
+    -H "Authorization: Bearer $LS_KEY")
+  echo "$resp" | jq '.data[]'
+  [ "$(echo "$resp" | jq -r '.has_more')" = "true" ] || break
+  cursor=$(echo "$resp" | jq -r '.next_cursor')
+done
+```
+
+```python Python
+import requests
+
+base = "https://api-sandbox.ledgersyncappv2.com/v3"
+headers = {"Authorization": "Bearer sk_test_..."}
+params = {"client_id": "cli_9f2a", "limit": 200}
+
+rows, cursor = [], None
+while True:
+    if cursor:
+        params["cursor"] = cursor
+    page = requests.get(f"{base}/accounts/acc_FINICITY_41294/transactions",
+                        headers=headers, params=params).json()
+    rows.extend(page["data"])
+    if not page["has_more"]:
+        break
+    cursor = page["next_cursor"]
+```
+
+## Ordering and stability
+
+Transactions are returned **most-recently-recorded first** (by internal sequence), which is stable and complete for paging through the whole set. It is not a strict chronological sort — to bound results by transaction date, use the `from` and `to` query params (they combine with pagination).
+
+<Warning>
+A transaction can change after you first see it (for example, a `pending` charge later posts). If you re-page a set while it's being refreshed, a changed row may appear again on a later pull. Always **dedupe on the item `id`** — it's stable and unique, and cheap insurance for any sync loop.
+</Warning>
+
+The cursor uses keyset (seek) pagination, so it stays correct even as rows are added or removed between pages — you won't skip or double-count the remaining items.
