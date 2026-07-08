@@ -1,0 +1,202 @@
+---
+title: "Errors"
+description: "How LedgerSync reports errors, how to handle them, and how to get help fast."
+---
+
+Every error we return has the same shape and a stable machine-readable `code`. Branch on the `code`, show your user something friendly, and log the trace id. That's the whole game.
+
+## The error envelope
+
+Every error response — validation, auth, not found, rate limit, or server — carries the same JSON body:
+
+```json
+{
+  "error": {
+    "code": "institution_not_found",
+    "message": "No institution matches id 'ins_deadbeef'.",
+    "doc_url": "https://docs.ledgersyncappv2.com/guides/errors",
+    "type": "invalid_request"
+  }
+}
+```
+
+| Field | What it's for |
+| --- | --- |
+| `code` | Stable, machine-readable. **Branch on this.** |
+| `message` | Human-readable explanation. Good for logs; safe to surface to developers, not always to end users. |
+| `doc_url` | A link into these docs for the specific error. |
+| `type` | Broad category (e.g. `invalid_request`, `authentication_error`, `rate_limit_error`, `api_error`). Useful for coarse grouping. |
+
+<Warning>
+  Branch your code on `code`, never on `message`. We reword messages for clarity over time — the `code` is the contract and won't change out from under you.
+</Warning>
+
+## HTTP status codes
+
+The HTTP status tells you the broad category before you even parse the body.
+
+| Status | Meaning | Typical fix |
+| --- | --- | --- |
+| `400` | **Validation** — the request was malformed or a field was invalid. | Read `error.message`, fix the offending field, retry. Don't retry unchanged. |
+| `401` | **Auth** — missing, malformed, or wrong API key. | Send `Authorization: Bearer sk_test_...`. Check you're using the right key for the right base URL (test key → sandbox, live key → live). |
+| `404` | **Not found** — the id doesn't exist, or isn't visible to your key. | Confirm the id and that it belongs to this environment. A canonical `con_FINICITY_...` id won't resolve in sandbox, and vice versa. |
+| `429` | **Rate limit** — too many requests too fast. | Back off and retry. See [Rate limiting](#rate-limiting) below. |
+| `5xx` | **Server** — something broke on our side. | Retry with backoff. If it persists, open a ticket and quote the trace id. |
+
+<Note>
+  A `404` on `/accounts` or `/transactions` is often a real-vs-placeholder id mixup. Those endpoints only accept the **canonical** connection id (`con_FINICITY_41294`), never the pending placeholder `con_<uuid>`. See [Connection lifecycle](/guides/connection-lifecycle).
+</Note>
+
+## The trace id
+
+Every response — success or error — includes an `X-LS-Trace-Id` header:
+
+```
+X-LS-Trace-Id: 7b3f9c2a1e4d40a8b6c0f1e2d3a4b5c6
+```
+
+Log it on every request. When you open a support ticket, **quote the trace id** for the exact failing call. It lets us jump straight to your request in our logs instead of guessing — it's the single fastest way to get an answer.
+
+<Tip>
+  Log the trace id even on **successful** calls. When something looks wrong downstream ("this account has no transactions"), the trace id from the original read is what we need.
+</Tip>
+
+## A handling pattern
+
+The same four steps work in any language:
+
+1. **Check the HTTP status.** 2xx? You're done.
+2. **Parse the envelope** to get `error.code`.
+3. **Branch on `code`** to decide what to do (fix input, re-auth, back off, surface to user).
+4. **Log the trace id** from `X-LS-Trace-Id` alongside the code.
+
+<CodeGroup>
+
+```python errors.py
+import requests
+
+resp = requests.post(
+    "https://api-sandbox.ledgersyncappv2.com/v3/clients/cli_01HXYZ/connections",
+    headers={"Authorization": "Bearer sk_test_..."},
+    json={"institution_id": "ins_0a01a5430925d0b2"},
+)
+
+trace_id = resp.headers.get("X-LS-Trace-Id")
+
+if resp.ok:
+    operation = resp.json()
+else:
+    err = resp.json()["error"]
+    log.warning("LedgerSync error code=%s status=%s trace=%s",
+                err["code"], resp.status_code, trace_id)
+
+    if err["code"] == "institution_not_found":
+        # fix the institution_id and retry
+        ...
+    elif resp.status_code == 401:
+        # bad/missing key — don't retry, fix credentials
+        ...
+    elif resp.status_code == 429:
+        # back off and retry (see Rate limiting)
+        ...
+    elif resp.status_code >= 500:
+        # transient — retry with backoff, then escalate with trace_id
+        ...
+```
+
+```javascript errors.js
+const resp = await fetch(
+  "https://api-sandbox.ledgersyncappv2.com/v3/clients/cli_01HXYZ/connections",
+  {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer sk_test_...",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ institution_id: "ins_0a01a5430925d0b2" }),
+  }
+);
+
+const traceId = resp.headers.get("X-LS-Trace-Id");
+
+if (resp.ok) {
+  const operation = await resp.json();
+} else {
+  const { error } = await resp.json();
+  console.warn(
+    `LedgerSync error code=${error.code} status=${resp.status} trace=${traceId}`
+  );
+
+  switch (true) {
+    case error.code === "institution_not_found":
+      // fix institution_id and retry
+      break;
+    case resp.status === 401:
+      // bad/missing key — fix credentials, don't retry
+      break;
+    case resp.status === 429:
+      // back off and retry (see Rate limiting)
+      break;
+    case resp.status >= 500:
+      // transient — retry with backoff, then escalate with traceId
+      break;
+  }
+}
+```
+
+</CodeGroup>
+
+## Rate limiting
+
+A `429` means you've sent too many requests too quickly. It's not an error in your code — just a signal to slow down. Retry the same request after a short wait.
+
+Use **exponential backoff with jitter**: wait, retry, and double the wait each time a `429` comes back (e.g. 1s, 2s, 4s, 8s...) with a little randomness so many clients don't retry in lockstep. Cap the number of attempts.
+
+<CodeGroup>
+
+```python backoff.py
+import time, random
+
+def call_with_backoff(do_request, max_attempts=5):
+    for attempt in range(max_attempts):
+        resp = do_request()
+        if resp.status_code != 429:
+            return resp
+        wait = (2 ** attempt) + random.random()
+        time.sleep(wait)
+    return resp  # give up; log the trace id and escalate
+```
+
+```javascript backoff.js
+async function callWithBackoff(doRequest, maxAttempts = 5) {
+  let resp;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    resp = await doRequest();
+    if (resp.status !== 429) return resp;
+    const wait = (2 ** attempt) * 1000 + Math.random() * 1000;
+    await new Promise((r) => setTimeout(r, wait));
+  }
+  return resp; // give up; log the trace id and escalate
+}
+```
+
+</CodeGroup>
+
+<Tip>
+  The same backoff pattern is the right response to `5xx` errors too — they're usually transient. Only `4xx` errors (other than `429`) mean "don't retry until you change something."
+</Tip>
+
+## Getting help
+
+<Check>
+  When you file a ticket, include: the `X-LS-Trace-Id`, the `error.code`, the endpoint you called, and whether you were in sandbox or live. That's everything we need to find your exact request.
+</Check>
+
+<CardGroup cols={2}>
+  <Card title="Testing playbook" icon="flask" href="/guides/testing">
+    Reproduce and explore error paths safely with sandbox test banks and keys.
+  </Card>
+  <Card title="Connection lifecycle" icon="bolt" href="/guides/connection-lifecycle">
+    Most `404`s trace back to placeholder-vs-canonical connection ids.
+  </Card>
+</CardGroup>

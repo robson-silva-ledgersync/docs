@@ -1,0 +1,163 @@
+---
+title: "Testing in sandbox"
+description: "Link real Finicity, MX, and FDE sandbox banks end-to-end — no synthetic data, no credentials of your own."
+---
+
+Sandbox is a full, live copy of the v3 API. Same endpoints, same webhooks, same routing logic — pointed at the aggregators' own sandbox banks instead of production ones. There is no synthetic data mode: you link a real test bank, sign in with test credentials, and watch real accounts, transactions, and statements flow back exactly as they will in production.
+
+<Info>
+Sandbox uses `https://api-sandbox.ledgersyncappv2.com/v3` and an `sk_test_...` key. Live traffic never touches sandbox and vice-versa. See [Authentication](/authentication) for how to get and send your key.
+</Info>
+
+## What sandbox gives you
+
+- **The real routing engine.** When you initiate a connection, v3 picks the source (Finicity, MX, or FDE) from the institution catalog — server-side, just like production. You never pass a `source`.
+- **Real widgets.** Finicity and MX open their own aggregator sandbox widgets. FDE opens the LedgerSync-hosted connect page. You still never see or transmit credentials.
+- **Real webhooks.** `connection.active`, `account.refresh.completed`, and the rest fire against your subscription with real signatures.
+
+<Note>
+Everything on this page is a starting point. Full credentials, MFA answers, and the complete bank roster live in the **Testing playbook** in your portal — it is the source of truth and it stays current as banks are added or decertified.
+</Note>
+
+## The 60-second smoke test (FinBank)
+
+FinBank is Finicity's sandbox bank. It flips to `active` immediately, with no MFA, and auto-populates accounts, transactions, and statements. It is the fastest way to prove your integration works end-to-end.
+
+<Steps>
+  <Step title="Find FinBank">
+    Search the institution catalog and pick the row named **exactly** `FinBank` — the sandbox has several `FinBank *` variants (see the table below) and only the plain one is the no-friction path.
+
+    ```bash Search
+    curl "https://api-sandbox.ledgersyncappv2.com/v3/institutions?q=FinBank" \
+      -H "Authorization: Bearer sk_test_..."
+    ```
+
+    Grab the `id` (looks like `ins_0a01a5430925d0b2`) from the row whose name is `FinBank`.
+  </Step>
+
+  <Step title="Initiate the connection">
+    Point it at a client you've created (see [Connect a bank](/guides/connect-a-bank) for creating clients).
+
+    ```bash Initiate
+    curl -X POST "https://api-sandbox.ledgersyncappv2.com/v3/clients/cli_.../connections" \
+      -H "Authorization: Bearer sk_test_..." \
+      -H "Content-Type: application/json" \
+      -d '{"institution_id":"ins_0a01a5430925d0b2"}'
+    ```
+
+    You get `202 Accepted` with an `operation_id`. Poll it until `status` is `succeeded`, then read `result.connection.action.widget_url`.
+
+    ```bash Poll
+    curl "https://api-sandbox.ledgersyncappv2.com/v3/operations/op_..." \
+      -H "Authorization: Bearer sk_test_..."
+    ```
+  </Step>
+
+  <Step title="Open the widget and sign in">
+    Open `widget_url` in a browser. Search for and pick FinBank, then sign in with the sandbox credentials:
+
+    | Field | Value |
+    | --- | --- |
+    | Banking Userid | `demo` |
+    | Banking Password | `go` |
+
+    Pick accounts and close the widget. No MFA — it links right away.
+  </Step>
+
+  <Step title="Watch it go active">
+    The connection flips to `active` and `connection.active` fires on your webhook. The payload carries the **canonical** connection id (`con_FINICITY_<bankAccountId>`, e.g. `con_FINICITY_41294`). Store that — the placeholder `con_<uuid>` you saw during pending only works for the widget step.
+  </Step>
+
+  <Step title="Read the data">
+    Accounts, transactions, and statements are already populated. Reads are Client-scoped, so pass `client_id` every time.
+
+    ```bash Accounts
+    curl "https://api-sandbox.ledgersyncappv2.com/v3/accounts?client_id=cli_...&connection_id=con_FINICITY_41294" \
+      -H "Authorization: Bearer sk_test_..."
+    ```
+
+    ```bash Transactions
+    curl "https://api-sandbox.ledgersyncappv2.com/v3/accounts/acc_FINICITY_.../transactions?client_id=cli_...&from=2026-01-01" \
+      -H "Authorization: Bearer sk_test_..."
+    ```
+  </Step>
+</Steps>
+
+<Check>
+If you saw `connection.active`, a canonical `con_FINICITY_...` id, and non-empty accounts, your happy path is wired correctly. Now exercise the edge cases.
+</Check>
+
+## FinBank edge-case variants
+
+Beyond the plain `FinBank`, Finicity's sandbox exposes named variants that reproduce real-world friction: MFA, OAuth handoffs, decertified banks, billable statements, and different account shapes. Search for each by name in the institution catalog and initiate exactly as above.
+
+| Bank name | What it exercises | How to drive it |
+| --- | --- | --- |
+| **FinBank Profiles - A** | Account-shape variant A (specific account set / balances) | Sign in, then supply the `profile_*` password from the playbook to select shape A |
+| **FinBank Profiles - B** | Account-shape variant B (different account set / balances) | Same as A, with the shape-B `profile_*` password |
+| **FinBank M** | MFA challenge during sign-in | Answer the MFA prompt with the value from the playbook |
+| **FinBank O** | Alternate aggregation path | Standard sign-in; verifies your handling of the non-default flow |
+| **FinBank C** | Captcha-style MFA | Complete the captcha MFA step from the playbook |
+| **FinBank P** | Personal (consumer) account profile | Standard sign-in; returns personal-account shapes |
+| **FinBank OAuth** | Bank-side OAuth handoff (no credentials entered in the widget) | Complete the OAuth redirect flow in the widget |
+| **FinBank Decertified** | A decertified institution | Produces `connection.failed` with a decertification `last_error` — assert your failure handling |
+| **FinBank Billable** | Billable statements | Verifies statement retrieval on a billable-statements institution |
+
+<Tip>
+The MFA answers, captcha values, and `profile_*` passwords are not guessable — pull them from the portal **Testing playbook** before you run these. It also lists any variants added since this page was written.
+</Tip>
+
+## MX sandbox banks
+
+MX is the alternate aggregator — it catches institutions Finicity misses, and v3 routes to it automatically when the catalog says so. MX exposes its own sandbox banks and its own aggregator widget. Ids come back source-tagged: `con_MX_<id>` (e.g. `con_MX_1224`), `acc_MX_...`, `txn_MX_...`. Search the catalog, initiate the same way, and use the MX sandbox credentials and MFA answers from the playbook.
+
+## FDE — Ledgersync Bank
+
+FDE is LedgerSync's proprietary, credential-based extraction path, used for banks neither aggregator covers. To test it, use the sandbox institution **Ledgersync Bank**:
+
+```bash Initiate an FDE connection
+curl -X POST "https://api-sandbox.ledgersyncappv2.com/v3/clients/cli_.../connections" \
+  -H "Authorization: Bearer sk_test_..." \
+  -H "Content-Type: application/json" \
+  -d '{"institution_id":"ins_a7397a8d0656e1b7"}'
+```
+
+The widget for an FDE connection is the **LedgerSync-hosted connect page**, not an aggregator widget. Because the bank is already fixed by `institution_id`, there is no bank-search step — the user just signs in. On success the connection id is `con_FDE_...` and transactions come back as `txn_FDE_...`.
+
+## Testing your webhook handler
+
+You don't have to link a bank to prove your endpoint works. Fire a test event:
+
+```bash Test-fire a subscription
+curl -X POST "https://api-sandbox.ledgersyncappv2.com/v3/webhooks/subscriptions/sub_.../test" \
+  -H "Authorization: Bearer sk_test_..."
+```
+
+The test delivery is signed with your **real** signing secret and bypasses the `event_types` filter, so it reaches your handler even for events you didn't subscribe to. It arrives as a `webhook.test` event — a safe way to confirm signature verification, your 2xx-within-30s response, and your `event_id` dedupe logic before real events flow.
+
+<Warning>
+Verify the signature the same way in sandbox as in production: constant-time HMAC-SHA256 over the raw body, and reject deliveries whose timestamp is more than 5 minutes old. See [Webhooks](/guides/webhooks) for the full verification recipe.
+</Warning>
+
+## Handling failures on purpose
+
+Sandbox is the right place to rehearse the unhappy paths:
+
+- **`connection.failed`** — link **FinBank Decertified** to get a real failure with a decertification `last_error`, or enter wrong credentials on any FinBank variant.
+- **`requires_action` that lingers** — start a connection and don't finish the widget. The connection stays `requires_action` (there is no auto timeout-to-failed today) until the user re-opens the still-valid `widget_url` or you re-initiate.
+- **Error envelopes** — call a read with a bogus `client_id` or a missing key to see the `{ "error": { "code", "message", "doc_url", "type" } }` shape. Branch on `code`, and quote the `X-LS-Trace-Id` header in any support ticket. See [Errors](/guides/errors).
+
+<CardGroup cols={2}>
+  <Card title="Connect a bank" icon="link" href="/guides/connect-a-bank">
+    The full initiate → widget → active flow, end to end.
+  </Card>
+  <Card title="Connection lifecycle" icon="bolt" href="/guides/connection-lifecycle">
+    Every status a connection moves through and what each means.
+  </Card>
+  <Card title="Webhooks" icon="webhook" href="/guides/webhooks">
+    Subscribe, verify signatures, dedupe, and handle retries.
+  </Card>
+  <Card title="Errors" icon="shield-check" href="/guides/errors">
+    The error envelope, HTTP mapping, and how to branch on `code`.
+  </Card>
+</CardGroup>

@@ -1,0 +1,279 @@
+---
+title: "Webhooks"
+description: "Get notified the moment a bank connection goes live, fails, or changes — instead of polling for it."
+---
+
+Bank linking is asynchronous. After you hand a user off to the widget, they might sign in and pick accounts in ten seconds — or wander off and finish twenty minutes later on their phone. Webhooks let LedgerSync tell you the instant something happens, so you never have to sit in a polling loop.
+
+The single most important event is `connection.active`: it fires when a user finishes linking and data starts flowing. That payload carries the **canonical** connection id (like `con_FINICITY_41294`) — the only id that works on `/accounts`, `/transactions`, and `/statements`. Subscribe to webhooks and you get it delivered for free.
+
+<Note>
+Webhooks are the recommended way to learn about connection state. You *can* poll `GET /v3/operations/{id}` during the initial link (see [Connect a bank](/guides/connect-a-bank)), but for everything after — refreshes, disconnects, capability changes — webhooks are the only push channel.
+</Note>
+
+## Subscribe
+
+The easiest path is the **Webhooks page in the portal**: paste your endpoint URL, tick the events you want, and copy the signing secret. It's the recommended day-to-day way to manage subscriptions, rotate secrets, and inspect recent deliveries.
+
+To do it programmatically, `POST /v3/webhooks/subscriptions`:
+
+<CodeGroup>
+```bash Create a subscription
+curl -X POST https://api-sandbox.ledgersyncappv2.com/v3/webhooks/subscriptions \
+  -H "Authorization: Bearer sk_test_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://yourapp.com/webhooks/ledgersync",
+    "event_types": [
+      "connection.active",
+      "connection.failed",
+      "connection.disconnected",
+      "account.refresh.completed"
+    ]
+  }'
+```
+
+```json Response
+{
+  "id": "whsub_01HXYZ...",
+  "url": "https://yourapp.com/webhooks/ledgersync",
+  "event_types": [
+    "connection.active",
+    "connection.failed",
+    "connection.disconnected",
+    "account.refresh.completed"
+  ],
+  "signing_secret": "whsec_9f2c...shown-once"
+}
+```
+</CodeGroup>
+
+<Warning>
+The `signing_secret` is shown **once**, at creation. Store it somewhere safe immediately — you'll need it to verify every delivery. If you lose it, rotate the secret from the portal Webhooks page.
+</Warning>
+
+## Event catalog
+
+There are exactly eight real events, plus a `webhook.test` event you can fire on demand. Subscribe only to the ones you handle.
+
+| Event | Fires when |
+| --- | --- |
+| `connection.initiated` | You've kicked off a link; the user hasn't finished the widget yet. |
+| `connection.requires_action` | The connection is waiting on the user in the widget (sign-in, MFA, account pick). |
+| `connection.active` | The user finished linking. Data is flowing. Carries the **canonical** connection id. |
+| `connection.failed` | Bad credentials or an aggregator-reported failure. The link did not complete. |
+| `connection.disconnected` | The user revoked access, or the connection needs a re-link. |
+| `connection.capability_changed` | A single capability on an active connection flipped working ↔ not-working. |
+| `account.refresh.completed` | A background data refresh for an account finished successfully. |
+| `account.refresh.failed` | A background data refresh for an account failed. |
+| `webhook.test` | A manual test delivery you triggered. Safe to ignore in business logic. |
+
+<Tip>
+See [Connection lifecycle](/guides/connection-lifecycle) for how `initiated → requires_action → active` (and the failure paths) fit together as a state machine.
+</Tip>
+
+## Delivery shape
+
+Every delivery is an HTTP `POST` to your URL with a JSON body and three `X-LS-Webhook-*` headers:
+
+| Header | Meaning |
+| --- | --- |
+| `X-LS-Webhook-Event-Type` | The event type, e.g. `connection.active`. Lets you route before parsing. |
+| `X-LS-Webhook-Timestamp` | Unix seconds when we sent the delivery. Used in signature checks and replay protection. |
+| `X-LS-Webhook-Signature` | HMAC-SHA256 hex of the **raw** request body, keyed with your signing secret. |
+
+The body:
+
+```json Example delivery body
+{
+  "event_id": "evt_01HXYZ...",
+  "type": "connection.active",
+  "data": {
+    "connection": {
+      "id": "con_FINICITY_41294",
+      "client_id": "cli_01HXYZ...",
+      "status": "active"
+    }
+  }
+}
+```
+
+## Verify the signature
+
+Never trust a delivery you haven't verified. Compute HMAC-SHA256 over the **raw, unparsed** request body using your signing secret, and compare it to `X-LS-Webhook-Signature` in constant time. Also reject anything whose `X-LS-Webhook-Timestamp` is more than five minutes old — that stops replay attacks.
+
+<Warning>
+Verify against the **raw bytes** of the body, exactly as received. If your framework parses JSON and re-serializes it, the bytes change and the signature won't match. Capture the raw body before any JSON middleware touches it.
+</Warning>
+
+<CodeGroup>
+```python Python (Flask)
+import hmac, hashlib, time
+from flask import Flask, request, abort
+
+SIGNING_SECRET = b"whsec_9f2c..."
+MAX_AGE_SECONDS = 5 * 60
+
+app = Flask(__name__)
+
+@app.post("/webhooks/ledgersync")
+def handle():
+    raw = request.get_data()  # raw bytes, before JSON parsing
+    timestamp = request.headers.get("X-LS-Webhook-Timestamp", "")
+    signature = request.headers.get("X-LS-Webhook-Signature", "")
+
+    # Reject stale deliveries (replay protection)
+    if not timestamp.isdigit() or abs(time.time() - int(timestamp)) > MAX_AGE_SECONDS:
+        abort(400)
+
+    expected = hmac.new(SIGNING_SECRET, raw, hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected, signature):
+        abort(401)
+
+    event = request.get_json()
+    # ... dedupe on event["event_id"], enqueue, return fast ...
+    return "", 200
+```
+
+```javascript Node (Express)
+const crypto = require("crypto");
+const express = require("express");
+
+const SIGNING_SECRET = "whsec_9f2c...";
+const MAX_AGE_SECONDS = 5 * 60;
+
+const app = express();
+
+// Capture the RAW body — do not let express.json() reserialize it.
+app.post(
+  "/webhooks/ledgersync",
+  express.raw({ type: "application/json" }),
+  (req, res) => {
+    const raw = req.body; // Buffer of raw bytes
+    const timestamp = req.get("X-LS-Webhook-Timestamp") || "";
+    const signature = req.get("X-LS-Webhook-Signature") || "";
+
+    // Reject stale deliveries (replay protection)
+    const age = Math.abs(Date.now() / 1000 - Number(timestamp));
+    if (!/^\d+$/.test(timestamp) || age > MAX_AGE_SECONDS) {
+      return res.sendStatus(400);
+    }
+
+    const expected = crypto
+      .createHmac("sha256", SIGNING_SECRET)
+      .update(raw)
+      .digest("hex");
+
+    const a = Buffer.from(expected);
+    const b = Buffer.from(signature);
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+      return res.sendStatus(401);
+    }
+
+    const event = JSON.parse(raw.toString("utf8"));
+    // ... dedupe on event.event_id, enqueue, return fast ...
+    res.sendStatus(200);
+  }
+);
+```
+</CodeGroup>
+
+<Check>
+Use a constant-time comparison — `hmac.compare_digest` in Python, `crypto.timingSafeEqual` in Node. A plain `==` leaks timing information an attacker can use to forge signatures.
+</Check>
+
+## Retries and idempotency
+
+If your endpoint doesn't return a `2xx` quickly, we retry with **exponential backoff for up to 24 hours**. That means:
+
+- **Return `2xx` within 30 seconds.** Do the minimum — verify, enqueue, respond. Push slow work (DB writes, downstream calls) onto a background queue. A slow handler looks like a failure and gets retried.
+- **Deliveries can repeat.** A retry after a network blip — or a delivery you already processed but responded to slowly — means the same event can arrive more than once. **Dedupe on `event_id`.** Treat it as an idempotency key: if you've seen it, ack and move on.
+
+```python Idempotent handling
+if seen_before(event["event_id"]):
+    return "", 200          # already processed — ack and skip
+mark_seen(event["event_id"])
+enqueue(event)              # do the real work off the request path
+return "", 200
+```
+
+<Info>
+Order is not guaranteed under retries. Design handlers to be self-contained: react to the state in `data`, don't assume the previous event already landed.
+</Info>
+
+## Test-fire a delivery
+
+Once a subscription exists, send yourself a real signed delivery:
+
+```bash Fire a test event
+curl -X POST \
+  https://api-sandbox.ledgersyncappv2.com/v3/webhooks/subscriptions/whsub_01HXYZ.../test \
+  -H "Authorization: Bearer sk_test_..."
+```
+
+The test delivery is signed with your **real** signing secret, so it exercises your verification code end-to-end. It also **bypasses the `event_types` filter**, so you can trigger it regardless of what you subscribed to. Use it to confirm your endpoint is reachable, your signature check passes, and your dedupe logic works before you rely on live events.
+
+## `connection.capability_changed` in depth
+
+An active connection isn't all-or-nothing. A bank might keep serving transactions while its statements feed breaks for a week. `connection.capability_changed` tells you when one **individual capability** flips between working and not-working — so you can, say, warn a user that statements are temporarily unavailable without tearing down the whole connection.
+
+**Capabilities that can change:**
+
+| Capability | Covers |
+| --- | --- |
+| `transactions` | Transaction data feed. |
+| `balance` | Current balance. |
+| `available_balance` | Available (spendable) balance. |
+| `statements` | Statement documents. |
+| `check_images` | Check image retrieval. |
+
+**Capability statuses:** `succeeded`, `failed`, `skipped`, `unsupported`, `pending`.
+
+### Hysteresis: no flapping
+
+We don't fire on every hiccup. A capability only transitions after a run of consistent observations:
+
+- **`failed`** after **3 consecutive** failed observations.
+- **`succeeded`** after **2 consecutive** succeeded observations.
+
+This debounce keeps a single transient error from spamming you. The event fires **only on a real transition** — not on every refresh that happens to agree with the current state.
+
+### Payload
+
+```json connection.capability_changed
+{
+  "event_id": "evt_01HXYZ...",
+  "type": "connection.capability_changed",
+  "data": {
+    "connection": {
+      "id": "con_FINICITY_41294",
+      "client_id": "cli_01HXYZ...",
+      "status": "active"
+    },
+    "capability": "statements",
+    "previous_status": "succeeded",
+    "status": "failed",
+    "consecutive_observations": 3,
+    "observed_at": "2026-07-07T14:22:05Z"
+  }
+}
+```
+
+`previous_status` and `status` tell you the direction of the flip; `consecutive_observations` is how many in a row triggered it (3 for a fail, 2 for a recovery); `observed_at` is when the deciding observation landed.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Connection lifecycle" icon="arrows-rotate" href="/guides/connection-lifecycle">
+    How connections move through initiated, active, failed, and disconnected.
+  </Card>
+  <Card title="Connect a bank" icon="link" href="/guides/connect-a-bank">
+    The full linking flow, from institution search to a canonical connection id.
+  </Card>
+  <Card title="Errors" icon="triangle-exclamation" href="/guides/errors">
+    The error envelope, status codes, and how to branch on `code`.
+  </Card>
+  <Card title="Testing" icon="flask" href="/guides/testing">
+    Sandbox banks and credentials to drive every event end-to-end.
+  </Card>
+</CardGroup>

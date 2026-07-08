@@ -22,6 +22,21 @@
               "guides/connect-a-bank",
               "authentication"
             ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/connection-lifecycle",
+              "guides/webhooks",
+              "guides/errors"
+            ]
+          },
+          {
+            "group": "Go live",
+            "pages": [
+              "guides/testing",
+              "guides/going-live"
+            ]
           }
         ]
       },

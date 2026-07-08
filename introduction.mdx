@@ -1,39 +1,102 @@
 ---
 title: "Welcome to LedgerSync"
-description: "One API to connect your users' bank accounts and pull their transactions, statements, and balances."
+description: "One uniform REST API for bank accounts, balances, transactions, and statements — across three data sources, with no plumbing to build yourself."
 ---
 
-LedgerSync connects to your end-users' bank accounts and gives you back their
-**accounts, balances, transactions, and statements** through one clean,
-source-agnostic REST API. Under the hood we route across multiple data sources;
-you only ever touch one interface.
+LedgerSync gives you **one API** for your users' bank data. You link an account once, and we return accounts, balances, transactions, and statements as clean JSON — no matter which bank or which underlying data source is behind it.
 
-<CardGroup cols={2}>
-  <Card title="Connect a bank" icon="link" href="/guides/connect-a-bank" horizontal>
-    The five-minute path from an API key to a live bank connection.
+Under the hood we pull from three sources and route between them for you:
+
+<CardGroup cols={3}>
+  <Card title="Finicity" icon="building-columns">
+    Broadest US coverage, with bank OAuth where the institution supports it.
   </Card>
-  <Card title="API reference" icon="terminal" href="/api-reference" horizontal>
-    Every endpoint and schema, with a live "try it" console.
+  <Card title="MX" icon="shuffle">
+    An alternate aggregator that catches banks Finicity misses.
+  </Card>
+  <Card title="FDE" icon="file-lines">
+    LedgerSync's proprietary credential-based extraction, for banks neither aggregator covers.
   </Card>
 </CardGroup>
 
-## The mental model
+<Info>
+  You never pick a source. When you initiate a connection, v3 chooses the right one **server-side** from our institution catalog. There is no `source` parameter — the id you get back (like `con_FINICITY_41294` or `con_MX_1224`) tells you which one answered.
+</Info>
+
+## The data model
+
+Everything hangs off four nested objects. Learn these once and the rest of the API reads naturally.
+
+```mermaid
+graph LR
+  A[Client<br/>cli_...] --> B[Connection<br/>con_...]
+  B --> C[Account<br/>acc_...]
+  C --> D[Transaction<br/>txn_...]
+  C --> E[Statement]
+```
+
+| Object | What it is |
+| --- | --- |
+| **Client** | Your record of one end-user. You set `external_id`; our id looks like `cli_01HXYZ...`. |
+| **Connection** | One linked bank for a Client. A Client can have many. |
+| **Account** | A checking, savings, card, or loan account exposed by a Connection. |
+| **Transaction / Statement** | The actual data on an Account. |
+
+<Tip>
+  Reads are **Client-scoped** — pass `client_id` on every read call. For example: `GET /v3/accounts?client_id=cli_...&connection_id=con_FINICITY_41294`.
+</Tip>
+
+## How linking works, in one breath
 
 <Steps>
   <Step title="Create a Client">
-    A **Client** is your record of one end-user, the person whose bank you'll read.
+    Your end-user, keyed by your own `external_id`.
   </Step>
-  <Step title="Open a Connection">
-    A **Connection** links one bank to that client. You start it, the user logs
-    in, we handle the aggregation.
+  <Step title="Initiate a Connection">
+    `POST /v3/clients/{id}/connections` with an `institution_id`. You get a `202` and an `operation_id` to poll.
   </Step>
-  <Step title="Read their data">
-    Once active, pull **accounts**, **transactions**, and **statements**, and
-    receive **webhooks** as things change.
+  <Step title="Hand off the widget">
+    Open the returned `widget_url` in the user's browser. They pick their bank, sign in, and choose accounts. You never see their credentials.
+  </Step>
+  <Step title="Read the data">
+    Once the connection goes `active`, store the canonical `con_...` id and read accounts, transactions, and statements.
   </Step>
 </Steps>
 
-<Note>
-  Everything is JSON over HTTPS, and sandbox is one key away. Bank credentials
-  are entered only on LedgerSync-hosted pages, never through your servers.
-</Note>
+The full walkthrough lives in [Connect a bank](/guides/connect-a-bank).
+
+## Start here
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/guides/quickstart">
+    From a sandbox key to live transaction data in a few requests.
+  </Card>
+  <Card title="Connect a bank" icon="link" href="/guides/connect-a-bank">
+    Initiate, hand off the widget, and read back accounts.
+  </Card>
+  <Card title="Webhooks" icon="webhook" href="/guides/webhooks">
+    Get told the moment a connection goes active, fails, or refreshes.
+  </Card>
+  <Card title="Errors" icon="triangle-exclamation" href="/guides/errors">
+    One error envelope, one field to branch on: `code`.
+  </Card>
+  <Card title="API Reference" icon="book" href="/api-reference">
+    Every endpoint, field, and response, in full.
+  </Card>
+  <Card title="Authentication" icon="key" href="/authentication">
+    Bearer keys, sandbox vs. live, and the trace header.
+  </Card>
+</CardGroup>
+
+## Everything is JSON over HTTPS
+
+No SDK required. Send and receive JSON, authenticate with a Bearer key, and read the `X-LS-Trace-Id` header on every response for support. Sandbox is one key away — grab an `sk_test_...` key, point at `https://api-sandbox.ledgersyncappv2.com/v3`, and link the built-in **FinBank** test bank with no MFA.
+
+```bash Sandbox smoke test
+curl https://api-sandbox.ledgersyncappv2.com/v3/institutions?q=chase \
+  -H "Authorization: Bearer sk_test_..."
+```
+
+<Check>
+  When you're ready to try a full link end to end, head to the [Quickstart](/guides/quickstart).
+</Check>

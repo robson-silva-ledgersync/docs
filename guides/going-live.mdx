@@ -1,0 +1,91 @@
+---
+title: "Going live"
+description: "The checklist to run before you flip the same flow at api.ledgersyncappv2.com with a live key."
+---
+
+Your sandbox integration and your live integration are the *same code* against
+two base URLs. Going live is mostly about hardening the webhook handler and
+swapping the key. Walk this checklist before your first real user.
+
+<Info>
+  **Live base URL:** `https://api.ledgersyncappv2.com/v3` &nbsp;·&nbsp;
+  **Key prefix:** `sk_live_...`. Sandbox keys (`sk_test_...`) do **not**
+  authenticate against the live base URL, and vice-versa.
+</Info>
+
+## Before your first live user
+
+<Steps>
+  <Step title="Mint a live API key">
+    Same flow as sandbox, but choose **live** as the environment. Copy the
+    `sk_live_...` value once, it's shown only at creation, and store it in your
+    server's secret store. See [Authentication](/authentication).
+  </Step>
+
+  <Step title="Store the signing secret somewhere durable">
+    The `signing_secret` from your webhook subscription is shown **exactly
+    once**. Persist it to a real secrets manager (GCP Secret Manager, AWS
+    Secrets Manager, 1Password Connect, whatever you already run) before you
+    close the tab. You need it to verify every delivery.
+  </Step>
+
+  <Step title="Dedupe on event_id">
+    We retry failed deliveries with exponential backoff for **24 hours**, so
+    the same event can land more than once. Keep a short-lived set of seen
+    `event_id`s and short-circuit duplicates. Your handler must be idempotent.
+  </Step>
+
+  <Step title="Return 2xx fast">
+    Acknowledge each delivery within **30 seconds**. If your work is slow (DB
+    writes, notifications, downstream calls), enqueue it and return `200`
+    immediately, anything else looks like a failure and triggers a retry.
+  </Step>
+
+  <Step title="Verify signatures constant-time">
+    Compare the HMAC with `hmac.compare_digest` (Python) /
+    `crypto.timingSafeEqual` (Node) / your language's equivalent, never a plain
+    `==`, which leaks timing. Reject any delivery whose
+    `X-LS-Webhook-Timestamp` is more than **5 minutes** old. Full recipe in
+    [Webhooks](/guides/webhooks).
+  </Step>
+
+  <Step title="Exercise your handler with webhook.test">
+    Fire `POST /v3/webhooks/subscriptions/{id}/test` any time. It's signed with
+    the subscription's real `signing_secret` and carries the same headers as
+    production, so your verification path runs end-to-end. It bypasses the
+    `event_types` filter, so you don't need to subscribe to `webhook.test` for
+    it to land.
+  </Step>
+
+  <Step title="Plan for connection.failed and connection.disconnected">
+    Banks reject credentials, MFA tokens expire, users revoke access. Subscribe
+    to both events and surface a clear **re-link** call to action in your UI
+    when either fires. See [Connection lifecycle](/guides/connection-lifecycle).
+  </Step>
+
+  <Step title="Log X-LS-Trace-Id everywhere">
+    Every response, including errors, carries an `X-LS-Trace-Id`. Log it. When
+    you open a support ticket, quote it and we jump straight to your request.
+  </Step>
+</Steps>
+
+<Warning>
+  The single most common go-live bug is a webhook handler that isn't
+  idempotent or is too slow to ack. Get dedupe-on-`event_id` and
+  return-2xx-fast right in sandbox with [`webhook.test`](/guides/testing) before
+  you ship.
+</Warning>
+
+## What changes from sandbox
+
+| | Sandbox | Live |
+| --- | --- | --- |
+| Base URL | `api-sandbox.ledgersyncappv2.com/v3` | `api.ledgersyncappv2.com/v3` |
+| Key prefix | `sk_test_...` | `sk_live_...` |
+| Banks | Aggregator sandbox banks + FDE Ledgersync Bank | Real financial institutions |
+| Everything else | — | Identical |
+
+<Check>
+  Same endpoints, same webhook shapes, same routing. If it worked against the
+  [FinBank smoke test](/guides/testing), it works live.
+</Check>
