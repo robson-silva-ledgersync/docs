@@ -281,11 +281,18 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [data]
+                required: [data, has_more]
                 properties:
                   data:
                     type: array
                     items: { $ref: '#/components/schemas/Client' }
+                  next_cursor:
+                    type: string
+                    nullable: true
+                    description: Opaque cursor to pass as `cursor` for the next page. Null/absent when has_more is false.
+                  has_more:
+                    type: boolean
+                    description: Whether more items exist beyond this page.
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
@@ -539,11 +546,18 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [data]
+                required: [data, has_more]
                 properties:
                   data:
                     type: array
                     items: { $ref: '#/components/schemas/Connection' }
+                  next_cursor:
+                    type: string
+                    nullable: true
+                    description: Opaque cursor to pass as `cursor` for the next page. Null/absent when has_more is false.
+                  has_more:
+                    type: boolean
+                    description: Whether more items exist beyond this page.
         '401': { $ref: '#/components/responses/Unauthorized' }
     post:
       tags: [Connections]
@@ -1056,11 +1070,18 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [data]
+                required: [data, has_more]
                 properties:
                   data:
                     type: array
                     items: { $ref: '#/components/schemas/Account' }
+                  next_cursor:
+                    type: string
+                    nullable: true
+                    description: Opaque cursor to pass as `cursor` for the next page. Null/absent when has_more is false.
+                  has_more:
+                    type: boolean
+                    description: Whether more items exist beyond this page.
         '401': { $ref: '#/components/responses/Unauthorized' }
 
   /accounts/{account_id}:
@@ -1125,11 +1146,18 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [data]
+                required: [data, has_more]
                 properties:
                   data:
                     type: array
                     items: { $ref: '#/components/schemas/Transaction' }
+                  next_cursor:
+                    type: string
+                    nullable: true
+                    description: Opaque cursor to pass as `cursor` for the next page. Null/absent when has_more is false.
+                  has_more:
+                    type: boolean
+                    description: Whether more items exist beyond this page.
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
 
@@ -1185,11 +1213,18 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [data]
+                required: [data, has_more]
                 properties:
                   data:
                     type: array
                     items: { $ref: '#/components/schemas/Statement' }
+                  next_cursor:
+                    type: string
+                    nullable: true
+                    description: Opaque cursor to pass as `cursor` for the next page. Null/absent when has_more is false.
+                  has_more:
+                    type: boolean
+                    description: Whether more items exist beyond this page.
         '401': { $ref: '#/components/responses/Unauthorized' }
 
   /statements/{statement_id}:
@@ -1372,11 +1407,18 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [data]
+                required: [data, has_more]
                 properties:
                   data:
                     type: array
                     items: { $ref: '#/components/schemas/WebhookSubscription' }
+                  next_cursor:
+                    type: string
+                    nullable: true
+                    description: Opaque cursor to pass as `cursor` for the next page. Null/absent when has_more is false.
+                  has_more:
+                    type: boolean
+                    description: Whether more items exist beyond this page.
         '401': { $ref: '#/components/responses/Unauthorized' }
     post:
       tags: [Webhooks]
@@ -2107,12 +2149,12 @@ components:
       name: limit
       in: query
       required: false
-      description: Max items per page (1–100).
+      description: Max items per page. Values above the maximum are capped, not rejected.
       schema:
         type: integer
         minimum: 1
-        maximum: 100
-        default: 25
+        maximum: 500
+        default: 100
 
     ClientId:
       name: client_id
