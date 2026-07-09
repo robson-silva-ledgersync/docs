@@ -283,6 +283,43 @@ Content-Security-Policy: frame-src https://api.ledgersyncappv2.com
   exclusive.
 </Warning>
 
+### Iframe attributes and OAuth
+
+The wrapper needs **no Permissions-Policy `allow` attributes** — it uses no
+camera, microphone, or geolocation. A plain iframe works; `widget_url` is the URL
+`POST /clients/{id}/connections` hands back:
+
+```html
+<iframe src="{widget_url}" title="Connect your bank"></iframe>
+```
+
+It's a first-party, frame-guarded page, so you don't need a `sandbox` attribute.
+If your CSP forces one, it must permit scripts, forms, same-origin, **and
+popups** — the widget runs JS, submits the credential form, needs its own origin,
+and opens OAuth in a new tab:
+
+```html
+<iframe
+  src="{widget_url}"
+  sandbox="allow-scripts allow-forms allow-same-origin allow-popups"
+></iframe>
+```
+
+<Warning>
+  **OAuth banks can't complete inside a frame.** Institutions that use OAuth
+  (many large banks) block being iframed, so the wrapper opens the bank's OAuth
+  page in a **new tab** (`window.open`) and the member finishes there. So allow
+  popups if you sandbox, and don't assume the whole flow stays in your frame.
+  Credential-based banks complete fully in-frame. Either way you get the same
+  `ls/mx/memberConnected` `postMessage` (and the `ls_token` redirect, if you set
+  one) once the connection succeeds.
+</Warning>
+
+Detecting completion **without a redirect** is exactly what the `postMessage` is
+for: after the origin check, listen for `type === "ls/mx/memberConnected"` and
+use `event.data.connection_id`. You never need a `redirect_url` to know the
+member finished.
+
 ### What you cannot iframe
 
 | Page | Iframe? | Why |
