@@ -1,11 +1,11 @@
 ---
 title: "Welcome to LedgerSync"
-description: "One uniform REST API for bank accounts, balances, transactions, and statements — across three data sources, with no plumbing to build yourself."
+description: "One uniform REST API for bank accounts, balances, transactions, and statements — across multiple data sources, with no plumbing to build yourself."
 ---
 
 LedgerSync gives you **one API** for your users' bank data. You link an account once, and we return accounts, balances, transactions, and statements as clean JSON — no matter which bank or which underlying data source is behind it.
 
-Under the hood we pull from three sources and route between them for you:
+Under the hood we pull from three connectable sources and route between them for you:
 
 <CardGroup cols={3}>
   <Card title="Finicity" icon="building-columns">
@@ -23,6 +23,10 @@ Under the hood we pull from three sources and route between them for you:
   You never pick a source. When you initiate a connection, v3 chooses the right one **server-side** from our institution catalog. There is no `source` parameter — the id you get back (like `con_FINICITY_41294` or `con_MX_1224`) tells you which one answered.
 </Info>
 
+<Note>
+  **A fourth, read-only source: `PDF`.** When a user's account was set up from **uploaded bank statements**, its accounts and transactions come back with `source: "PDF"` (ids like `acc_PDF_42`, `txn_PDF_8837`). You don't connect `PDF` through the widget, and it never appears under `GET /v3/connections` — a `PDF` account's `connection_id` is `null`. Statements aren't served for `PDF` accounts. Everything else (accounts, transactions, pagination) reads exactly like an aggregator source.
+</Note>
+
 ## The data model
 
 Everything hangs off four nested objects. Learn these once and the rest of the API reads naturally.
@@ -38,9 +42,9 @@ graph LR
 | Object | What it is |
 | --- | --- |
 | **Client** | Your record of one end-user. You set `external_id`; our id looks like `cli_01HXYZ...`. |
-| **Connection** | One linked bank for a Client. A Client can have many. |
-| **Account** | A checking, savings, card, or loan account exposed by a Connection. |
-| **Transaction / Statement** | The actual data on an Account. |
+| **Connection** | One linked bank for a Client. A Client can have many. Aggregator sources only — uploaded-statement (`PDF`) data has no Connection. |
+| **Account** | A checking, savings, card, or loan account. Exposed by a Connection, or — for uploaded-statement (`PDF`) data — directly under the Client with `connection_id: null`. |
+| **Transaction / Statement** | The actual data on an Account. (Statements aren't served for `PDF` accounts.) |
 
 <Tip>
   Reads are **Client-scoped** — pass `client_id` on every read call. For example: `GET /v3/accounts?client_id=cli_...&connection_id=con_FINICITY_41294`.
