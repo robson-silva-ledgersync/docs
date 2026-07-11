@@ -2415,21 +2415,27 @@ components:
     Source:
       type: string
       description: |
-        Financial-data source backing a connection. All sources wrap
-        upstream aggregators or extraction pipelines.
+        Financial-data source backing an account. Aggregator sources
+        (`FINICITY`, `MX`) and `FDE` back a Connection; `PDF` does not.
 
         Values:
         - `FINICITY` — Finicity aggregation
         - `MX` — MX aggregation
         - `FDE` — Financial Document Extraction (LedgerSync proprietary)
+        - `PDF` — Uploaded bank statements. Read-only: exposed on
+          `/accounts` and `/transactions` (statements are not served for
+          PDF), and never as a Connection (PDF accounts have
+          `connection_id: null`).
       enum:
         - FINICITY
         - MX
         - FDE
+        - PDF
       x-enum-descriptions:
         - Finicity aggregation
         - MX aggregation
         - Financial Document Extraction (LedgerSync proprietary)
+        - Uploaded bank statements (read-only; not a connection source)
 
     Environment:
       type: string
