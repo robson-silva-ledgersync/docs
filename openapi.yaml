@@ -705,30 +705,27 @@ paths:
           asynchronously; on success the `account.refresh.completed`
           webhook fires when the bank call finishes, and on terminal
           failure the `account.refresh.failed` webhook fires instead.
-        - **MX (`con_MX_*`)** — returns `502 Bad Gateway` with
-          `error.code = "refresh_not_supported"` and
-          `error.category = "CAPABILITY_UNAVAILABLE"`. MX does not
-          expose an on-demand refresh API — fresh data arrives only
-          via aggregator-driven `account.refresh.completed` (and
-          `account.refresh.failed` on terminal failure) webhooks.
-          The v3 layer short-circuits before any operation row is
-          created, so no zombie operation is left behind.
+        - **MX (`con_MX_*`)** — returns `202 Accepted` with an
+          `operation_id`. MX has no synchronous refresh API, so the
+          backend triggers a member aggregation and returns
+          immediately; MX pulls fresh balances and transactions
+          asynchronously, and the `account.refresh.completed` webhook
+          fires when it finishes (`account.refresh.failed` on terminal
+          failure).
         - **FDE (`con_FDE_*`)** — returns `202 Accepted` with an
           `operation_id`. FDE re-runs its document extraction
           pipeline; on success the `account.refresh.completed`
           webhook fires on completion, and on terminal failure the
           `account.refresh.failed` webhook fires instead.
 
-        ### Checking refresh capability ahead of time
+        ### Refresh support by source
 
-        Whether `/refresh` will succeed is enumerated on the
-        connection's `realized_capabilities.transactions` and
-        `realized_capabilities.balance` blocks. If either has
-        `status = "unsupported"`, calling `/refresh` for that
-        connection will return `502` with
-        `error.code = "refresh_not_supported"`. Branch on
-        `realized_capabilities` instead of probing `/refresh` to
-        discover capability gaps.
+        All three connectable sources — Finicity, MX, and FDE —
+        support on-demand refresh and answer `202 Accepted` with an
+        `operation_id`; the outcome always arrives asynchronously on
+        the `account.refresh.completed` / `account.refresh.failed`
+        webhook, never in the `202` body. Uploaded-statement (`PDF`)
+        data is read-only, has no connection, and is never refreshed.
 
         ### Empty-body POST
 
@@ -761,12 +758,10 @@ paths:
             `Content-Length: 0` set explicitly.
         '502':
           description: |
-            On-demand refresh is not supported by the connection's
-            source (MX today). Body carries the canonical
-            `ErrorEnvelope` with `error.code = "refresh_not_supported"`
-            and `error.category = "CAPABILITY_UNAVAILABLE"`. Don't
-            retry — wait for the `account.refresh.completed` or
-            `account.refresh.failed` webhook instead.
+            The upstream aggregator or the backend was unreachable
+            while starting the refresh, so nothing was queued. Body
+            carries the canonical `ErrorEnvelope` (typically
+            `error.code = "upstream_unavailable"`); retry shortly.
           headers:
             X-LS-Trace-Id: { $ref: '#/components/headers/X-LS-Trace-Id' }
           content:
