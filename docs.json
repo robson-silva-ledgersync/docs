@@ -48,6 +48,12 @@
       {
         "tab": "API Reference",
         "openapi": "openapi.yaml"
+      },
+      {
+        "tab": "Changelog",
+        "pages": [
+          "changelog"
+        ]
       }
     ]
   },

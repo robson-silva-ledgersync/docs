@@ -1,0 +1,38 @@
+---
+title: "Changelog"
+description: "New features, improvements, and fixes to the LedgerSync v3 API. Newest first."
+---
+
+<Update label="2026-07-10" tags={["Accounts", "Transactions"]}>
+  ## PDF: a read-only fourth data source
+
+  Accounts created from **uploaded bank statements** now surface through the API. Their accounts and transactions come back with `source: "PDF"` (ids like `acc_PDF_42`, `txn_PDF_8837`).
+
+  - Read-only: `PDF` isn't linked through the widget and never appears under `GET /v3/connections` — a `PDF` account's `connection_id` is `null`.
+  - Exposed on `GET /v3/accounts` and `GET /v3/accounts/{id}/transactions`. Statements aren't served for `PDF` accounts.
+  - Everything else — pagination, filtering, the response shape — reads exactly like an aggregator source.
+
+  See [the data model](/introduction#the-data-model).
+</Update>
+
+<Update label="2026-07-08" tags={["Pagination"]}>
+  ## Cursor pagination on all list endpoints
+
+  Every list endpoint now returns an opaque `next_cursor` and a `has_more` flag. Pass `next_cursor` back as the `cursor` query param and loop until `has_more` is `false`.
+
+  - Keyset (seek) based, so it stays correct even as rows are added or removed between pages — no skipped or double-counted items.
+  - `limit` defaults to `100` (max `500`; higher values are capped, not rejected).
+  - Cursors are opaque and query-scoped — reusing one against a different account, filter, or date window returns `400 invalid_request`.
+
+  Full guide: [Pagination](/guides/pagination).
+</Update>
+
+<Update label="2026-07-02" tags={["Statements"]}>
+  ## Extract transactions from a bank-statement PDF
+
+  New `POST /v3/statements/extract` — upload a bank-statement PDF and get back the OCR-extracted transactions, powered by the same engine behind the LedgerSync app's Bank Statement Converter.
+
+  - Customer-level and standalone: no `client_id`, and the upload never attaches to a connection, account, or stored statement.
+  - Async: returns `202` with an `operation_id`; poll `GET /v3/operations/{id}` (most statements finish in under a minute). The result carries `kind: statement_extraction`. There's no webhook for this one — polling is the completion signal.
+  - PDF only, up to 30 MB (larger uploads are rejected with `413`). Requires the `write:statements` scope. Per-customer concurrency and daily budgets apply on top of the standard rate tiers — exceeding them returns `429`.
+</Update>
