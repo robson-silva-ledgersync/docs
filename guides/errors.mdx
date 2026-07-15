@@ -112,8 +112,8 @@ on `type`**. They group cleanly by the action they require:
 
 <Warning>
   The wire `error.category` is too coarse to branch on. `CAPABILITY_UNAVAILABLE`
-  covers `agreement_required`, `statements_not_supported`, `fde_unsupported`,
-  **and** `refresh_not_supported`; `CONNECTION_ERROR` covers both `mfa_required`
+  covers `agreement_required`, `statements_not_supported`, **and**
+  `fde_unsupported`; `CONNECTION_ERROR` covers both `mfa_required`
   and `reauthorization_required`. Always switch on `error.code`.
 </Warning>
 
@@ -140,7 +140,6 @@ on `type`**. They group cleanly by the action they require:
 | Code | When it fires |
 | --- | --- |
 | `statements_not_supported` | Institution doesn't expose statements. `FIN-6004`. Hide "view statements"; transactions/balances still work. |
-| `refresh_not_supported` | Source has no on-demand refresh (MX). Subscribe to `account.refresh.completed` instead. |
 | `fde_unsupported` | FDE-backed connection doesn't expose this capability. Gate the feature by connection source. |
 
 **User must act at the bank (not in your widget):**

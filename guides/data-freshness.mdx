@@ -1,0 +1,58 @@
+---
+title: "Keeping data fresh"
+description: "How current the balances and transactions from GET /accounts are, how to check, and how to force a refresh when you need fresher-than-daily data."
+---
+
+Each Account exposes a `current_balance` (and an `available_balance` for MX accounts), plus its transactions through `GET /accounts/{id}/transactions`. This guide explains how fresh that data is, how to tell, and how to pull fresher data on demand.
+
+## How fresh is `GET /accounts`?
+
+The balances you read are a **cached snapshot from the last successful refresh** — not a live call to the bank on every request. LedgerSync refreshes every **active** connection automatically about **once a day**, so under normal conditions the numbers are less than 24 hours old.
+
+Every Account carries a **`last_refreshed_at`** timestamp — the moment its data was last refreshed. Read it to decide whether you already have fresh-enough data or need to force a refresh.
+
+<Info>
+  For most use cases you do **not** need to call `/refresh`. The daily auto-refresh keeps active connections current, and `GET /accounts` always returns the latest snapshot. Reach for `/refresh` only when you need fresher-than-daily data.
+</Info>
+
+## Forcing a refresh
+
+When you need up-to-the-moment data (a user tapped "refresh", you're reconciling something time-sensitive), call `POST /connections/{id}/refresh`:
+
+```bash
+curl -X POST https://api.ledgersyncappv2.com/v3/connections/con_FINICITY_41294/refresh \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Length: 0"
+```
+
+It returns **`202 Accepted`** with an `operation_id` and starts the refresh **asynchronously** — balances are **not** updated by the time the call returns. All three connectable sources (Finicity, MX, and FDE) behave the same way.
+
+<Steps>
+  <Step title="POST /connections/{id}/refresh">
+    You get `202` and an `operation_id`.
+  </Step>
+  <Step title="Wait for the account.refresh.completed webhook">
+    It fires when the fresh data is in (or `account.refresh.failed` on a terminal failure). Listen for the webhook — don't poll `GET /accounts` in a loop.
+  </Step>
+  <Step title="Re-read GET /accounts (and /transactions)">
+    The snapshot now reflects the fresh pull and `last_refreshed_at` has advanced.
+  </Step>
+</Steps>
+
+See [Connection lifecycle](/guides/connection-lifecycle) and [Webhooks](/guides/webhooks) for the `account.refresh.completed` / `account.refresh.failed` payload shapes, and the **Refresh a connection** endpoint in the API Reference for the full contract.
+
+<Note>
+  MX aggregates on its own schedule and refreshes through this same async webhook flow. A refresh you request triggers an MX aggregation, and the result arrives on the `account.refresh.completed` webhook — so MX is no different from Finicity or FDE from your side.
+</Note>
+
+## Refreshing many connections at once
+
+You can refresh all of a customer's banks in one batch — each connection is a separate `POST /connections/{id}/refresh` call. That's well within the rate limits (live keys allow 60 requests/minute), and there is no separate concurrency cap on refresh: the limit that applies is the normal request rate.
+
+- **Fire the batch, then wait on the `account.refresh.completed` webhooks** — don't poll operations or `/accounts` in a tight loop.
+- **Watch the `X-RateLimit-*` headers** and back off before you hit zero — see [Rate limits](/guides/going-live#rate-limits).
+- Each refresh triggers a real aggregation at the bank, so space large batches out rather than firing hundreds at once.
+
+<Warning>
+  A refresh is asynchronous and eventually-consistent. Don't block a user flow waiting for `/refresh` to finish — show the cached balance immediately (with `last_refreshed_at`), and update your UI when the webhook arrives.
+</Warning>

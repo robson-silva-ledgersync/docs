@@ -3,6 +3,21 @@ title: "Changelog"
 description: "New features, improvements, and fixes to the LedgerSync v3 API. Newest first."
 ---
 
+<Update label="2026-07-15" tags={["Connections", "MX"]}>
+  ## On-demand refresh now works for MX connections
+
+  `POST /v3/connections/{id}/refresh` now supports MX (`con_MX_*`) the same way
+  it already supported Finicity and FDE: it returns `202 Accepted` with an
+  `operation_id` and triggers a fresh aggregation. (Previously MX returned
+  `502 refresh_not_supported`.)
+
+  - Completion is asynchronous — listen for the `account.refresh.completed`
+    webhook (or `account.refresh.failed` on terminal failure), then re-read
+    `GET /v3/accounts` for the updated balances and transactions.
+  - All three connectable sources (Finicity, MX, FDE) now answer `/refresh`
+    uniformly, so you no longer need to special-case MX.
+</Update>
+
 <Update label="2026-07-10" tags={["Accounts", "Transactions"]}>
   ## PDF: a read-only fourth data source
 

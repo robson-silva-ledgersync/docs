@@ -32,6 +32,7 @@
             "pages": [
               "guides/connection-lifecycle",
               "guides/webhooks",
+              "guides/data-freshness",
               "guides/pagination",
               "guides/errors"
             ]

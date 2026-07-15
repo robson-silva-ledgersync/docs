@@ -380,14 +380,15 @@ Most events carry `data.connection` (shown above). Three carry a different `data
       "refreshed_at": "2026-07-07T14:22:05Z",
       "new_transaction_count": 12,
       "current_balance": { "amount": 4210.55, "iso_currency_code": "USD" },
-      "available_balance": { "amount": 4110.55, "iso_currency_code": "USD" }
+      "available_balance": null
     }
   }
 }
 ```
 
 Treat `new_transaction_count > 0` as your cue to re-read
-`/accounts/{id}/transactions` for that connection.
+`/accounts/{id}/transactions` for that connection. `available_balance` is
+populated only for MX accounts; it is `null` for Finicity and FDE.
 
 **`account.refresh.failed`** replaces the balances with a `failed_at` and an
 `error` (same shape as HTTP error responses, including `code`, `type`, and
