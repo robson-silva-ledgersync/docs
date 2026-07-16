@@ -177,6 +177,12 @@ tags:
       Period statements (usually monthly PDFs) the bank publishes.
       For FDE-sourced statements, extracted line items are attached
       after OCR completes.
+  - name: Checks
+    description: |
+      Images of paper checks, captured alongside FDE statement
+      extraction. FDE-only: Finicity and MX report `check_images`
+      as `unsupported`. Fronts only — LedgerSync does not capture
+      the back of a check, so there is no `side` field.
   - name: Operations
     description: |
       The handful of LedgerSync calls that genuinely run asynchronously
@@ -1336,6 +1342,123 @@ paths:
           description: The statement PDF bytes.
           content:
             application/pdf:
+              schema:
+                type: string
+                format: binary
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ---------- Checks ----------
+  /accounts/{account_id}/checks:
+    parameters:
+      - in: path
+        name: account_id
+        required: true
+        schema: { type: string }
+    get:
+      tags: [Checks]
+      operationId: listChecks
+      summary: List an account's check images
+      description: |
+        Images of the paper checks written against this account, captured
+        alongside FDE statement extraction.
+
+        **FDE only.** Check images are exclusive to the FDE source — the
+        `check_images` capability reports `unsupported` on Finicity and MX,
+        and such accounts list empty here rather than erroring. Read
+        `capabilities.check_images` on
+        [`GET /institutions`](#operation/listInstitutions) to find institutions
+        that supply them.
+
+        **Fronts only.** LedgerSync captures the front of each check. There is
+        no back image and no `side` field — one check is one image.
+
+        Checks are nested under their account because the account is the access
+        boundary. Follow `download_url` to fetch the image bytes.
+      parameters:
+        - $ref: '#/components/parameters/ClientId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: A page of checks. Empty for non-FDE accounts.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, has_more]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Check' }
+                  next_cursor:
+                    type: string
+                    nullable: true
+                    description: Opaque cursor to pass as `cursor` for the next page. Null/absent when has_more is false.
+                  has_more:
+                    type: boolean
+                    description: Whether more items exist beyond this page.
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /accounts/{account_id}/checks/{check_id}:
+    parameters:
+      - in: path
+        name: account_id
+        required: true
+        schema: { type: string }
+      - in: path
+        name: check_id
+        required: true
+        schema: { type: string }
+    get:
+      tags: [Checks]
+      operationId: getCheck
+      summary: Get a check
+      description: |
+        Returns one check's metadata, including a `download_url` for its image.
+      parameters:
+        - $ref: '#/components/parameters/ClientId'
+      responses:
+        '200':
+          description: The Check.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Check' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /accounts/{account_id}/checks/{check_id}/download:
+    parameters:
+      - in: path
+        name: account_id
+        required: true
+        schema: { type: string }
+      - in: path
+        name: check_id
+        required: true
+        schema: { type: string }
+    get:
+      tags: [Checks]
+      operationId: downloadCheckImage
+      summary: Download the check image
+      description: |
+        Streams the check image bytes. This is the same URL exposed in
+        `Check.download_url` — call it directly with your API key.
+
+        The `Content-Type` reflects the image's actual format, which is
+        typically `image/jpeg`. Don't infer it from the id.
+      parameters:
+        - $ref: '#/components/parameters/ClientId'
+      responses:
+        '200':
+          description: The check image bytes.
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
               schema:
                 type: string
                 format: binary
@@ -3164,6 +3287,61 @@ components:
           type: [string, 'null']
           description: Accounting platform the statement was exported to, if any.
 
+    # ---------- Check ----------
+    Check:
+      type: object
+      required: [id, account_id, source, download_url]
+      description: >-
+        One paper check captured from an account, with its image. FDE-only —
+        no other source delivers check images. LedgerSync captures the front
+        of a check only, so a check is exactly one image and there is no
+        `side` field.
+      properties:
+        id: { type: string, example: chk_FDE_742778 }
+        account_id:
+          type: string
+          description: The owning account id.
+          example: acc_FDE_77
+        source: { $ref: '#/components/schemas/Source' }
+        check_number:
+          type: [string, 'null']
+          description: Check number as reported by the bank.
+          example: "1234"
+        amount:
+          type: [number, 'null']
+          format: double
+          description: Check amount as reported by the bank.
+        pay_to:
+          type: [string, 'null']
+          description: Payee as reported by the bank.
+        description:
+          type: [string, 'null']
+          description: Free-text description carried on the check record.
+        transaction_date:
+          type: [string, 'null']
+          format: date
+          description: Date of the bank transaction this check belongs to.
+        download_url:
+          type: string
+          format: uri
+          description: >-
+            Relative v3 URL to download the check image, auth-scoped to your
+            API key. Resolves to
+            [`GET /accounts/{account_id}/checks/{check_id}/download`](#operation/downloadCheckImage).
+        ocr:
+          type: ['object', 'null']
+          description: >-
+            What OCR read off the image, kept separate from the bank-reported
+            fields above so you can always tell the two apart. Absent when
+            nothing was recognised.
+          properties:
+            pay_to: { type: [string, 'null'] }
+            amount: { type: [number, 'null'], format: double }
+            check_number: { type: [string, 'null'] }
+            bank_name: { type: [string, 'null'] }
+            check_date: { type: [string, 'null'], format: date }
+            memo: { type: [string, 'null'] }
+
     # ---------- Webhook subscription ----------
     WebhookSubscription:
       type: object
@@ -3247,6 +3425,7 @@ components:
               - read:transactions
               - read:statements
               - write:statements
+              - read:checks
               - manage:webhooks
               - read:webhooks
               - write:webhooks
