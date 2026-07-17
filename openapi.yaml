@@ -1783,6 +1783,51 @@ paths:
         name: api_key_id
         required: true
         schema: { type: string }
+    patch:
+      tags: [ApiKeys]
+      operationId: updateApiKeyScopes
+      summary: Change an API key's scopes
+      description: |
+        Replace the scopes on an existing key, keeping the same secret — so a
+        scope change doesn't force you to redeploy a credential.
+
+        Mostly useful when we add a new scope: keys issued before it existed
+        don't carry it, and calls that need it fail with `insufficient_scope`
+        even though nothing about your key is wrong. PATCH it instead of
+        rotating.
+
+        `scopes` is the **complete** set, not a delta — send every scope the
+        key should end up with. Unknown scopes are rejected, and the change
+        applies to your next request.
+
+        Revoked keys can't be re-scoped; create a new key instead. A key can only
+        be re-scoped by a credential in its own environment — a sandbox key can't
+        widen a live key.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [scopes]
+              properties:
+                scopes:
+                  type: array
+                  minItems: 1
+                  description: The complete scope set the key should carry from now on.
+                  items: { type: string }
+              example:
+                scopes: ["read:accounts", "read:transactions", "read:checks"]
+      responses:
+        '200':
+          description: The updated key.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiKey' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
     delete:
       tags: [ApiKeys]
       operationId: revokeApiKey
