@@ -153,6 +153,8 @@ An `active` connection is not all-or-nothing. Each connection carries individual
 
 `transactions`, `balance`, `available_balance`, `statements`, `check_images`.
 
+`check_images` is FDE-only; see [Check images](/guides/checks) for how to read them.
+
 When one of these transitions, you get a `connection.capability_changed` webhook. To avoid flapping, LedgerSync applies hysteresis: **3 consecutive failed** observations before a capability is marked `failed`, and **2 consecutive succeeded** before it flips back. The event fires only on a real transition, not on every refresh, and includes `previous_status`, `status`, `consecutive_observations`, and `observed_at`.
 
 This lets you show precise UI, for example "transactions are syncing, but statements are temporarily unavailable," without dropping the whole connection.

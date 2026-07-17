@@ -6,7 +6,7 @@ description: "Every list endpoint returns a page plus an opaque cursor. Loop unt
 List endpoints return a **page** of results, not the whole set. Each response carries an opaque `next_cursor` and a `has_more` flag. To read everything, pass `next_cursor` back as the `cursor` query param and repeat until `has_more` is `false`.
 
 <Info>
-This applies to every list endpoint: `GET /clients`, `GET /clients/{id}/connections`, `GET /accounts`, `GET /accounts/{id}/transactions`, `GET /accounts/{id}/statements`, and `GET /webhooks/subscriptions`.
+This applies to every list endpoint: `GET /clients`, `GET /clients/{id}/connections`, `GET /accounts`, `GET /accounts/{id}/transactions`, `GET /accounts/{id}/statements`, `GET /accounts/{id}/checks`, and `GET /webhooks/subscriptions`.
 </Info>
 
 ## The response envelope

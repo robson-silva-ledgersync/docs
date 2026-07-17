@@ -40,7 +40,7 @@ resolves the source from the catalog row, you don't pass a `source` field.
   <Card title="Ledgersync Bank (FDE)" icon="building-columns">
     `ins_a7397a8d0656e1b7`
 
-    FDE's credential-based extractor. Returns a LedgerSync-hosted connect page (not an aggregator widget); accepts any login, offers one account.
+    FDE's credential-based extractor. Returns a LedgerSync-hosted connect page (not an aggregator widget); accepts any login, offers one account. The only sandbox bank that returns **check images**.
   </Card>
 </CardGroup>
 
@@ -223,12 +223,33 @@ Open the returned `widget_url` and:
     An account-selection form appears (one account is offered) → **Submit** to keep it.
   </Step>
   <Step title="Watch it finish">
-    FDE downloads the statements and fires `connection.active`. The connection id is `con_FDE_...` and transactions come back as `txn_FDE_...`.
+    FDE downloads the statements and check images, then fires `connection.active`. The connection id is `con_FDE_...` and transactions come back as `txn_FDE_...`.
   </Step>
 </Steps>
 
 Because the bank is already fixed by `institution_id`, there is no bank-search
 step, and you never handle the credentials yourself.
+
+### Check images
+
+Ledgersync Bank is the **only sandbox bank that produces check images** — the
+Finicity and MX sandbox banks have none, so it's the one place to exercise the
+check routes end-to-end. Once `connection.active` lands, read them off the
+account:
+
+```bash List the checks FDE extracted
+curl "https://api-sandbox.ledgersyncappv2.com/v3/accounts/acc_FDE_.../checks?client_id=cli_..." \
+  -H "Authorization: Bearer sk_test_..."
+```
+
+<Note>
+  Extraction is asynchronous — checks appear once the connection reaches
+  `active`, not at the moment the widget closes. Wait for the webhook rather than
+  polling straight after submitting credentials.
+</Note>
+
+See [Check images](/guides/checks) for the full contract: the three routes, the
+`read:checks` scope, and why bank-reported and OCR fields are kept apart.
 
 ## Which webhook fires when
 

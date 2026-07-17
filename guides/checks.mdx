@@ -1,0 +1,168 @@
+---
+title: "Check images"
+description: "List an account's paper checks and download their images."
+---
+
+When a bank exposes scanned images of the paper checks written against an
+account, LedgerSync captures them and serves them alongside that account's
+transactions. Checks hang off an **account**, so every route below is nested
+under one:
+
+```
+GET /v3/accounts/{account_id}/checks                      # list
+GET /v3/accounts/{account_id}/checks/{check_id}           # one check
+GET /v3/accounts/{account_id}/checks/{check_id}/download  # the image bytes
+```
+
+<Info>
+  Check images are **FDE-only** — no other source delivers them. Finicity, MX and
+  PDF accounts have no checks, and asking for theirs returns an empty list rather
+  than an error (see [Sources without checks](#sources-without-checks)).
+</Info>
+
+<Note>
+  **There is no back image.** LedgerSync captures the *front* of a check only, so
+  a check is exactly one image and there is no `side` field to pass or branch on.
+</Note>
+
+## Before you start
+
+Your API key needs the **`read:checks`** scope. A key minted before check support
+shipped won't have it, and every check route will answer `403 insufficient_scope`.
+Tick the scope on a new key in the developer portal, or widen the key you
+already have — the
+calling key needs `write:api-keys`, and `{id}` is the key's `id` from
+`GET /v3/api-keys` (not the `sk_test_...` secret):
+
+```bash Add read:checks to an existing key
+curl -X PATCH "https://api-sandbox.ledgersyncappv2.com/v3/api-keys/{id}" \
+  -H "Authorization: Bearer sk_test_..." \
+  -H "Content-Type: application/json" \
+  -d '{"scopes":["read:accounts","read:checks"]}'
+```
+
+<Warning>
+  `PATCH` **replaces** the whole scope list — send every scope the key should
+  keep, not just the new one. The secret itself never changes, so nothing you've
+  already deployed stops working.
+</Warning>
+
+## List an account's checks
+
+Reads are Client-scoped, so pass `client_id` every time.
+
+```bash List checks
+curl "https://api-sandbox.ledgersyncappv2.com/v3/accounts/acc_FDE_77/checks?client_id=cli_..." \
+  -H "Authorization: Bearer sk_test_..."
+```
+
+```json Response
+{
+  "data": [
+    {
+      "id": "chk_FDE_742778",
+      "account_id": "acc_FDE_77",
+      "source": "FDE",
+      "check_number": "1234",
+      "amount": 424.87,
+      "pay_to": null,
+      "description": null,
+      "transaction_date": "2026-07-16",
+      "download_url": "/v3/accounts/acc_FDE_77/checks/chk_FDE_742778/download?client_id=cli_...",
+      "ocr": {
+        "pay_to": "Parkway Business Solutions",
+        "amount": 424.87,
+        "check_number": null,
+        "bank_name": null,
+        "check_date": "2026-07-14",
+        "memo": "App integration consulting"
+      }
+    }
+  ],
+  "next_cursor": null,
+  "has_more": false
+}
+```
+
+Check ids are `chk_FDE_<id>`, source-tagged like every other v3 id. The list
+paginates with `limit` and `cursor` exactly like the rest of the API — see
+[Pagination](/guides/pagination).
+
+## Download the image
+
+`download_url` on each check is a ready-to-call relative URL — prefer it over
+building the path yourself:
+
+```bash Download
+curl "https://api-sandbox.ledgersyncappv2.com/v3/accounts/acc_FDE_77/checks/chk_FDE_742778/download?client_id=cli_..." \
+  -H "Authorization: Bearer sk_test_..." \
+  -o check.png
+```
+
+The response is the raw image, served through the API and auth-scoped to your
+key — you never handle a storage URL. `Content-Type` is determined by inspecting
+the image's own magic bytes (`image/png`, `image/jpeg` or `image/gif`;
+`application/octet-stream` if the bytes match none of those), and
+`Content-Disposition` names the file `<check_id>.<ext>` to match.
+
+<Tip>
+  Read the format from the `Content-Type` header, not from a filename — stored
+  objects are not reliably named after their true format, which is exactly why
+  this endpoint sniffs the bytes for you.
+</Tip>
+
+## Bank-reported vs OCR fields
+
+Every check carries two independent readings of the same piece of paper, and
+**they are deliberately kept apart**:
+
+| Field group | Where it comes from |
+| --- | --- |
+| `check_number`, `amount`, `pay_to`, `description` | What the **bank** reported for the check. |
+| `transaction_date` | The date of the bank transaction the check belongs to. |
+| `ocr.*` | What **OCR read off the image itself**. |
+
+The two routinely disagree, and individual `ocr` fields are often `null` where
+recognition failed — as `check_number` is above. OCR is best-effort on a
+photograph of handwriting; the bank's own record is the authoritative one. Treat
+`ocr` as a hint (for search, prefill, or reconciliation review), never as ground
+truth for money movement. The whole `ocr` object is omitted when nothing at all
+was recognised.
+
+## Sources without checks
+
+Only FDE accounts can have check images, and the API distinguishes "this source
+has none" from "you asked wrong":
+
+| Request | Result |
+| --- | --- |
+| `GET /v3/accounts/acc_FINICITY_1/checks` | `200` with an empty `data` array — a non-FDE account simply has no checks. |
+| `GET .../checks/chk_MX_5` | `400 invalid_request` — a `chk_` id that isn't FDE-source can never resolve. |
+| An FDE account belonging to another Client | `404 not_found` — checks are reachable only under an account you own. |
+
+<Note>
+  The non-FDE short-circuit is evaluated before ownership, so listing checks on a
+  *non-FDE* account you don't own returns `200` with an empty array rather than
+  `404`. It carries no data either way.
+</Note>
+
+## Try it in sandbox
+
+The sandbox **Ledgersync Bank** (`ins_a7397a8d0656e1b7`) returns real check
+images, so you can exercise all three routes end-to-end without a live bank:
+
+<Steps>
+  <Step title="Connect Ledgersync Bank">
+    Follow the FDE walkthrough in [Testing in sandbox](/guides/testing). It accepts any username and password.
+  </Step>
+  <Step title="Wait for connection.active">
+    Extraction is asynchronous. Checks land once the connection completes — listen for the `connection.active` webhook rather than polling immediately.
+  </Step>
+  <Step title="Find the account, then its checks">
+    `GET /v3/accounts?client_id=...&connection_id=con_FDE_...` gives you the `acc_FDE_...` id; pass it to the list route above.
+  </Step>
+</Steps>
+
+<Card title="Full reference" icon="code" href="/api-reference">
+  Every parameter and response field for the three check routes, under **Checks**.
+</Card>

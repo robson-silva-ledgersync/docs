@@ -3,6 +3,28 @@ title: "Changelog"
 description: "New features, improvements, and fixes to the LedgerSync v3 API. Newest first."
 ---
 
+<Update label="2026-07-17" tags={["Checks", "FDE"]}>
+  ## Check images are now readable from the API
+
+  The `check_images` capability has had a read path since day one on the data
+  side, but no route to fetch it. Three endpoints now serve it, nested under the
+  owning account:
+
+  ```
+  GET /v3/accounts/{account_id}/checks
+  GET /v3/accounts/{account_id}/checks/{check_id}
+  GET /v3/accounts/{account_id}/checks/{check_id}/download
+  ```
+
+  - Requires the new **`read:checks`** scope. Existing keys don't have it — tick it on a new key in the portal, or `PATCH /v3/api-keys/{id}` to widen the key you already have without rotating its secret.
+  - **FDE-only.** Non-FDE accounts return an empty list rather than an error, so you can call this uniformly across sources.
+  - **There is no back image** — LedgerSync captures the front of a check only, so there is no `side` field.
+  - Bank-reported fields and `ocr.*` are kept separate, so you can always tell what the bank said from what OCR read off the paper.
+  - The sandbox **Ledgersync Bank** (`ins_a7397a8d0656e1b7`) returns real check images, so the whole flow is testable end-to-end.
+
+  See [Check images](/guides/checks).
+</Update>
+
 <Update label="2026-07-15" tags={["Connections", "MX"]}>
   ## On-demand refresh now works for MX connections
 
