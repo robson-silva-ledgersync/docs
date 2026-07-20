@@ -54,11 +54,10 @@ The `signing_secret` is shown **once**, at creation. Store it somewhere safe imm
 
 ## Event catalog
 
-There are exactly eight real events, plus a `webhook.test` event you can fire on demand. Subscribe only to the ones you handle.
+There are exactly seven real events, plus a `webhook.test` event you can fire on demand. Subscribe only to the ones you handle.
 
 | Event | Fires when |
 | --- | --- |
-| `connection.initiated` | You've kicked off a link; the user hasn't finished the widget yet. |
 | `connection.requires_action` | The connection is waiting on the user in the widget (sign-in, MFA, account pick). |
 | `connection.active` | The user finished linking. Data is flowing. Carries the **canonical** connection id. |
 | `connection.failed` | Bad credentials or an aggregator-reported failure. The link did not complete. |
@@ -71,6 +70,10 @@ There are exactly eight real events, plus a `webhook.test` event you can fire on
 <Tip>
 See [Connection lifecycle](/guides/connection-lifecycle) for how `initiated → requires_action → active` (and the failure paths) fit together as a state machine.
 </Tip>
+
+<Note>
+There is no `connection.initiated` **event**. The `initiated` connection *status* exists in the state machine, but the first webhook every new link produces is `connection.requires_action`. Subscriptions listing an unknown event type are rejected with `validation_failed`.
+</Note>
 
 ## Delivery shape
 

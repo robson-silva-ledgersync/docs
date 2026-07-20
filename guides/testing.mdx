@@ -258,13 +258,13 @@ webhook, HMAC-signed exactly like production.
 
 | Event | When it fires | How to trigger it |
 | --- | --- | --- |
-| `connection.requires_action` | As soon as the widget URL is ready (right after `connection.initiated`). | Payload carries `data.action.widget_url` — open it for the end-user. |
+| `connection.requires_action` | As soon as the widget URL is ready — the first event of every new link. | Payload carries `data.action.widget_url` — open it for the end-user. |
 | `connection.active` | User finishes the widget with valid credentials. | Finicity `customer1` / `go` or MX `mxuser` / `correct`. Accounts now visible via `GET /v3/accounts`. |
 | `connection.failed` | Credentials rejected, MFA failed, or upstream pipeline error. | Finicity `customer1` / `bad` or MX `mxuser` / `UNAUTHORIZED`. `last_error` carries a stable code. |
 | `connection.disconnected` | End-user revokes access or LedgerSync tears down the link. | `DELETE /v3/connections/{id}`, or Finicity `locked` / `go`. |
 
 These are the connection-state events you'll drive in sandbox. The full catalog
-(`connection.initiated`, `connection.capability_changed`, `account.refresh.completed`,
+(`connection.capability_changed`, `account.refresh.completed`,
 `account.refresh.failed`) and every payload shape is in [Webhooks](/guides/webhooks).
 
 ## Testing your webhook handler

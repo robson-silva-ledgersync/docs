@@ -98,7 +98,7 @@ Two things to internalize now, because they save debugging later:
 <Step title="Register a webhook subscription">
   Connections finish **asynchronously** — the user could take thirty seconds or ten minutes inside the widget. Rather than poll forever, subscribe to webhooks and react when `connection.active` arrives.
 
-  The easiest path is the **portal Webhooks page** — add your endpoint, pick events, and see deliveries and retries visually. To do it over the API, subscribe to all eight event types:
+  The easiest path is the **portal Webhooks page** — add your endpoint, pick events, and see deliveries and retries visually. To do it over the API, subscribe to all seven event types:
 
   ```bash
   curl -X POST "$LS_BASE/webhooks/subscriptions" \
@@ -107,7 +107,6 @@ Two things to internalize now, because they save debugging later:
     -d '{
       "url": "https://yourapp.example.com/webhooks/ledgersync",
       "event_types": [
-        "connection.initiated",
         "connection.requires_action",
         "connection.active",
         "connection.failed",
@@ -126,7 +125,7 @@ Two things to internalize now, because they save debugging later:
     "id": "whsub_01HXYZ8QK3...",
     "url": "https://yourapp.example.com/webhooks/ledgersync",
     "signing_secret": "whsec_9f2a...c1",
-    "event_types": ["connection.initiated", "connection.active", "..."]
+    "event_types": ["connection.requires_action", "connection.active", "..."]
   }
   ```
 
