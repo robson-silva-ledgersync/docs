@@ -3,6 +3,24 @@ title: "Changelog"
 description: "New features, improvements, and fixes to the LedgerSync v3 API. Newest first."
 ---
 
+<Update label="2026-07-21" tags={["Connections"]}>
+  ## Reauthorize (fix) a broken connection in place
+
+  New `POST /v3/connections/{connection_id}/reauthorize` — repair a connection
+  that reports `status: requires_action` **without** minting new ids.
+
+  - Returns a `reauthorize` action with a hosted `reauth_url`; redirect the end
+    user there to re-enter credentials or re-consent at the institution, then
+    wait for `connection.active` (or `connection.failed`).
+  - Keeps the **same** `con_` / `acc_` / `txn_` ids, unlike starting a fresh
+    connection — so a delta re-sync over the overlap window dedupes cleanly
+    against transactions you already have.
+  - Available for `FINICITY`, `MX`, and `FDE`. Uploaded-statement (`PDF`)
+    sources are read-only and have no connection to reauthorize.
+
+  See [Connection lifecycle](/guides/connection-lifecycle#handling-failed-and-disconnected).
+</Update>
+
 <Update label="2026-07-17" tags={["Checks", "FDE"]}>
   ## Check images are now readable from the API
 

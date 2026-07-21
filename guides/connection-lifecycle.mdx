@@ -31,8 +31,8 @@ A connection has five statuses:
 | `initiated` | You've kicked off the link; the widget URL isn't ready yet. Brief and transient. | Nothing — poll the operation; you'll see `requires_action` almost immediately. |
 | `requires_action` | The user still needs to finish in the widget. | Keep the widget open, or re-open the same `widget_url`. No auto-timeout. |
 | `active` | Linked and healthy. Accounts, transactions, and statements are flowing. | Read data. Watch capability and refresh events. |
-| `failed` | Bad credentials or an aggregator-reported failure. | Show a re-link CTA and re-initiate. |
-| `disconnected` | The user revoked access, or the link needs to be rebuilt. | Show a re-link CTA and re-initiate. |
+| `failed` | Bad credentials or an aggregator-reported failure. | Show a re-link CTA. **Reauthorize in place** to keep your ids, or re-initiate. |
+| `disconnected` | The user revoked access, or the link needs to be rebuilt. | Show a re-link CTA. **Reauthorize in place** to keep your ids, or re-initiate. |
 
 ## From initiate to active
 
@@ -126,22 +126,53 @@ The `action` object on a `requires_action` connection is a tagged union — read
 
 | `action.kind` | Fields | Status |
 | --- | --- | --- |
-| `widget_url` | `widget_url`, `expires_at` | **The only kind emitted today.** Open the URL in a browser, iframe, or webview. |
-| `reauthorize` | `reauth_url`, `expires_at` | Reserved for a future release — not emitted today. |
+| `widget_url` | `widget_url`, `expires_at` | **The only kind emitted on a `requires_action` connection.** Open the URL in a browser, iframe, or webview. |
+| `reauthorize` | `reauth_url`, `expires_at` | Returned on demand by [`POST /connections/{id}/reauthorize`](#handling-failed-and-disconnected) to repair a connection in place. Not emitted on a `requires_action` connection's own `action`. |
 | `mfa_challenge` | `challenge_id`, `questions[]` | Reserved for a future release — not emitted today. There is intentionally no inline MFA-answer flow. |
 
 <Note>
-Because `mfa_challenge` and `reauthorize` are not emitted yet, a live connection that needs the user — whether for first-time MFA, a step-up challenge, or reauthorization after a password change — always surfaces `action.kind = "widget_url"`. Branch on `kind` anyway so your integration keeps working when the other kinds ship.
+On a `requires_action` connection the `action` is always `widget_url` — first-time MFA, a step-up challenge, or a password-change reauthorization all surface there. The `reauthorize` kind is returned only when you explicitly call the reauthorize endpoint (below); `mfa_challenge` is not emitted yet. Branch on `kind` anyway so your integration keeps working when the other kinds ship.
 </Note>
 
 ## Handling failed and disconnected
 
-Both statuses mean the same thing to your UI: **the user needs to re-link.** Show a clear call to action and re-initiate the connection.
+Both statuses mean the same thing to your UI: **the user needs to re-link.** You have two ways to do it, and they differ in one thing that matters — whether your stored ids survive.
 
 - `failed` — bad credentials, or the aggregator reported a failure. Common after a password change at the bank.
 - `disconnected` — the user revoked access on their side, or the link otherwise needs rebuilding.
 
-Re-linking is just running the initiate → widget → active flow again for the same Client.
+### Reauthorize in place — keeps your ids (recommended)
+
+`POST /v3/connections/{connection_id}/reauthorize` repairs the **existing** connection. It returns a `reauthorize` action with a LedgerSync-hosted `reauth_url`:
+
+```json
+{
+  "connection_id": "con_FINICITY_41294",
+  "action": {
+    "kind": "reauthorize",
+    "reauth_url": "https://connect.ledgersyncappv2.com/...",
+    "expires_at": "2026-07-27T12:00:00Z"
+  }
+}
+```
+
+Redirect the user to `reauth_url` to re-enter credentials or re-consent at the institution, then wait for `connection.active`. Because you repaired the same connection, its `con_`, `acc_`, and `txn_` ids stay **the same** — so a delta re-sync over the overlap window dedupes cleanly against transactions you already have.
+
+<Info>
+Ownership is enforced server-side: a `connection_id` that doesn't belong to the authenticated customer returns `404`. Available for `FINICITY`, `MX`, and `FDE`. Uploaded-statement (`PDF`) sources are read-only and have no connection to reauthorize.
+</Info>
+
+<Warning>
+Whether an institution can be repaired in place depends on the aggregator. If reauthorize can't recover the connection, fall back to re-initiate.
+</Warning>
+
+### Re-initiate — fresh connection, new ids
+
+Re-linking with `POST /v3/clients/{id}/connections` runs the initiate → widget → active flow again for the same Client. Use it when you want (or need) a brand-new connection.
+
+<Warning>
+When the aggregator issues a new underlying login, a fresh connection **mints new `con_` / `acc_` / `txn_` ids** for the same accounts — so a delta pull can return transactions you already hold under new ids. Prefer **reauthorize** when you want id stability; keep re-initiate as the fallback.
+</Warning>
 
 <Note>
 Prefer not to build a bank picker at all? Use the hosted [connect session](/guides/connect-a-bank) — `POST /v3/clients/{id}/connect-session` returns a LedgerSync-hosted `url` you email the user. Same lifecycle, none of the widget plumbing.
