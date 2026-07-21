@@ -774,6 +774,99 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorEnvelope' }
 
+  /connections/{connection_id}/reauthorize:
+    parameters:
+      - in: path
+        name: connection_id
+        required: true
+        description: |
+          Canonical Connection id (`con_<SOURCE>_<bankAccountId>`) of the
+          connection to repair. The placeholder UUID from initiate and any
+          `con_PDF_*` id are rejected with `400`.
+        schema:
+          type: string
+          example: con_FINICITY_41294
+    post:
+      tags: [Connections]
+      operationId: reauthorizeConnection
+      summary: Reauthorize (fix) a connection in place
+      description: |
+        Repair a broken connection **in place**, keeping the SAME
+        `con_` / `acc_` / `txn_` ids. Call this when a connection reports
+        `status = requires_action` (the aggregator needs the end-user to
+        re-enter credentials or re-consent at the institution).
+
+        ### Why not just create a new connection?
+
+        `POST /clients/{client_id}/connections` starts a **fresh**
+        connection. When the aggregator issues a new underlying login for
+        the same bank, that mints new `con_` / `acc_` / `txn_` ids for the
+        same underlying account, so a later delta pull returns transactions
+        you already have under **new** ids (your upsert would duplicate
+        them). Reauthorize repairs the existing connection instead, so the
+        ids stay stable and a delta re-sync over the overlap window dedupes
+        cleanly on `txn_…`.
+
+        ### What you get back
+
+        A hosted `reauth_url` — a LedgerSync-hosted page the end-user opens
+        to complete the source-specific reauthorization (Finicity Connect
+        Fix, MX member reconnect, FDE credential recapture) against the
+        existing connection. Redirect the user to it, then wait for the
+        `connection.active` / `connection.failed` webhook for the outcome.
+        The URL is single-use and expires at `action.expires_at`.
+
+        Available for `FINICITY`, `MX`, and `FDE`. Uploaded-statement
+        (`PDF`) data is read-only and has no connection to reauthorize
+        (`400`).
+
+        Ownership is enforced server-side: a `connection_id` that
+        doesn't belong to the authenticated customer returns `404`.
+
+        ### Empty-body POST
+
+        This endpoint takes no request body. Send an explicit
+        `Content-Length: 0` header so the upstream HTTPS load balancer
+        doesn't reject the request with `411 Length Required`.
+      requestBody:
+        required: false
+        description: |
+          No body. Send `Content-Length: 0` so the upstream load
+          balancer doesn't reject the request with 411.
+        content:
+          application/json:
+            schema:
+              type: object
+              nullable: true
+      responses:
+        '200':
+          description: |
+            A hosted reauthorization URL for the existing connection.
+          headers:
+            X-LS-Trace-Id: { $ref: '#/components/headers/X-LS-Trace-Id' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConnectionReauthorization' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '411':
+          description: |
+            Returned by the upstream HTTPS load balancer when a POST
+            arrives without a `Content-Length` header. Retry with
+            `Content-Length: 0` set explicitly.
+        '502':
+          description: |
+            The aggregator or the backend was unreachable while minting
+            the reauthorization URL, so nothing was issued. Body carries
+            the canonical `ErrorEnvelope` (typically
+            `error.code = "upstream_unavailable"`); retry shortly.
+          headers:
+            X-LS-Trace-Id: { $ref: '#/components/headers/X-LS-Trace-Id' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
   /connections/redirect-token/verify:
     post:
       tags: [Connections]
@@ -3152,6 +3245,20 @@ components:
         kind: { type: string, enum: [reauthorize] }
         reauth_url: { type: string, format: uri }
         expires_at: { type: string, format: date-time }
+
+    ConnectionReauthorization:
+      type: object
+      description: |
+        Result of `POST /v3/connections/{connection_id}/reauthorize`: the
+        connection id (echoed for correlation) plus a `reauthorize` action
+        carrying the hosted URL the end-user opens to repair the connection
+        in place.
+      required: [connection_id, action]
+      properties:
+        connection_id:
+          type: string
+          example: con_FINICITY_41294
+        action: { $ref: '#/components/schemas/ConnectionActionReauthorize' }
 
     ConnectionInitiateRequest:
       type: object
