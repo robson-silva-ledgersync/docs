@@ -312,6 +312,15 @@ paths:
         accounts. The only field we need is something to identify
         them — use `external_id` to join back to a user record in
         your system, plus optional `email` and `name` for display.
+
+        Set `phone` to store a contact number for the client. To also
+        text the client a login invitation on creation, send
+        `sms_invitation: true` together with a non-blank `phone`
+        (a request with `sms_invitation: true` and no phone is rejected
+        with `400`). Note: if the SMS cannot be delivered (e.g. an
+        unsubscribed or invalid number), the client is not created and
+        the call fails — retry without `sms_invitation` to create the
+        client regardless.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -2971,6 +2980,7 @@ components:
           description: Integrator-supplied identifier; useful for joining to your own systems.
         email: { type: [string, 'null'], format: email }
         name: { type: [string, 'null'] }
+        phone: { type: [string, 'null'], description: Contact phone number for the client. }
         metadata:
           type: object
           additionalProperties: { type: string }
@@ -2984,6 +2994,10 @@ components:
         external_id: { type: [string, 'null'] }
         email: { type: [string, 'null'], format: email }
         name: { type: [string, 'null'] }
+        phone: { type: [string, 'null'], description: Contact phone number for the client. Required when sms_invitation is true. }
+        sms_invitation:
+          type: [boolean, 'null']
+          description: If true, texts the client a login invitation on creation. Requires a non-blank phone.
         metadata:
           type: object
           additionalProperties: { type: string }
@@ -2995,6 +3009,7 @@ components:
         external_id: { type: [string, 'null'] }
         email: { type: [string, 'null'], format: email }
         name: { type: [string, 'null'] }
+        phone: { type: [string, 'null'], description: Contact phone number for the client. }
         metadata:
           type: object
           additionalProperties: { type: string }
