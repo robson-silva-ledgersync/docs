@@ -55,8 +55,15 @@ sequenceDiagram
     curl https://api-sandbox.ledgersyncappv2.com/v3/clients \
       -H "Authorization: Bearer sk_test_..." \
       -H "Content-Type: application/json" \
-      -d '{"email":"alice@example.com","name":"Alice"}'
+      -d '{"email":"alice@example.com","name":"Alice","phone":"5551234567"}'
     ```
+
+    <Note>
+      Add `"phone"` to store a contact number. To have LedgerSync **text**
+      the member a login invitation as soon as the Client is created, also
+      send `"sms_invitation": true` — a non-blank `phone` is required, or the
+      call returns `400`.
+    </Note>
   </Step>
 
   <Step title="Create a connect session, get the link">

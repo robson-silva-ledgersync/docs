@@ -148,18 +148,19 @@ Two things to internalize now, because they save debugging later:
   curl -X POST "$LS_BASE/clients" \
     -H "Authorization: Bearer $LS_KEY" \
     -H "Content-Type: application/json" \
-    -d '{ "external_id": "user_4820", "name": "Acme Bookkeeping LLC" }'
+    -d '{ "external_id": "user_4820", "name": "Acme Bookkeeping LLC", "phone": "5551234567" }'
   ```
 
   ```json
   {
     "id": "cli_01HXYZ7ABCDEF...",
     "external_id": "user_4820",
-    "name": "Acme Bookkeeping LLC"
+    "name": "Acme Bookkeeping LLC",
+    "phone": "5551234567"
   }
   ```
 
-  Hold onto `cli_01HXYZ7ABCDEF...` — every read later is scoped to it.
+  Hold onto `cli_01HXYZ7ABCDEF...` — every read later is scoped to it. `phone` is optional; add `"sms_invitation": true` alongside a non-blank `phone` to have LedgerSync text the client a login invitation on creation.
 </Step>
 
 <Step title="Discover the institution">
