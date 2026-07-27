@@ -98,7 +98,7 @@ Two things to internalize now, because they save debugging later:
 <Step title="Register a webhook subscription">
   Connections finish **asynchronously** — the user could take thirty seconds or ten minutes inside the widget. Rather than poll forever, subscribe to webhooks and react when `connection.active` arrives.
 
-  The easiest path is the **portal Webhooks page** — add your endpoint, pick events, and see deliveries and retries visually. To do it over the API, subscribe to all seven event types:
+  The easiest path is the **portal Webhooks page** — add your endpoint, pick events, and see deliveries and retries visually. To do it over the API, subscribe to all eight event types:
 
   ```bash
   curl -X POST "$LS_BASE/webhooks/subscriptions" \
@@ -113,7 +113,8 @@ Two things to internalize now, because they save debugging later:
         "connection.disconnected",
         "connection.capability_changed",
         "account.refresh.completed",
-        "account.refresh.failed"
+        "account.refresh.failed",
+        "statement.available"
       ]
     }'
   ```

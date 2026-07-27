@@ -54,7 +54,7 @@ The `signing_secret` is shown **once**, at creation. Store it somewhere safe imm
 
 ## Event catalog
 
-There are exactly seven real events, plus a `webhook.test` event you can fire on demand. Subscribe only to the ones you handle.
+There are exactly eight real events, plus a `webhook.test` event you can fire on demand. Subscribe only to the ones you handle.
 
 | Event | Fires when |
 | --- | --- |
@@ -65,6 +65,7 @@ There are exactly seven real events, plus a `webhook.test` event you can fire on
 | `connection.capability_changed` | A single capability on an active connection flipped working ↔ not-working. |
 | `account.refresh.completed` | A background data refresh for an account finished successfully. |
 | `account.refresh.failed` | A background data refresh for an account failed. |
+| `statement.available` | A bank statement PDF was stored for an account for the first time and is ready to download. |
 | `webhook.test` | A manual test delivery you triggered. Safe to ignore in business logic. |
 
 <Tip>
@@ -239,6 +240,7 @@ Webhooks are **not** delivered in order. There is no sequence counter on the env
 
 - A `connection.failed` can land before the `connection.requires_action` that preceded it.
 - A slow-retried `account.refresh.completed` can arrive after a newer refresh for the same account.
+- A back-pull of older statements means `statement.available` can deliver an earlier `statement_date` after a later one. Order statements by `statement_date`, not by arrival.
 - Two events produced milliseconds apart can arrive in either order.
 
 So don't build a state machine that assumes the previous event already landed. **Treat every webhook as a signal, not a source of truth:** it tells you *something changed on this connection* — then you re-fetch the current state to act on it.
@@ -383,15 +385,31 @@ Most events carry `data.connection` (shown above). Three carry a different `data
       "refreshed_at": "2026-07-07T14:22:05Z",
       "new_transaction_count": 12,
       "current_balance": { "amount": 4210.55, "iso_currency_code": "USD" },
-      "available_balance": null
+      "available_balance": { "amount": 3980.10, "iso_currency_code": "USD" }
     }
   }
 }
 ```
 
 Treat `new_transaction_count > 0` as your cue to re-read
-`/accounts/{id}/transactions` for that connection. `available_balance` is
-populated only for MX accounts; it is `null` for Finicity and FDE.
+`/accounts/{id}/transactions` for that connection.
+
+Optional fields on this payload are **omitted entirely rather than sent as
+`null`** — check for a key's presence, don't compare it to `null`. That applies
+to `current_balance`, `available_balance`, and `realized_capabilities` alike.
+
+Which of them show up depends on the source:
+
+| Field | Present on |
+| --- | --- |
+| `current_balance` | Finicity and MX. Never on FDE. |
+| `available_balance` | MX only. |
+| `realized_capabilities` | All three sources. |
+
+`client_id` on this event is the same `cli_` id you get back from
+`GET /v3/clients` — use it directly on any client-scoped endpoint. The key is
+omitted entirely when the owning client cannot be resolved, so treat it as
+optional rather than assuming it is always present.
 
 **`account.refresh.failed`** replaces the balances with a `failed_at` and an
 `error` (same shape as HTTP error responses, including `code`, `type`, and
@@ -415,6 +433,51 @@ populated only for MX accounts; it is `null` for Finicity and FDE.
   }
 }
 ```
+
+**`statement.available`** carries `data.statement`. It fires **once**, the first
+time a statement PDF is stored for a connected account:
+
+```json statement.available
+{
+  "event_id": "evt_...",
+  "type": "statement.available",
+  "created_at": "2026-07-27T14:22:05Z",
+  "api_version": "2026-05-22",
+  "livemode": false,
+  "data": {
+    "statement": {
+      "id": "stmt_FINICITY_9911",
+      "account_id": "acc_FINICITY_110040",
+      "connection_id": "con_FINICITY_41300",
+      "client_id": "cli_01K9YTQ8V3E7WJ4M2N6RB0XZAD",
+      "source": "FINICITY",
+      "statement_date": "2026-06-30",
+      "download_url": "/v3/statements/stmt_FINICITY_9911/download?client_id=cli_01K9YTQ8V3E7WJ4M2N6RB0XZAD"
+    }
+  }
+}
+```
+
+`download_url` already includes the `/v3` prefix, so join it to the API **host**
+(`https://api-sandbox.ledgersyncappv2.com`), not to the `/v3`-inclusive base URL
+you use elsewhere — concatenating it onto the base URL yields `/v3/v3/...` and
+404s. It returns the PDF bytes and needs the `read:statements` scope. Fetch it on
+receipt rather than storing it: it is derived from the ids, not a signed link.
+
+<Note>
+This is a **save-time** event. Balances and transaction counts are extracted
+later by OCR and are deliberately absent from the payload. If you need the
+extracted figures, poll the statement after receiving this event.
+</Note>
+
+<Warning>
+Two fields are optional and omitted rather than sent as `null`:
+
+- `statement_date` is absent when the date could not be determined from the document.
+- `client_id` is absent when the owning client cannot be resolved — and `download_url` is omitted with it, because that route is client-scoped.
+
+A re-pull of a statement you already received does **not** fire this event again. It fires only on first storage.
+</Warning>
 
 ## Next steps
 
