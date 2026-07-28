@@ -3527,6 +3527,7 @@ components:
             - connection.capability_changed
             - account.refresh.completed
             - account.refresh.failed
+            - statement.available
         status:
           type: string
           enum: [active, paused, disabled]
