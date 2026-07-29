@@ -344,7 +344,7 @@ That's the complete set. There is no `subcategory`, `type`, or `location` field.
 
 ### Amount sign
 
-`amount` is a **signed passthrough** of the source aggregator's value — LedgerSync does not flip or normalize it. In practice the convention you'll see is:
+`amount` is **signed to one convention across every source**. Most aggregators already deliver a signed value and LedgerSync passes it straight through; where a source instead reports an unsigned magnitude with the direction in a separate field (MX does this), LedgerSync applies the sign for you. Either way you get:
 
 - **Money out (charges, purchases, withdrawals) is negative.** A $28.34 card purchase comes through as `-28.34`.
 - **Money in (deposits, payroll, credits) is positive.** A $1,500 payroll deposit comes through as `+1500.00`.
@@ -358,9 +358,9 @@ That's the complete set. There is no `subcategory`, `type`, or `location` field.
 }
 ```
 
-<Warning>
-  Because the sign is a passthrough, treat it as source-driven rather than a LedgerSync guarantee. Before you post amounts into a ledger, confirm the sign against your own sandbox data with FinBank — the fixtures above are exactly what the sandbox returns, so a quick read tells you which way is which for your integration.
-</Warning>
+<Note>
+  The sign is a LedgerSync guarantee, not a per-source quirk — you do not need to branch on which aggregator backs a connection. `acc_FINICITY_*`, `acc_MX_*`, `acc_FDE_*` and `acc_PDF_*` all report money out as negative and money in as positive. Before you post amounts into a ledger it is still worth a quick read against your own sandbox data with FinBank — the fixtures above are exactly what the sandbox returns, so you can confirm the convention end to end for your integration.
+</Note>
 
 <Tip>
   **Dedupe on `id`.** The `txn_<SOURCE>_<n>` id is stable across refreshes, so use it as your upsert/idempotency key. Re-pulling a date range that overlaps a previous pull returns the same ids — key on `id` and you'll never double-count a transaction.
