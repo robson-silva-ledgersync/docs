@@ -3410,8 +3410,11 @@ components:
         amount:
           type: number
           description: >-
-            Signed decimal amount in the account's currency. The sign follows
-            the upstream aggregator's convention (matches Plaid/MX/Finicity).
+            Signed decimal amount in the account's currency, normalized to one
+            convention across every source - money out negative, money in
+            positive (matches Plaid/Finicity). Sources that report an unsigned
+            magnitude with the direction in a separate field are signed by
+            LedgerSync before they reach this API.
           example: -28.34
         iso_currency_code:
           type: string
