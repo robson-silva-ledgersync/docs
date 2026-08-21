@@ -76,6 +76,12 @@ See [Connection lifecycle](/guides/connection-lifecycle) for how `initiated → 
 There is no `connection.initiated` **event**. The `initiated` connection *status* exists in the state machine, but the first webhook every new link produces is `connection.requires_action`. Subscriptions listing an unknown event type are rejected with `validation_failed`.
 </Note>
 
+<Warning>
+There is also **no account-added event**. When a client opens a new account at a bank they already linked, nothing is pushed to you. `connection.active` fires on the transition into `active`, so an already-active connection that stays active produces no event, and `account.refresh.completed` tells you a refresh finished, not that the account set changed.
+
+To find the new account, re-list `GET /v3/accounts?client_id=...&connection_id=...` and diff on account id. See [Adding a new account](/guides/adding-accounts).
+</Warning>
+
 ## Delivery shape
 
 Every delivery is an HTTP `POST` to your URL with a JSON body and these `X-LS-Webhook-*` headers:

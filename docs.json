@@ -33,6 +33,7 @@
               "guides/connection-lifecycle",
               "guides/webhooks",
               "guides/data-freshness",
+              "guides/adding-accounts",
               "guides/checks",
               "guides/pagination",
               "guides/errors"

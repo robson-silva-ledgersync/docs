@@ -25,7 +25,11 @@ curl -X POST https://api.ledgersyncappv2.com/v3/connections/con_FINICITY_41294/r
   -H "Content-Length: 0"
 ```
 
-It returns **`202 Accepted`** with an `operation_id` and starts the refresh **asynchronously** — balances are **not** updated by the time the call returns. All three connectable sources (Finicity, MX, and FDE) behave the same way.
+It returns **`202 Accepted`** with an `operation_id` and starts the refresh **asynchronously**, so balances are **not** updated by the time the call returns. All three connectable sources (Finicity, MX, and FDE) answer this call the same way: `202` now, the outcome later on a webhook.
+
+<Warning>
+  A refresh keeps the accounts you already have current. It is **not** uniformly a discovery call. On MX and FDE it also picks up an account the client opened after linking; on Finicity it never does, because a Finicity refresh only touches the accounts already attached to the connection. See [Adding a new account](/guides/adding-accounts).
+</Warning>
 
 <Steps>
   <Step title="POST /connections/{id}/refresh">
@@ -42,7 +46,9 @@ It returns **`202 Accepted`** with an `operation_id` and starts the refresh **as
 See [Connection lifecycle](/guides/connection-lifecycle) and [Webhooks](/guides/webhooks) for the `account.refresh.completed` / `account.refresh.failed` payload shapes, and the **Refresh a connection** endpoint in the API Reference for the full contract.
 
 <Note>
-  MX aggregates on its own schedule and refreshes through this same async webhook flow. A refresh you request triggers an MX aggregation, and the result arrives on the `account.refresh.completed` webhook — so MX is no different from Finicity or FDE from your side.
+  MX aggregates on its own schedule, several times a day, and refreshes through this same async webhook flow. A refresh you request triggers an MX aggregation, and the result arrives on the `account.refresh.completed` webhook, so the *shape* of the call matches Finicity and FDE.
+
+  What is not the same is what comes back. An MX aggregation re-reads the member's full account list, so it also picks up accounts the client opened after linking. FDE does the same on its extraction run. A Finicity refresh does not, and no amount of refreshing will surface an account the client never shared. See [Adding a new account](/guides/adding-accounts).
 </Note>
 
 ## Refreshing many connections at once
