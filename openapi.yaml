@@ -720,18 +720,40 @@ paths:
           asynchronously; on success the `account.refresh.completed`
           webhook fires when the bank call finishes, and on terminal
           failure the `account.refresh.failed` webhook fires instead.
+          Refreshes **only the accounts already linked on this
+          connection**: it updates balances and transactions on rows we
+          already hold and never adds an account. An account the end-user
+          opened, or chose not to share, after the original link is not
+          picked up here no matter how often you call it. Use
+          `POST /connections/{connection_id}/reauthorize` for that.
         - **MX (`con_MX_*`)** — returns `202 Accepted` with an
           `operation_id`. MX has no synchronous refresh API, so the
           backend triggers a member aggregation and returns
           immediately; MX pulls fresh balances and transactions
           asynchronously, and the `account.refresh.completed` webhook
           fires when it finishes (`account.refresh.failed` on terminal
-          failure).
+          failure). The aggregation re-reads the member's **whole**
+          account list, so an account added at the bank since link time
+          is created here without any end-user step. The same happens on
+          the scheduled passes, so on MX you can simply wait.
         - **FDE (`con_FDE_*`)** — returns `202 Accepted` with an
           `operation_id`. FDE re-runs its document extraction
           pipeline; on success the `account.refresh.completed`
           webhook fires on completion, and on terminal failure the
-          `account.refresh.failed` webhook fires instead.
+          `account.refresh.failed` webhook fires instead. The run
+          re-reads the portal's sub-accounts, so a sub-account that has
+          appeared since link time is created here too.
+
+        ### Accounts opened after linking
+
+        Only Finicity is closed: refresh there is update-only. MX and FDE
+        discover new accounts on a refresh, and on MX the scheduled
+        passes do the same without you calling anything. Either way
+        nothing pushes you a notification, because there is no
+        `account.added` webhook. After a refresh completes,
+        re-list `GET /v3/accounts?client_id=…&connection_id=…` and diff
+        on account id. `Account.created_at` carries when LedgerSync first
+        saw the account, which is the field to sort by.
 
         ### Refresh support by source
 
@@ -790,20 +812,35 @@ paths:
         required: true
         description: |
           Canonical Connection id (`con_<SOURCE>_<bankAccountId>`) of the
-          connection to repair. The placeholder UUID from initiate and any
-          `con_PDF_*` id are rejected with `400`.
+          connection to repair, or of the active connection whose
+          account selection you want the end-user to revisit. The
+          placeholder UUID from initiate and any `con_PDF_*` id are
+          rejected with `400`.
         schema:
           type: string
           example: con_FINICITY_41294
     post:
       tags: [Connections]
       operationId: reauthorizeConnection
-      summary: Reauthorize (fix) a connection in place
+      summary: Reauthorize a connection, or add accounts opened later
       description: |
-        Repair a broken connection **in place**, keeping the SAME
-        `con_` / `acc_` / `txn_` ids. Call this when a connection reports
-        `status = requires_action` (the aggregator needs the end-user to
-        re-enter credentials or re-consent at the institution).
+        Mint a hosted page the end-user opens to re-consent at the
+        institution, normally keeping the SAME `con_` / `acc_` / `txn_`
+        ids. Two distinct reasons to call it:
+
+        1. **Repair.** The connection reports
+           `status = requires_action` and the aggregator needs the
+           end-user to re-enter credentials or re-consent.
+        2. **Add an account opened after link time.** The hosted page
+           re-opens the institution's account-selection step, so an
+           account the end-user opened (or chose not to share) after the
+           original link can be ticked and starts syncing. This is the
+           supported way to pick up such an account on a `FINICITY`
+           connection, where `POST /connections/{connection_id}/refresh`
+           only updates accounts we already hold.
+
+        **This endpoint is not gated on status.** It is equally callable
+        on an `active` connection, which is what makes reason 2 work.
 
         ### Why not just create a new connection?
 
@@ -814,20 +851,65 @@ paths:
         you already have under **new** ids (your upsert would duplicate
         them). Reauthorize repairs the existing connection instead, so the
         ids stay stable and a delta re-sync over the overlap window dedupes
-        cleanly on `txn_…`.
+        cleanly on `txn_…`. That holds for every response whose `source`
+        matches the source segment of the `connection_id` you sent, which
+        is the normal case; see "Ids are not always stable" below for the
+        one response shape where it does not.
 
         ### What you get back
 
-        A hosted `reauth_url` — a LedgerSync-hosted page the end-user opens
-        to complete the source-specific reauthorization (Finicity Connect
-        Fix, MX member reconnect, FDE credential recapture) against the
-        existing connection. Redirect the user to it, then wait for the
+        A hosted `reauth_url`, a LedgerSync-hosted page the end-user opens
+        to complete the source-specific flow (Finicity Connect Fix, MX
+        member reconnect, FDE credential recapture) against the existing
+        connection. Redirect the user to it, then wait for the
         `connection.active` / `connection.failed` webhook for the outcome.
-        The URL is single-use and expires at `action.expires_at`.
+
+        The response also carries `source`: the provider the URL leads to.
+        See "Ids are not always stable" below.
+
+        ### The URL is a reusable bearer credential
+
+        The link is **not** single-use. It stays valid until
+        `action.expires_at` (currently about six days out) and anyone
+        holding it can open the end-user's bank-linking session. Deliver it
+        over a channel you would use for a password reset, do not log it,
+        and do not embed it in a page that a third party can scrape.
+
+        ### Ids are not always stable
+
+        For a bank LedgerSync now serves exclusively through a different
+        provider, the URL we hand back is an add-bank link for that
+        provider rather than a repair link for the connection you named.
+        Today that is Finicity connections at such banks being redirected
+        to MX, and American Express is on that list in production. The
+        list is configuration and can change without an API version bump,
+        so branch on the response rather than on a bank you hard-coded.
+
+        When the redirect happens, the end-user's session creates a **new**
+        connection with a new `con_` id and new `acc_` / `txn_` ids, and
+        the connection you passed is left as it was.
+
+        Detect it from the response: `source` differs from the source
+        segment of the `connection_id` you sent. On that branch the
+        `connection.active` webhook that follows carries the **new**
+        connection's id, not the one you passed, so key off the Client
+        rather than the connection: wait for `connection.active`, then
+        re-list `GET /v3/connections` and `GET /v3/accounts` for that
+        Client and re-map, rather than expecting the old ids to come back.
+
+        ### Call it because a person asked, not on a timer
+
+        Each completed session can share accounts you were not syncing
+        before, and newly shared accounts pull their statement history,
+        which is billable. Trigger this from an explicit user action. Do
+        not schedule it, do not retry it in a loop, and do not mint a
+        second link while the first is still valid.
 
         Available for `FINICITY`, `MX`, and `FDE`. Uploaded-statement
         (`PDF`) data is read-only and has no connection to reauthorize
-        (`400`).
+        (`400`). On `MX` and `FDE` you do not need this endpoint to pick up
+        a newly opened account: a plain refresh discovers it. See
+        `POST /connections/{connection_id}/refresh`.
 
         Ownership is enforced server-side: a `connection_id` that
         doesn't belong to the authenticated customer returns `404`.
@@ -850,7 +932,10 @@ paths:
       responses:
         '200':
           description: |
-            A hosted reauthorization URL for the existing connection.
+            A hosted reauthorization URL, plus the `source` it leads to.
+            Same source as the `connection_id` means the existing
+            connection is repaired and its ids stay stable; a different
+            one means the URL mints a new connection.
           headers:
             X-LS-Trace-Id: { $ref: '#/components/headers/X-LS-Trace-Id' }
           content:
@@ -3265,14 +3350,32 @@ components:
       type: object
       description: |
         Result of `POST /v3/connections/{connection_id}/reauthorize`: the
-        connection id (echoed for correlation) plus a `reauthorize` action
-        carrying the hosted URL the end-user opens to repair the connection
-        in place.
-      required: [connection_id, action]
+        connection id (echoed for correlation), the source the hosted URL
+        actually leads to, and a `reauthorize` action carrying that URL.
+      required: [connection_id, source, action]
       properties:
         connection_id:
           type: string
           example: con_FINICITY_41294
+        source:
+          allOf:
+            - $ref: '#/components/schemas/Source'
+          description: |
+            The source the hosted URL leads to. Usually the same source as
+            the `connection_id` you passed, meaning the existing connection
+            is repaired in place and its ids stay stable.
+
+            When it differs, the URL hands the end-user to a different
+            provider (today: a Finicity connection at a bank we now serve
+            exclusively through MX). Completing it creates a **new**
+            connection with a new `con_` id and new `acc_` / `txn_` ids
+            under the same Client; the old connection is not repaired.
+            Compare this against the source segment of the
+            `connection_id` you sent, and if it differs, re-list
+            `GET /v3/connections` and `GET /v3/accounts` for the Client
+            after the `connection.active` webhook rather than expecting
+            the old ids to come back.
+          example: FINICITY
         action: { $ref: '#/components/schemas/ConnectionActionReauthorize' }
 
     ConnectionInitiateRequest:
@@ -3394,7 +3497,16 @@ components:
           oneOf:
             - $ref: '#/components/schemas/RealizedCapabilities'
             - type: 'null'
-        created_at: { type: [string, 'null'], format: date-time }
+        created_at:
+          type: [string, 'null']
+          format: date-time
+          description: |
+            When LedgerSync first stored this account, which is when we
+            first saw it at the source. For accounts present at link time
+            this tracks the connection; for one shared later it is when it
+            arrived. There is no `account.added` webhook, so this is the
+            field to sort or diff on when you re-list accounts to find what
+            is new. It never moves afterwards.
         updated_at: { type: [string, 'null'], format: date-time }
 
     # ---------- Transaction ----------
