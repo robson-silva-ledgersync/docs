@@ -94,7 +94,33 @@ and each `error.doc_url` deep-links to one entry.
 
 | Code | HTTP | When it fires | What to do |
 | --- | --- | --- | --- |
-| `rate_limit_exceeded` | 429 | More requests than the per-key limit. `X-RateLimit-Reset` / `Retry-After` describe the window. | Back off and retry after `Retry-After`; batch or ask support for a higher quota. |
+| `rate_limit_exceeded` | 429 | More requests than the per-key limit. `X-RateLimit-Reset` / `Retry-After` describe the window. Also returned by `POST /connections/{id}/refresh` when the customer's **daily refresh budget** is spent - a separate budget from the request-rate limit, because every refresh is a real aggregation at the bank. | Back off and retry after `Retry-After`. For refresh specifically, spread refreshes out rather than retrying straight away; active connections already refresh once a day on their own. |
+
+### Connection refresh
+
+Outcomes of `POST /connections/{id}/refresh`. Like `statement_extraction_failed`,
+these arrive **inside the polled operation's `error`** rather than as the HTTP
+response - the call itself answers `202` and the verdict lands later.
+
+A refresh is one aggregation at the bank but reports **per sub-account**, so the
+operation only turns terminal once every account on the connection has reported.
+When it does, `error.accounts[]` lists each account with its own `status`
+(`succeeded` / `failed` / `pending`) and, where it failed, its own nested `error`.
+
+| Code | HTTP | When it fires | What to do |
+| --- | --- | --- | --- |
+| `refresh_partially_failed` | 502 | The aggregation ran, but at least one account on the connection did not come back. `error.accounts[]` says which. | Read `accounts[]`. Treat the succeeded accounts as fresh, and handle each failed one by its nested `error.code` like any other source error. |
+| `refresh_timed_out` | 502 | No account reported an outcome inside the window. **Not** a claim that the refresh failed - it may well have run. | Check the connection's `last_refreshed_at` to see whether data actually moved, and trust the `account.refresh.completed` webhook, which is the authoritative signal. |
+| `refresh_outcome_not_observable` | 502 | The refresh was dispatched, but this customer is not configured to emit per-account events, so the outcome cannot be confirmed through the API. | Check `last_refreshed_at` for whether data moved, and contact support so event delivery can be enabled. Retrying will not clear it. |
+| `no_refreshable_accounts` | 422 | The connection holds no account a refresh could touch, so nothing was queued and no event will ever arrive. Resolved immediately rather than left to time out. | Reconnect the connection to restore account access, or delete it if the end user no longer shares these accounts. |
+
+<Note>
+  `refresh_timed_out` and `refresh_outcome_not_observable` look alike and mean
+  different things. The first is "the bank or our pipeline was slow", and retrying
+  can help. The second is a configuration gap on our side that retrying will never
+  clear - chasing the institution over it would send you somewhere there is nothing
+  to find.
+</Note>
 
 ### Server
 

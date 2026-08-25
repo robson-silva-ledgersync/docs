@@ -3,6 +3,41 @@ title: "Changelog"
 description: "New features, improvements, and fixes to the LedgerSync v3 API. Newest first."
 ---
 
+<Update label="2026-08-25" tags={["Connections"]}>
+  ## Refresh now pulls transactions, and its operation actually finishes
+
+  `POST /v3/connections/{id}/refresh` on a Finicity connection re-aggregated
+  balances only. Transactions were not pulled, `last_refreshed_at` never moved,
+  and no `account.refresh.completed` webhook fired - so the operation it handed
+  you stayed `queued` forever and polling it never returned a terminal state.
+  Fixed. The call also answers in milliseconds now instead of blocking.
+
+  - **Transactions are pulled** and `last_refreshed_at` advances, so re-reading
+    `GET /v3/accounts` after the webhook shows what you would expect.
+  - **The operation reaches a terminal state.** A refresh is one aggregation at
+    the bank but reports per sub-account, so the operation turns `succeeded` or
+    `failed` once every account on the connection has reported - and resolves on
+    its own if the events never arrive, so polling always terminates.
+  - **Partial failures are reported as failures**, not as partial successes. If
+    the aggregation ran but one account did not come back, you get
+    `refresh_partially_failed` with a per-account breakdown in
+    `error.accounts[]`, so branching on `status` alone cannot quietly ship a
+    connection that is missing an account's transactions.
+  - **New error codes:** `refresh_partially_failed`, `refresh_timed_out`,
+    `refresh_outcome_not_observable`, `no_refreshable_accounts`.
+  - **Refresh now has a daily budget** separate from the request-rate limit,
+    since each one is a real aggregation at the institution. Over it, the call
+    returns `429 rate_limit_exceeded` without touching the bank.
+  - `estimated_seconds` on the `202` was raised from `10` to `120` to match how
+    long a refresh actually takes. It is a best-effort floor, not a deadline.
+
+  MX and FDE connections are unchanged - they already reported completion
+  correctly and keep the behaviour they had.
+
+  See [Keeping data fresh](/guides/data-freshness#what-the-operation-tells-you)
+  and the [connection refresh error codes](/guides/errors#connection-refresh).
+</Update>
+
 <Update label="2026-07-21" tags={["Connections"]}>
   ## Reauthorize (fix) a broken connection in place
 

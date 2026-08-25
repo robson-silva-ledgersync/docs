@@ -45,6 +45,35 @@ It returns **`202 Accepted`** with an `operation_id` and starts the refresh **as
 
 See [Connection lifecycle](/guides/connection-lifecycle) and [Webhooks](/guides/webhooks) for the `account.refresh.completed` / `account.refresh.failed` payload shapes, and the **Refresh a connection** endpoint in the API Reference for the full contract.
 
+### What the operation tells you
+
+The webhook is the signal to build on, but the `operation_id` is a real fallback
+when you can't run a webhook handler: `GET /v3/operations/{operation_id}` reaches a
+terminal `succeeded` or `failed`, and always terminates even if the events never
+arrive.
+
+A refresh is **one aggregation at the bank but reports per sub-account**, so the
+operation stays `queued` until every account on the connection has reported. That
+matters for how you read the verdict:
+
+- **`succeeded`** - every account refreshed. `result.accounts[]` lists them, and
+  `result.accounts_refreshed` counts them.
+- **`failed` with `refresh_partially_failed`** - the aggregation ran, but at least
+  one account didn't come back. This is deliberately a failure rather than a
+  partial success, so branching on `status` alone can't quietly ship a connection
+  that's missing an account's transactions. `error.accounts[]` breaks it down
+  per account.
+- **`failed` with `refresh_timed_out`** - nothing reported in time. The refresh may
+  still have run; check `last_refreshed_at`.
+
+Expect a couple of minutes end to end, not seconds: the bank aggregation alone
+typically runs about a minute, the per-account transaction pull follows it, and the
+event carrying the result adds its own hop. The `estimated_seconds` on the `202` is
+a best-effort floor, not a deadline.
+
+See the [connection refresh error codes](/guides/errors#connection-refresh) for the
+full list.
+
 <Note>
   MX aggregates on its own schedule, several times a day, and refreshes through this same async webhook flow. A refresh you request triggers an MX aggregation, and the result arrives on the `account.refresh.completed` webhook, so the *shape* of the call matches Finicity and FDE.
 
@@ -53,11 +82,14 @@ See [Connection lifecycle](/guides/connection-lifecycle) and [Webhooks](/guides/
 
 ## Refreshing many connections at once
 
-You can refresh all of a customer's banks in one batch — each connection is a separate `POST /connections/{id}/refresh` call. That's well within the rate limits (live keys allow 60 requests/minute), and there is no separate concurrency cap on refresh: the limit that applies is the normal request rate.
+You can refresh all of a customer's banks in one batch - each connection is a separate `POST /connections/{id}/refresh` call, and that's well within the request-rate limit (live keys allow 60 requests/minute).
+
+Refresh also carries a **daily budget of its own**, separate from that request rate, because every refresh is a real aggregation at the institution rather than just another API call. Exceed it and the call returns `429 rate_limit_exceeded` without queueing anything or touching the bank.
 
 - **Fire the batch, then wait on the `account.refresh.completed` webhooks** — don't poll operations or `/accounts` in a tight loop.
 - **Watch the `X-RateLimit-*` headers** and back off before you hit zero — see [Rate limits](/guides/going-live#rate-limits).
 - Each refresh triggers a real aggregation at the bank, so space large batches out rather than firing hundreds at once.
+- **Don't put `/refresh` on a timer.** Active connections already refresh once a day on their own, and our upstream provider's terms don't permit client apps automating calls to the refresh services. Refresh when something asked for it - a user tapped refresh, or you're reconciling something time-sensitive.
 
 <Warning>
   A refresh is asynchronous and eventually-consistent. Don't block a user flow waiting for `/refresh` to finish — show the cached balance immediately (with `last_refreshed_at`), and update your UI when the webhook arrives.
