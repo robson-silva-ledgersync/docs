@@ -764,6 +764,31 @@ paths:
         webhook, never in the `202` body. Uploaded-statement (`PDF`)
         data is read-only, has no connection, and is never refreshed.
 
+        ### Reading the operation
+
+        The operation this returns reaches a terminal state, so polling
+        `GET /operations/{operation_id}` is a real fallback when you cannot
+        run a webhook handler. A refresh is one aggregation at the bank but
+        reports per sub-account, so it stays `queued` until every account on
+        the connection has reported, and resolves itself if those reports
+        never arrive.
+
+        On success `result` carries `accounts_refreshed` and an `accounts`
+        array. A refresh where the aggregation ran but an account did not come
+        back is reported as `failed` with `refresh_partially_failed`, carrying
+        the same per-account breakdown under `error.accounts`, so branching on
+        `status` alone cannot silently accept a connection that is missing an
+        account's transactions.
+
+        ### Rate limiting
+
+        Refresh carries a daily per-customer budget separate from the standard
+        request-rate tiers, because each call is a real aggregation at the
+        institution rather than just another API request. Exceeding it returns
+        `429` without queueing anything or contacting the bank. Active
+        connections already refresh about once a day on their own, so this
+        endpoint is for when something actually asked for fresher data.
+
         ### Empty-body POST
 
         This endpoint takes no request body. Send an explicit
@@ -793,6 +818,7 @@ paths:
             Returned by the upstream HTTPS load balancer when a POST
             arrives without a `Content-Length` header. Retry with
             `Content-Length: 0` set explicitly.
+        '429': { $ref: '#/components/responses/TooManyRequests' }
         '502':
           description: |
             The upstream aggregator or the backend was unreachable
