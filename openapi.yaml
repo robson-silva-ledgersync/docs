@@ -3561,13 +3561,42 @@ components:
         date:
           type: string
           format: date
-          description: Posted date — the date the transaction cleared (Plaid-style `date`).
+          description: >-
+            Posted date, the date the transaction cleared (Plaid-style `date`).
+            A pending charge has not cleared and so has no posted date yet; for
+            those this falls back to the date the bank recorded the charge, and
+            it can change when the charge settles.
         description: { type: string, example: "STARBUCKS #1234 SEATTLE WA" }
         merchant_name: { type: [string, 'null'] }
         category:
           type: [string, 'null']
           description: LedgerSync's normalized category (best-effort across sources).
-        pending: { type: boolean }
+        pending:
+          type: boolean
+          description: >-
+            Whether the bank is still holding this as an authorization rather
+            than a settled charge.
+
+            A pending charge is not final. Its `amount` and its `description`
+            are both provisional: banks often publish only the card-network
+            entry type while a charge is pending ("PURCHASE", "MAIL/TELEPHONE
+            ORDER") and name the real merchant only once it settles. Treat it
+            as a preview of a charge, never as a booked entry.
+
+            When it settles, either of two things happens, and which one is up
+            to the bank. The charge may settle in place, keeping the same `id`
+            and flipping `pending` to `false`. Or the bank may drop it and
+            reissue the settled charge as a new transaction with a different
+            `id`. So do not assume a pending charge you saw earlier will still
+            be there, or will still carry the same id, on your next call.
+
+            LedgerSync withholds pending charges from its own rules engine and
+            from accounting exports until they settle, so a charge returned
+            with `pending: true` has not been categorized and has not been
+            pushed to QuickBooks or Zoho Books.
+
+            Whether pending charges are reported at all depends on the
+            institution, so an account that never returns one is normal.
 
     # ---------- Statement ----------
     Statement:
