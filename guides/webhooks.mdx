@@ -58,9 +58,9 @@ There are exactly eight real events, plus a `webhook.test` event you can fire on
 
 | Event | Fires when |
 | --- | --- |
-| `connection.requires_action` | The connection is waiting on the user in the widget (sign-in, MFA, account pick). |
+| `connection.requires_action` | Something the **user** can fix: waiting on them in the widget (sign-in, MFA, account pick), or their credentials need re-entering, or the bank locked the account. |
 | `connection.active` | The user finished linking. Data is flowing. Carries the **canonical** connection id. |
-| `connection.failed` | Bad credentials or an aggregator-reported failure. The link did not complete. |
+| `connection.failed` | Something the user **cannot** fix: the bank is unavailable, the bank is refusing automated access, or the aggregator reported a failure. See [`requires_action` vs `failed`](/guides/connection-lifecycle#the-status-flow) before prompting for credentials. |
 | `connection.disconnected` | The user revoked access, or the connection needs a re-link. |
 | `connection.capability_changed` | A single capability on an active connection flipped working ↔ not-working. |
 | `account.refresh.completed` | A background data refresh for an account finished successfully. |

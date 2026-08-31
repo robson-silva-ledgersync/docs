@@ -29,10 +29,26 @@ A connection has five statuses:
 | Status | Meaning | What you do |
 | --- | --- | --- |
 | `initiated` | You've kicked off the link; the widget URL isn't ready yet. Brief and transient. | Nothing — poll the operation; you'll see `requires_action` almost immediately. |
-| `requires_action` | The user still needs to finish in the widget. | Keep the widget open, or re-open the same `widget_url`. No auto-timeout. |
+| `requires_action` | Someone needs to do something: finish the widget, re-enter credentials, answer an MFA challenge, or unlock the account at the bank. | Keep the widget open, or re-open the same `widget_url`. No auto-timeout. |
 | `active` | Linked and healthy. Accounts, transactions, and statements are flowing. | Read data. Watch capability and refresh events. If the client opened a new account at this bank, see [Adding a new account](/guides/adding-accounts). |
-| `failed` | Bad credentials or an aggregator-reported failure. | Show a re-link CTA. **Reauthorize in place** to keep your ids, or re-initiate. |
+| `failed` | The connection cannot be used, and re-entering credentials will not fix it on its own: the bank is unavailable, the bank is refusing automated access, or the aggregator reported a failure. | Show a re-link CTA. **Reauthorize in place** to keep your ids, or re-initiate. A later retry often succeeds with no user action at all. |
 | `disconnected` | The user revoked access, or the link needs to be rebuilt. | Show a re-link CTA. **Reauthorize in place** to keep your ids, or re-initiate. |
+
+<Note>
+  **`requires_action` vs `failed` is the "can the user fix this?" split.** Branch on it rather than
+  treating every unhealthy connection the same way:
+
+  - **`requires_action`** — the user can fix it. Wrong password, an expired one-time code, a bank-forced
+    password change, an account locked after too many sign-in attempts. Prompting them is worth doing.
+  - **`failed`** — the user cannot fix it. The bank's site is down, the bank is blocking automated access,
+    or our extraction failed. Prompting them for credentials here is the wrong call: they will re-enter
+    correct credentials and it will still fail.
+
+  Statement-only connections used to report some bank-side outages as `requires_action`, which sent
+  integrators (and end clients) chasing credentials during a bank outage. Those now correctly report
+  `failed`. If you branch on this field, expect a one-time shift of a small number of statement-only
+  connections from `requires_action` to `failed`.
+</Note>
 
 ## From initiate to active
 
