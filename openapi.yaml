@@ -25,7 +25,7 @@ info:
        returns `202 Accepted`. The initiate operation first surfaces
        a `connection_with_action` result whose embedded
        `connection.id` is a UUID-prefixed placeholder of the form
-       `con_<uuid>` (e.g. `con_01HXYZ8A6N7K2W9PQ4T5Z3V6E0`), paired
+       `con_<uuid>` (e.g. `con_a1b2c3d4-e5f6-47a8-9b12-c3d4e5f6a7b8`), paired
        with a `widget_url`. The placeholder is **not** a valid id for
        any other endpoint — calling
        `GET /v3/connections/{placeholder_uuid}` returns
@@ -34,23 +34,34 @@ info:
     2. **Canonical id (active state).** Once the user finishes the
        widget and the source pushes its first callback, the
        connection moves to `status=active` and the
-       `connection.active` webhook fires. From that point on every
-       surface — `GET /v3/clients/{id}/connections`,
-       `GET /v3/connections/{id}`, the webhook payload, and the
-       `connection.initiate` operation when re-polled — reports the
-       canonical id `con_<SOURCE>_<bankAccountId>` (for example
-       `con_FINICITY_41294`, `con_MX_1224`). **This** is the id every
-       other endpoint accepts (`/accounts`, `/transactions`,
-       `/statements`, refresh, delete).
+       `connection.active` webhook fires. Exactly two surfaces report
+       the canonical id `con_<SOURCE>_<bankAccountId>` (for example
+       `con_FINICITY_41294`, `con_MX_1224`): the `connection.active`
+       webhook payload, and `GET /v3/clients/{id}/connections`.
+       **This** is the id every other endpoint accepts
+       (`/accounts`, `/transactions`, `/statements`, refresh, delete).
+
+    **Tell the two apart by shape, not by where you got them.** The
+    initiate operation's `result` is a snapshot written once, at the
+    moment the widget URL is issued, and nothing rewrites it
+    afterwards. The operation is already `succeeded` while the user
+    still has the widget open, so `status=succeeded` does **not** mean
+    the bank is linked, and re-polling later returns exactly what it
+    returned the first time. For Finicity and MX that is a
+    placeholder. (An FDE initiate can return the canonical id
+    directly; checking the shape covers both without special-casing
+    the source.)
 
     The correct integration pattern is therefore:
 
     - Initiate the connection, capture `operation_id`.
-    - Poll `GET /v3/operations/{operation_id}` (or wait for the
-      `connection.active` webhook) until `status=succeeded`.
-    - Read `result.connection.id` **from the succeeded operation** —
-      that is the canonical id. Store it; do not store the
-      placeholder.
+    - Open `result.connection.action.widget_url` for the user. Store
+      `result.connection.id` only if it matches
+      `con_<SOURCE>_<bankAccountId>`; never store a `con_<uuid>`.
+    - Wait for the `connection.active` webhook and read
+      `data.connection.id` from it. If you cannot run a webhook
+      handler, poll `GET /v3/clients/{id}/connections` and take the
+      canonical id from there.
 
     Do not try to `GET /v3/connections/{placeholder_uuid}` during the
     pending window. Listing endpoints
@@ -123,10 +134,11 @@ info:
     Every response carries an `X-LS-Trace-Id` header — paste it in
     support tickets and we can jump straight to your request.
 
-    **Webhooks.** Every delivery carries `X-LS-Webhook-Signature`,
-    computed over the **raw request body** with HMAC-SHA256. Verify
-    it before trusting the payload. Full event catalog + signature
-    example on the [Webhooks tab](#webhooks).
+    **Webhooks.** Every delivery carries `X-LS-Webhook-Signature`:
+    hex HMAC-SHA256 over `X-LS-Webhook-Timestamp`, a literal `.`, and
+    the **raw request body**, in that order. Signing the body alone
+    will not match. Verify before trusting the payload. Full event
+    catalog + signature example on the [Webhooks tab](#webhooks).
 
     ## Need help?
 
@@ -606,16 +618,18 @@ paths:
         fires when it's done. Poll `GET /operations/{operation_id}`
         if you can't run a webhook handler.
 
-        **Note on `connection.id`.** While this operation is
-        `queued`/`running`, the embedded `result.connection.id` is a
-        UUID-prefixed **placeholder** (`con_<uuid>`) and cannot be used
-        with any other endpoint. The canonical id —
-        `con_<SOURCE>_<bankAccountId>` such as `con_FINICITY_41294` or
-        `con_MX_1224` — is only assigned once the user finishes the
-        widget and the source pushes its first callback. Read the
-        canonical id from
-        `GET /operations/{operation_id}` once `status=succeeded`, or
-        from the `connection.active` webhook. See the
+        **Note on `connection.id`.** For Finicity and MX the embedded
+        `result.connection.id` is a UUID-shaped **placeholder**
+        (`con_<uuid>`) that cannot be used with any other endpoint.
+        The canonical id, `con_<SOURCE>_<bankAccountId>` such as
+        `con_FINICITY_41294` or `con_MX_1224`, is only assigned once
+        the user finishes the widget and the source pushes its first
+        callback. This operation reaches `succeeded` as soon as the
+        widget URL is issued, and its stored `result` is never
+        rewritten, so a placeholder here stays a placeholder. Check
+        the shape before storing an id, and read the canonical one
+        from the `connection.active` webhook or from
+        `GET /clients/{client_id}/connections`. See the
         **Connection lifecycle** section at the top of this reference
         for the full handshake.
       parameters:
@@ -642,7 +656,7 @@ paths:
           (e.g. `con_FINICITY_41294`, `con_MX_1224`, `con_FDE_5009`). Only
           the canonical shape is accepted here. The placeholder UUID id
           returned by `POST /v3/clients/{id}/connections`
-          (`con_<uuid>`, e.g. `con_01HXYZ8A6N7K2W9PQ4T5Z3V6E0`) is **not**
+          (`con_<uuid>`, e.g. `con_a1b2c3d4-e5f6-47a8-9b12-c3d4e5f6a7b8`) is **not**
           a valid value — calls with it return 400 with
           `missing source separator`. See the lifecycle prose at the top
           of this document for the full id-format contract.
@@ -1453,9 +1467,13 @@ paths:
       summary: Get a statement
       description: |
         Returns the statement metadata plus, when available, a
-        time-limited signed URL to download the original PDF. For
-        FDE connections this is the document the user uploaded; for
-        bank-sourced statements it's the bank's published file.
+        `download_url` for the original PDF. That URL is a **relative
+        `/v3` path scoped to your API key**, not a signed link: join
+        it to the API host and send your `Authorization` header. It
+        carries no signature and does not expire, so handing it to a
+        browser tab on its own returns `401`. For FDE connections this
+        is the document the user uploaded; for bank-sourced statements
+        it's the bank's published file.
       parameters:
         - $ref: '#/components/parameters/ClientId'
       responses:
@@ -1697,17 +1715,21 @@ paths:
         `result` field is populated when `status=succeeded`; `error`
         when `status=failed`.
 
-        **For `connection.initiate` operations specifically:** while
-        the operation is `queued`/`running` the embedded
-        `result.connection.id` is a UUID-prefixed placeholder
-        (`con_<uuid>`) that is **not** valid against any other
-        endpoint. Once `status=succeeded`, `result.connection.id`
-        is the canonical
-        `con_<SOURCE>_<bankAccountId>` (e.g. `con_FINICITY_41294`,
-        `con_MX_1224`) — store **that** id and use it for subsequent
-        `/connections`, `/accounts`, `/transactions`, and
-        `/statements` calls. See the **Connection lifecycle** section
-        at the top of this reference for the full handshake.
+        **For `connection.initiate` operations specifically:**
+        `status=succeeded` here means the widget URL was issued, not
+        that the bank was linked, and the stored `result` is never
+        rewritten afterwards. Use this endpoint to collect
+        `result.connection.action.widget_url`. Judge
+        `result.connection.id` by its shape before storing it: for
+        Finicity and MX it is a UUID-shaped placeholder (`con_<uuid>`)
+        that is **not** valid against any other endpoint and that
+        stays a placeholder for the life of the operation. To get the
+        canonical `con_<SOURCE>_<bankAccountId>` (e.g.
+        `con_FINICITY_41294`, `con_MX_1224`), read the
+        `connection.active` webhook or call
+        `GET /clients/{client_id}/connections`. See the
+        **Connection lifecycle** section at the top of this reference
+        for the full handshake.
       responses:
         '200':
           description: The Operation, with `result` or `error` once it's done.
@@ -1926,7 +1948,26 @@ paths:
               type: object
               nullable: true
       responses:
-        '202': { $ref: '#/components/responses/Accepted' }
+        '202':
+          description: |
+            The test event was queued for delivery. Unlike other
+            asynchronous endpoints this one does **not** return an
+            `operation_id`, and there is nothing to poll: watch your
+            webhook endpoint for a `webhook.test` delivery carrying
+            the returned `event_id` in its `X-LS-Webhook-Event-Id`
+            header.
+          headers:
+            X-LS-Trace-Id: { $ref: '#/components/headers/X-LS-Trace-Id' }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [event_id]
+                properties:
+                  event_id:
+                    type: string
+                    description: Id of the queued test event.
+                    example: 4bf92f35-77b3-4da6-a3ce-929d0e0e4736
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
         '411':
@@ -2499,6 +2540,16 @@ components:
       in: header
       required: false
       description: |
+        > **Reserved, not yet honored.** The header is accepted and
+        > ignored today: nothing reads it, no response is replayed,
+        > and `idempotency_conflict` is never returned. **Do not
+        > auto-retry a failed POST on the assumption that this
+        > protects you** — a retried `POST /clients` or
+        > `POST /clients/{id}/connections` creates a duplicate. Send
+        > the header if you want to be ready for it; do not depend on
+        > it. The behavior described below is the intended contract
+        > for a future release.
+
         Safe-retry key for POSTs. Send any unique string per logical
         request (a UUIDv4 is great). If the network drops and you retry
         with the same `Idempotency-Key` within 24 hours, you get the
@@ -3745,8 +3796,20 @@ components:
           type: string
           enum: [active, paused, disabled]
         created_at: { type: string, format: date-time }
-        last_success_at: { type: [string, 'null'], format: date-time }
-        last_failure_at: { type: [string, 'null'], format: date-time }
+        last_success_at:
+          type: [string, 'null']
+          format: date-time
+          description: |
+            Reserved. Not populated yet: this field is absent from
+            every response today. Do not build delivery monitoring on
+            it.
+        last_failure_at:
+          type: [string, 'null']
+          format: date-time
+          description: |
+            Reserved. Not populated yet: this field is absent from
+            every response today. Do not build delivery monitoring on
+            it.
 
     WebhookSubscriptionCreateRequest:
       type: object
@@ -4063,9 +4126,16 @@ components:
     BadRequest:
       description: |
         Something in the request body or query string didn't pass
-        validation. The response carries `error.param` (or
-        `error.errors[]` for multi-field failures) so you know which
-        field to fix.
+        validation.
+
+        On `error.code = validation_failed` (schema validation) the
+        response carries `error.param`, or `error.errors[]` for
+        multi-field failures, so you know which field to fix. Most
+        other 400s use `error.code = invalid_request` and name the
+        offending field **inside `error.message`** instead, in the
+        form `Field 'cursor': ...`, leaving `error.param` absent.
+        Read `error.message` as the fallback rather than branching
+        on `error.param` alone.
       headers:
         X-LS-Trace-Id: { $ref: '#/components/headers/X-LS-Trace-Id' }
       content:
