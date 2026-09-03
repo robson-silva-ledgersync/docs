@@ -17,12 +17,17 @@ failure, carries the same JSON body under `error`:
   "error": {
     "code": "not_found",
     "message": "No client matches id 'cli_deadbeef'.",
-    "type": "not_found",
     "doc_url": "https://portal.ledgersyncappv2.com/errors/not_found",
+    "type": "not_found",
+    "category": "RESOURCE_NOT_FOUND",
+    "is_user_actionable": false,
     "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736"
   }
 }
 ```
+
+`code`, `message`, `doc_url`, `type`, `category` and `is_user_actionable` are on
+every error. The rest appear only when they apply.
 
 | Field | What it's for |
 | --- | --- |
@@ -33,7 +38,7 @@ failure, carries the same JSON body under `error`:
 | `is_user_actionable` | `true` when the **end user** (not you) can resolve it, e.g. by re-authenticating in the widget. |
 | `doc_url` | Deep link to the page for this specific code. |
 | `trace_id` | The id of this exact request in our logs. Quote it in support tickets. |
-| `param` / `errors[]` | On `validation_failed`, names the offending field(s). |
+| `param` / `errors[]` | On `validation_failed`, names the offending field(s). **Absent on most other 400s** — `invalid_request` names the field inside `message` instead, as `Field 'cursor': ...`. Read `message` as the fallback. |
 | `source_diagnostic_code` | On bank-side errors, the raw upstream code (`FIN-103`, `MX-DENIED`, `FDE-INTERNAL`). For **support triage, not control flow**. |
 
 <Warning>
@@ -51,7 +56,7 @@ failure, carries the same JSON body under `error`:
 | `403` | Authenticated but not allowed (scope, unapproved access, billing) | Fix the key's scope or finish the portal step named in the message. |
 | `404` | Not found or not visible to your key | Confirm the id and its environment. |
 | `405` | Right route, wrong HTTP method | Use the method the API reference documents. |
-| `409` | Conflict (idempotency key reuse, stale `row_version`) | Re-fetch, then retry with fresh token/body. |
+| `409` | Conflict (stale `row_version`) | Re-fetch, then retry with fresh token/body. |
 | `422` | Accepted but couldn't be processed (statement extraction) | Read the operation's `error.message`; fix the input. |
 | `429` | Rate limit against **your** quota | Back off with jitter; honor `Retry-After`. |
 | `5xx` | Our side or the bank's side | Retry with backoff; escalate with the trace id. |
@@ -81,14 +86,24 @@ and each `error.doc_url` deep-links to one entry.
 | Code | HTTP | When it fires | What to do |
 | --- | --- | --- | --- |
 | `validation_failed` | 400 | A field failed schema validation. `error.param` / `error.errors[]` name it. | Fix the named field(s), resubmit. |
-| `invalid_request` | 400 | Rejected for a non-schema reason (bad state transition, unsupported source, idempotency-key reused with a different body). | Read `message`; use a fresh `Idempotency-Key` if retrying with a changed body. |
+| `invalid_request` | 400 | Rejected for a non-schema reason (bad state transition, unsupported source, malformed cursor). The offending field is named inside `message`, as `Field 'cursor': ...`; `error.param` is not set. | Read `message`, fix the named field, resubmit. |
 | `method_not_allowed` | 405 | Right route, wrong HTTP method. | Use the documented method; regenerate clients from the spec. |
-| `idempotency_conflict` | 409 | Same `Idempotency-Key`, different body/path. | Reuse the exact original body to retry, or a new key for a new request. |
+| `idempotency_conflict` | 409 | Same `Idempotency-Key`, different body/path. **Reserved: never returned today** (see the note below). | Reuse the exact original body to retry, or a new key for a new request. |
 | `version_conflict` | 409 | Write carried a stale `row_version` (someone else moved the row). | Re-fetch to get the current `row_version` and state, then retry if still needed. |
 | `read_only_client` | 403 | The target Client is read-only — an aliased/linked pre-existing v2 client. Writes and connection mutations are rejected. | Only mutate native `cli_` clients; treat aliased linked clients as read-only. |
 | `billing_managed_externally` | 409 | A billing action was attempted on a customer whose billing is managed outside the API. | Manage that customer's billing through the configured external flow, not the API. |
 | `not_found` | 404 | No resource matches the id, or it belongs to another customer. | Verify the id (stored the `cli_...`, not your `external_id`?). |
 | `statement_extraction_failed` | 422 | A `statement.extract` operation finished `failed` (bad scan, not a statement, corrupt pages). Arrives **inside the polled operation's `error`**, not as a direct HTTP response. | Fix the document (clearer scan, all pages, real bank PDF) and re-`POST /v3/statements/extract`. |
+
+<Warning>
+  **`Idempotency-Key` is reserved and not honored yet.** The header is accepted
+  and ignored: no response is replayed and `idempotency_conflict` is never
+  returned. Do **not** auto-retry a failed `POST` on the assumption that the key
+  protects you — a retried `POST /v3/clients` or
+  `POST /v3/clients/{id}/connections` creates a second one. Send the header if
+  you want to be ready for it, but make retries safe on your side, and reconcile
+  by listing before you re-create.
+</Warning>
 
 ### Rate limit
 

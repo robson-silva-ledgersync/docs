@@ -52,7 +52,7 @@ A connection has five statuses:
 
 ## From initiate to active
 
-You never poll the connection directly during setup. You poll the **operation** you get back from the initiate call.
+You never poll the connection directly during setup. You read the **operation** you get back from the initiate call to collect the widget URL, then you wait for a webhook.
 
 <Steps>
   <Step title="Initiate the connection">
@@ -66,29 +66,45 @@ You never poll the connection directly during setup. You poll the **operation** 
     ```
 
     ```json 202 Accepted
-    { "operation_id": "op_01HABCXYZ..." }
+    {
+      "operation_id": "op_3d9c7f1e05b84a26bb4e8107c2fa9d53",
+      "status": "queued",
+      "poll_url": "/v3/operations/op_3d9c7f1e05b84a26bb4e8107c2fa9d53",
+      "estimated_seconds": 5
+    }
     ```
 
     <Note>There is no `source` field. v3 routes to Finicity, MX, or FDE server-side from the institution catalog.</Note>
   </Step>
 
-  <Step title="Poll the operation until it succeeds">
-    `GET /v3/operations/{operation_id}` until `status` is `succeeded`. The widget URL is at `result.connection.action.widget_url`.
+  <Step title="Read the operation for the widget URL">
+    `GET /v3/operations/{operation_id}`. The widget URL is at `result.connection.action.widget_url`. That is the only thing you need from this response.
 
     ```json Operation succeeded
     {
+      "id": "op_3d9c7f1e05b84a26bb4e8107c2fa9d53",
+      "type": "connection.initiate",
       "status": "succeeded",
       "result": {
+        "kind": "connection_with_action",
         "connection": {
           "id": "con_9f1c2b7a-3e4d-4a11-8c2f-77e9b0d15a42",
+          "client_id": "cli_9f2a4c1b8e07d3a5f6b20c14",
+          "source": "FINICITY",
           "status": "requires_action",
           "action": {
-            "widget_url": "https://connect.ledgersyncappv2.com/w/..."
+            "kind": "widget_url",
+            "widget_url": "https://connect.ledgersyncappv2.com/w/...",
+            "expires_at": "2026-09-03T15:22:08Z"
           }
         }
       }
     }
     ```
+
+    <Warning>
+      `succeeded` here means the widget URL was issued, not that the bank is linked. This `result` is a snapshot written once and never rewritten, so whatever id it holds is the id it will hold forever. For Finicity and MX that is a `con_<uuid>` placeholder. Do not wait on this endpoint for the id to change; it never does.
+    </Warning>
   </Step>
 
   <Step title="Hand off the widget">
@@ -108,14 +124,20 @@ This trips people up, so read it twice.
 A connection has **two** id formats over its life. Only one works for reads.
 </Warning>
 
-- **Placeholder** — `con_<uuid>` (e.g. `con_9f1c2b7a-3e4d-4a11-8c2f-77e9b0d15a42`). You get this while the connection is `requires_action`. It is valid **only** for the widget step.
-- **Canonical** — `con_<SOURCE>_<bankAccountId>` (e.g. `con_FINICITY_41294`, `con_MX_1224`). It appears once the user finishes and `connection.active` fires. This is the **only** id that works on `/accounts`, `/transactions`, and `/statements`.
+- **Placeholder** — `con_` followed by a UUID (e.g. `con_9f1c2b7a-3e4d-4a11-8c2f-77e9b0d15a42`). This is what a Finicity or MX initiate returns. It is valid **only** for the widget step.
+- **Canonical** — `con_<SOURCE>_<bankAccountId>` (e.g. `con_FINICITY_41294`, `con_MX_1224`). This is the **only** id that works on `/accounts`, `/transactions`, and `/statements`.
 
-Always store the canonical id from the succeeded/active connection. Never persist the placeholder as your connection reference.
+**Tell them apart by shape, not by where you got them.** The initiate operation writes its result once and never rewrites it, so a placeholder there stays a placeholder however long you poll. (FDE is the exception: it can return the canonical id at initiate. Checking the shape handles both without special-casing the source.)
+
+When you hold a placeholder, the canonical id comes from the `connection.active` webhook payload (`data.connection.id`), or from `GET /v3/clients/{client_id}/connections` if you cannot run a webhook handler. Never persist a placeholder as your connection reference.
 
 <Tip>
 Ids encode their source everywhere: `con_FINICITY_...`, `acc_MX_...`, `txn_FDE_...`. You can read the source off any id at a glance.
 </Tip>
+
+<Note>
+This is the single most common mistake in AI-generated integrations, because it fails at the *next* call rather than where the wrong id was stored. If an assistant wrote your code, see [Check your assistant's work](/guides/build-with-ai#check-your-assistants-work).
+</Note>
 
 ## Handling requires_action
 
@@ -223,7 +245,7 @@ An `active` connection is not all-or-nothing. Each connection carries individual
 
 `check_images` is FDE-only; see [Check images](/guides/checks) for how to read them.
 
-When one of these transitions, you get a `connection.capability_changed` webhook. To avoid flapping, LedgerSync applies hysteresis: **3 consecutive failed** observations before a capability is marked `failed`, and **2 consecutive succeeded** before it flips back. The event fires only on a real transition, not on every refresh, and includes `previous_status`, `status`, `consecutive_observations`, and `observed_at`.
+When one of these transitions, you get a `connection.capability_changed` webhook. To avoid flapping, LedgerSync applies hysteresis: **3 consecutive failed** observations before a capability is marked `failed`, and **2 consecutive succeeded** before it flips back. The event fires only on a real transition, not on every refresh. It carries a `data.change` object holding `capability`, `previous_status`, `current_status`, `consecutive_observations`, and `last_error` when the capability failed.
 
 This lets you show precise UI, for example "transactions are syncing, but statements are temporarily unavailable," without dropping the whole connection.
 

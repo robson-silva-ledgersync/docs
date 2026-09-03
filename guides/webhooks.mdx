@@ -35,7 +35,7 @@ curl -X POST https://api-sandbox.ledgersyncappv2.com/v3/webhooks/subscriptions \
 
 ```json Response
 {
-  "id": "whsub_01HXYZ...",
+  "id": "whk_7c1e4a9b83d24f6ab05e2f8c91d3a640",
   "url": "https://yourapp.com/webhooks/ledgersync",
   "event_types": [
     "connection.active",
@@ -43,6 +43,8 @@ curl -X POST https://api-sandbox.ledgersyncappv2.com/v3/webhooks/subscriptions \
     "connection.disconnected",
     "account.refresh.completed"
   ],
+  "status": "active",
+  "created_at": "2026-09-03T14:22:08Z",
   "signing_secret": "whsec_9f2c...shown-once"
 }
 ```
@@ -119,7 +121,9 @@ event:
 ## Verify the signature
 
 Never trust a delivery you haven't verified. The **signed payload** is the
-timestamp header, a literal `.`, then the raw body:
+timestamp header, a literal `.`, then the raw body. (Generated code gets this
+backwards often, signing the body alone. If an assistant wrote your verifier,
+see [Check your assistant's work](/guides/build-with-ai#check-your-assistants-work).)
 
 ```
 signed_payload = X-LS-Webhook-Timestamp + "." + raw_body
@@ -274,9 +278,12 @@ Once a subscription exists, send yourself a real signed delivery:
 
 ```bash Fire a test event
 curl -X POST \
-  https://api-sandbox.ledgersyncappv2.com/v3/webhooks/subscriptions/whsub_01HXYZ.../test \
-  -H "Authorization: Bearer sk_test_..."
+  https://api-sandbox.ledgersyncappv2.com/v3/webhooks/subscriptions/whk_7c1e4a9b83d24f6ab05e2f8c91d3a640/test \
+  -H "Authorization: Bearer sk_test_..." \
+  -H "Content-Length: 0"
 ```
+
+You get back `202` with `{ "event_id": "..." }`. There is no `operation_id` and nothing to poll — watch your endpoint for the `webhook.test` delivery. Note the two forms of that id: the response gives you a bare UUID, while the delivery's `X-LS-Webhook-Event-Id` header and the envelope's `event_id` carry the same UUID as `evt_` plus its hex digits with the dashes removed. Strip the dashes and add the prefix if you want to match them up. (Send the explicit `Content-Length: 0`; the load balancer in front of the API rejects body-less POSTs without it.)
 
 The test delivery is signed with your **real** signing secret, so it exercises your verification code end-to-end. It also **bypasses the `event_types` filter**, so you can trigger it regardless of what you subscribed to. Use it to confirm your endpoint is reachable, your signature check passes, and your dedupe logic works before you rely on live events.
 
@@ -346,7 +353,8 @@ is populated only when `current_status` is `failed`.
 
 Most events carry `data.connection` (shown above). Three carry a different `data`.
 
-**`connection.requires_action`** adds an `action` object telling you what the user must do. The common one is `widget_url`:
+**`connection.requires_action`** carries the same `data.connection` shape as
+every other connection event:
 
 ```json connection.requires_action
 {
@@ -361,18 +369,19 @@ Most events carry `data.connection` (shown above). Three carry a different `data
       "client_id": "cli_...",
       "source": "FINICITY",
       "status": "requires_action"
-    },
-    "action": {
-      "kind": "widget_url",
-      "widget_url": "https://connect.ledgersyncappv2.com/w/...",
-      "expires_at": "2026-07-07T15:22:05Z"
     }
   }
 }
 ```
 
-`action.kind` is a discriminated union — `widget_url` (open it), `mfa_challenge`
-(carries `challenge_id` + `questions`), or `reauthorize`. Branch on `kind`.
+<Warning>
+  **No webhook ever carries a URL to send the user to.** This payload tells you
+  *that* the user must act, not *how* to get them back in. Call
+  `POST /v3/connections/{connection_id}/reauthorize` to mint a `reauth_url` for
+  an existing connection; for a brand-new one, the widget URL comes from the
+  initiate operation's `result.connection.action.widget_url`. Code that reads
+  `data.action` off this event gets `undefined`.
+</Warning>
 
 **`account.refresh.completed`** carries `data.account`, not `data.connection`:
 

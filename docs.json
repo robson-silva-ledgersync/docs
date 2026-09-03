@@ -22,6 +22,7 @@
             "group": "Get started",
             "pages": [
               "introduction",
+              "guides/build-with-ai",
               "guides/quickstart",
               "guides/connect-a-bank",
               "authentication"
@@ -82,6 +83,8 @@
     ]
   },
   "redirects": [
+    { "source": "/ai", "destination": "/guides/build-with-ai", "permanent": true },
+    { "source": "/build-with-ai", "destination": "/guides/build-with-ai", "permanent": true },
     { "source": "/quickstart", "destination": "/guides/quickstart", "permanent": true },
     { "source": "/connect-a-bank", "destination": "/guides/connect-a-bank", "permanent": true },
     { "source": "/connection-lifecycle", "destination": "/guides/connection-lifecycle", "permanent": true },

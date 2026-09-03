@@ -9,6 +9,10 @@ This is the end-to-end path: mint a key, register a webhook, create a Client, fi
   **Base URL (sandbox):** `https://api-sandbox.ledgersyncappv2.com/v3` &nbsp;·&nbsp; **Auth:** `Authorization: Bearer sk_test_...` &nbsp;·&nbsp; Every response carries an `X-LS-Trace-Id` header — grab it if you ever open a support ticket.
 </Info>
 
+<Tip>
+  Rather have an assistant write this for you? [Build with an AI assistant](/guides/build-with-ai) has a brief you can paste straight into Claude or ChatGPT, plus the manual steps it cannot do on your behalf.
+</Tip>
+
 ## Prefer Postman?
 
 Import our collection and run the whole flow without leaving Postman. The
@@ -50,7 +54,7 @@ Four objects, one line of descent. A **Client** is your record of one end-user. 
 
 ```mermaid
 graph LR
-  A[Client<br/>cli_01HXYZ...] --> B[Connection<br/>con_FINICITY_41294]
+  A[Client<br/>cli_9f2a4c1b...] --> B[Connection<br/>con_FINICITY_41294]
   B --> C[Account<br/>acc_FINICITY_...]
   C --> D[Transactions<br/>txn_FINICITY_...]
   C --> E[Statements]
@@ -123,10 +127,12 @@ Two things to internalize now, because they save debugging later:
 
   ```json
   {
-    "id": "whsub_01HXYZ8QK3...",
+    "id": "whk_7c1e4a9b83d24f6ab05e2f8c91d3a640",
     "url": "https://yourapp.example.com/webhooks/ledgersync",
-    "signing_secret": "whsec_9f2a...c1",
-    "event_types": ["connection.requires_action", "connection.active", "..."]
+    "event_types": ["connection.requires_action", "connection.active", "..."],
+    "status": "active",
+    "created_at": "2026-09-03T14:22:08Z",
+    "signing_secret": "whsec_9f2a...c1"
   }
   ```
 
@@ -134,16 +140,23 @@ Two things to internalize now, because they save debugging later:
     The `signing_secret` is shown **once**. Store it now — you need it to verify every incoming delivery. If you lose it, rotate the subscription.
   </Warning>
 
+  <Note>
+    Subscription ids start with `whk_` followed by 32 hex characters. Anything else is rejected as unparseable and comes back `404`.
+  </Note>
+
   Verify signatures constant-time and dedupe on `event_id`. The full recipe (headers, HMAC, retries, the 30-second ack window) is in the [Webhooks guide](/guides/webhooks). Want to see a payload land right away? Fire a test:
 
   ```bash
-  curl -X POST "$LS_BASE/webhooks/subscriptions/whsub_01HXYZ8QK3.../test" \
-    -H "Authorization: Bearer $LS_KEY"
+  curl -X POST "$LS_BASE/webhooks/subscriptions/whk_7c1e4a9b83d24f6ab05e2f8c91d3a640/test" \
+    -H "Authorization: Bearer $LS_KEY" \
+    -H "Content-Length: 0"
   ```
+
+  That returns `{ "event_id": "..." }` and nothing to poll — watch your endpoint for the `webhook.test` delivery. The response returns a bare UUID; the delivered `X-LS-Webhook-Event-Id` is the same UUID as `evt_` plus its digits with the dashes removed.
 </Step>
 
 <Step title="Create a Client">
-  A Client represents one end-user. Set `external_id` to whatever you use internally (a user id, org id, however you key it) so you can cross-reference without storing our ids everywhere.
+  A Client represents one end-user.
 
   ```bash
   curl -X POST "$LS_BASE/clients" \
@@ -154,14 +167,18 @@ Two things to internalize now, because they save debugging later:
 
   ```json
   {
-    "id": "cli_01HXYZ7ABCDEF...",
+    "id": "cli_9f2a4c1b8e07d3a5f6b20c14",
     "external_id": "user_4820",
     "name": "Acme Bookkeeping LLC",
     "phone": "5551234567"
   }
   ```
 
-  Hold onto `cli_01HXYZ7ABCDEF...` — every read later is scoped to it. `phone` is optional; add `"sms_invitation": true` alongside a non-blank `phone` to have LedgerSync text the client a login invitation on creation.
+  Hold onto `cli_9f2a4c1b8e07d3a5f6b20c14` — every read later is scoped to it. `phone` is optional; add `"sms_invitation": true` alongside a non-blank `phone` to have LedgerSync text the client a login invitation on creation.
+
+  <Warning>
+    **`external_id` and `metadata` do not persist yet.** They are accepted and echoed back on create, as above, but `GET /clients/{id}` and `GET /clients` return them as `null`, and `PATCH` silently drops them. Store your own mapping from your user id to the `cli_...` id on your side, and key everything off the `cli_...` id. Do not build a lookup that reads `external_id` back from us.
+  </Warning>
 </Step>
 
 <Step title="Discover the institution">
@@ -198,7 +215,7 @@ Two things to internalize now, because they save debugging later:
   Create a Connection under the Client with just the `institution_id`. No source, no credentials.
 
   ```bash
-  curl -X POST "$LS_BASE/clients/cli_01HXYZ7ABCDEF.../connections" \
+  curl -X POST "$LS_BASE/clients/cli_9f2a4c1b8e07d3a5f6b20c14/connections" \
     -H "Authorization: Bearer $LS_KEY" \
     -H "Content-Type: application/json" \
     -d '{ "institution_id": "ins_0a01a5430925d0b2" }'
@@ -208,28 +225,36 @@ Two things to internalize now, because they save debugging later:
 
   ```json
   {
-    "operation_id": "op_01HXYZQWERTY...",
-    "status": "pending"
+    "operation_id": "op_3d9c7f1e05b84a26bb4e8107c2fa9d53",
+    "status": "queued",
+    "poll_url": "/v3/operations/op_3d9c7f1e05b84a26bb4e8107c2fa9d53",
+    "estimated_seconds": 5
   }
   ```
 
-  Poll the operation until it succeeds:
+  Read the operation to collect the widget URL:
 
   ```bash
-  curl "$LS_BASE/operations/op_01HXYZQWERTY..." \
+  curl "$LS_BASE/operations/op_3d9c7f1e05b84a26bb4e8107c2fa9d53" \
     -H "Authorization: Bearer $LS_KEY"
   ```
 
   ```json
   {
-    "operation_id": "op_01HXYZQWERTY...",
+    "id": "op_3d9c7f1e05b84a26bb4e8107c2fa9d53",
+    "type": "connection.initiate",
     "status": "succeeded",
     "result": {
+      "kind": "connection_with_action",
       "connection": {
         "id": "con_5f8c1e2a-7b3d-4a9e-9c11-2f6d0a4b8e21",
+        "client_id": "cli_9f2a4c1b8e07d3a5f6b20c14",
+        "source": "FINICITY",
         "status": "requires_action",
         "action": {
-          "widget_url": "https://connect.ledgersyncappv2.com/w/eyJhbGci..."
+          "kind": "widget_url",
+          "widget_url": "https://connect.ledgersyncappv2.com/w/eyJhbGci...",
+          "expires_at": "2026-09-03T15:22:08Z"
         }
       }
     }
@@ -237,7 +262,9 @@ Two things to internalize now, because they save debugging later:
   ```
 
   <Warning>
-    That `con_<uuid>` is a **placeholder**, valid only for the widget step. Once the user finishes and `connection.active` fires, the id becomes canonical — `con_FINICITY_41294`, `con_MX_1224`, and so on. **Only the canonical id works** on `/accounts`, `/transactions`, and `/statements`. Store the canonical id from the succeeded connection; never persist the placeholder.
+    **`status: "succeeded"` here means the widget URL was issued, not that the bank is linked.** The operation's `result` is a snapshot written once, at that moment, and it is never rewritten — so the `con_<uuid>` **placeholder** above stays the placeholder no matter how many times you re-poll.
+
+    Take `action.widget_url` from this response and nothing else. Judge any connection id by its shape: `con_<SOURCE>_<number>` is canonical and safe to store, `con_` plus a UUID is not and returns `400 missing source separator` on `/accounts`, `/transactions`, and `/statements`. The canonical id arrives from the `connection.active` webhook, or from `GET /clients/{client_id}/connections`.
   </Warning>
 </Step>
 
@@ -247,7 +274,9 @@ Two things to internalize now, because they save debugging later:
   A small nuance by source: Finicity and MX show an aggregator widget with a bank search; FDE shows a LedgerSync-hosted connect page with the bank already chosen (no search, since `institution_id` fixed it).
 
   <Note>
-    **Don't want to build a picker at all?** Use the hosted link instead: `POST /v3/clients/{id}/connect-session` returns `{ url, expires_at }` — a LedgerSync-hosted page you email the member. They search, pick, and connect their own bank; you revoke with `DELETE /v3/clients/{id}/connect-session/{sid}`. See [Connect a bank](/guides/connect-a-bank) for both flows side by side.
+    **Don't want to build a picker at all?** Use the hosted link instead: `POST /v3/clients/{id}/connect-session` returns `{ url, expires_at }` — a LedgerSync-hosted page you email the member. They search, pick, and connect their own bank. See [Connect a bank](/guides/connect-a-bank) for both flows side by side.
+
+    A hosted link cannot be revoked through the API today: the create call returns only `url` and `expires_at`, there is no endpoint that lists sessions, and `DELETE /v3/clients/{id}/connect-session/{sid}` needs an `sid` you are never given. Treat `expires_at` as the only expiry.
   </Note>
 </Step>
 
@@ -256,27 +285,34 @@ Two things to internalize now, because they save debugging later:
 
   ```json
   {
-    "event_id": "evt_01HXYZACTIVE...",
+    "event_id": "evt_6d0b5a72-91c4-4e83-a5f1-70b2c8e4d913",
     "type": "connection.active",
+    "created_at": "2026-09-03T14:26:41Z",
+    "api_version": "2026-05-22",
+    "livemode": false,
     "data": {
       "connection": {
         "id": "con_FINICITY_41294",
-        "status": "active",
-        "client_id": "cli_01HXYZ7ABCDEF...",
-        "institution_id": "ins_0a01a5430925d0b2"
+        "client_id": "cli_9f2a4c1b8e07d3a5f6b20c14",
+        "source": "FINICITY",
+        "status": "active"
       }
     }
   }
   ```
 
   Persist `con_FINICITY_41294` against your user. That's the id you'll use for every read. (The other statuses — `requires_action`, `failed`, `disconnected` — are covered in the [Connection lifecycle](/guides/connection-lifecycle) guide.)
+
+  <Note>
+    The payload carries no `institution_id`. If you need the institution for a connection, read it from `GET /v3/connections/{id}`, which returns an `institution` object.
+  </Note>
 </Step>
 
 <Step title="List accounts and transactions">
   Reads are **Client-scoped** — pass `client_id` on every one. Start with the accounts on this connection:
 
   ```bash
-  curl "$LS_BASE/accounts?client_id=cli_01HXYZ7ABCDEF...&connection_id=con_FINICITY_41294" \
+  curl "$LS_BASE/accounts?client_id=cli_9f2a4c1b8e07d3a5f6b20c14&connection_id=con_FINICITY_41294" \
     -H "Authorization: Bearer $LS_KEY"
   ```
 
@@ -298,7 +334,7 @@ Two things to internalize now, because they save debugging later:
   Then pull transactions for an account, filtered by date:
 
   ```bash
-  curl "$LS_BASE/accounts/acc_FINICITY_889201/transactions?client_id=cli_01HXYZ7ABCDEF...&from=2026-01-01" \
+  curl "$LS_BASE/accounts/acc_FINICITY_889201/transactions?client_id=cli_9f2a4c1b8e07d3a5f6b20c14&from=2026-01-01" \
     -H "Authorization: Bearer $LS_KEY"
   ```
 

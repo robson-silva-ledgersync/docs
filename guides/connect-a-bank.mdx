@@ -104,10 +104,14 @@ sequenceDiagram
   </Step>
 </Steps>
 
-<Tip>
-  Need to kill a link you already emailed? `DELETE /clients/{id}/connect-session/{sid}`
-  invalidates it immediately.
-</Tip>
+<Warning>
+  **A link you already emailed cannot be revoked through the API today.** The
+  reference documents `DELETE /clients/{id}/connect-session/{sid}`, but the
+  create call returns only `url` and `expires_at`, and there is no endpoint that
+  lists sessions, so there is no supported way to obtain the `sid` it needs.
+  Treat `expires_at` as the only expiry, and keep the window short if that
+  matters to you.
+</Warning>
 
 ## Prefer to build your own picker?
 

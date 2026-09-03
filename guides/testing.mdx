@@ -258,7 +258,7 @@ webhook, HMAC-signed exactly like production.
 
 | Event | When it fires | How to trigger it |
 | --- | --- | --- |
-| `connection.requires_action` | As soon as the widget URL is ready — the first event of every new link. | Payload carries `data.action.widget_url` — open it for the end-user. |
+| `connection.requires_action` | As soon as the widget URL is ready — the first event of every new link. | Signals the user must act; the URL is **not** in this payload. Take it from the initiate operation's `result.connection.action.widget_url`. (`POST /v3/connections/{connection_id}/reauthorize` is for a connection you already hold a canonical id for, so it is not an option on a first link.) |
 | `connection.active` | User finishes the widget with valid credentials. | Finicity `customer1` / `go` or MX `mxuser` / `correct`. Accounts now visible via `GET /v3/accounts`. |
 | `connection.failed` | Credentials rejected, MFA failed, or upstream pipeline error. | Finicity `customer1` / `bad` or MX `mxuser` / `UNAUTHORIZED`. `last_error` carries a stable code. |
 | `connection.disconnected` | End-user revokes access or LedgerSync tears down the link. | `DELETE /v3/connections/{id}`, or Finicity `locked` / `go`. |
