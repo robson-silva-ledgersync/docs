@@ -1337,7 +1337,7 @@ paths:
       description: |
         Page through an account's transactions, optionally filtered
         by date range. Pending and posted are both included — check
-        the `status` field. New transactions land here after each
+        the `pending` boolean. New transactions land here after each
         refresh (auto-daily or your manual `POST /refresh` call);
         a future push-delivery event for transactions will be offered
         for push consumers.
@@ -3474,7 +3474,7 @@ components:
     # ---------- Account ----------
     Account:
       type: object
-      required: [id, source, iso_currency_code]
+      required: [id, source, iso_currency_code, type]
       properties:
         id: { type: string, example: acc_FINICITY_45 }
         connection_id:
@@ -3492,6 +3492,33 @@ components:
         type:
           type: string
           enum: [checking, savings, credit_card, loan, investment, other]
+          description: >-
+            Coarse account classification, normalized by LedgerSync so the
+            same six values mean the same thing on every source. Always
+            present. `other` means the source did not classify the account,
+            or classified it as something with no home in this enum (a
+            rewards balance, an MX "other liability") - read `subtype` to
+            tell those apart. This list is closed and stable; new upstream
+            products appear in `subtype`, never here.
+          example: credit_card
+        subtype:
+          type: string
+          pattern: '^[a-z0-9_]+$'
+          description: >-
+            The finer label the source reported, before it was collapsed
+            into `type`. Always present. This is an OPEN vocabulary that
+            grows as sources report new products, which is why it is a
+            plain string and not an enum: a new value here is never a
+            breaking change. Branch on `type`; use `subtype` for display,
+            or for finer routing you control and can update. `unknown` when
+            the source reported no type at all, which today is every FDE
+            account and roughly half of the accounts created from uploaded
+            statements. Examples of the collapse: `money_market` and
+            `certificate_of_deposit` report `type: savings`; `mortgage` and
+            `line_of_credit` report `type: loan`; `ira`, `roth` and
+            `plan_401k` report `type: investment`; `bank` reports
+            `type: checking`.
+          example: money_market
         mask:
           type: [string, 'null']
           description: Last 4 digits of the account number (Plaid-style mask).
@@ -3503,14 +3530,30 @@ components:
         current_balance:
           type: [number, 'null']
           description: >-
-            Most recent balance in the account's currency, as a decimal. Null
-            when the source hasn't reported one yet.
-          example: 1234.56
+            Most recent balance in the account's currency, as a decimal,
+            signed from the account holder's point of view and normalized
+            by LedgerSync so it means the same thing on every source.
+            Positive is value you hold, negative is value you owe, so
+            summing this across a client's accounts gives net worth.
+            A credit card or loan carrying a balance is therefore negative,
+            and a checking account in overdraft is negative too. The sign
+            is meaningful in both directions: an overpaid card with a real
+            credit balance is positive. Null when the source hasn't
+            reported one yet. The `account.refresh.completed` webhook
+            reports the same account with the same sign, wrapped as
+            `{amount, iso_currency_code}` rather than a bare decimal.
+          example: -1234.56
         available_balance:
           type: [number, 'null']
           description: >-
             Available balance, when the source distinguishes it from the
-            current balance. Often null.
+            current balance. On a credit card this is available credit, an
+            amount you can spend, so it is NOT sign-flipped the way
+            `current_balance` is and is normally positive. MX is the only
+            source that reports it, and only for some accounts (common on
+            checking, rare on cards), so it is null far more often than not.
+            Check `realized_capabilities.available_balance` rather than
+            assuming it is present.
         last_refreshed_at: { type: [string, 'null'], format: date-time }
         realized_capabilities:
           description: |
