@@ -251,7 +251,7 @@ Reads are **Client-scoped**. Always pass `client_id` on every read, alongside th
 
 ## Account types
 
-Every account you read off an `active` connection carries a `type`. LedgerSync normalizes each aggregator's native account type (Finicity and FDE report lowercase, MX reports UPPERCASE) down to one coarse, lowercase enum, so you branch on the same six values regardless of source:
+Every account you read off an `active` connection carries a `type`. It is never null, and it is always one of six values. LedgerSync folds each source's own account label into this enum, so the same value means the same thing whichever aggregator the account came from and you can branch on it without knowing the source:
 
 | `type` | What it is |
 | --- | --- |
@@ -264,7 +264,15 @@ Every account you read off an `active` connection carries a `type`. LedgerSync n
 
 ### Asset vs liability
 
-For balance-sheet math, map `type` to a side. A positive `current_balance` means different things depending on the side, so decide sign handling from this table, not from the number alone:
+`current_balance` is signed from the account holder's point of view, and that is a LedgerSync guarantee rather than a per-source quirk: **positive is value the client holds, negative is value they owe.** Summing `current_balance` across a client's accounts gives net worth, with no per-source branching and no sign flipping of your own.
+
+So a credit card or loan carrying a balance is negative, and a checking account in overdraft is negative too. The sign is meaningful in both directions: an overpaid card with a real credit balance comes back positive.
+
+<Note>
+`available_balance` is **not** signed this way. On a credit card it is available credit, an amount the client can spend, so it is positive. MX is the only source that reports it.
+</Note>
+
+The side each `type` sits on, for classification:
 
 | Side | Types |
 | --- | --- |
@@ -278,7 +286,24 @@ Treat `other` as unknown, not as an asset. Don't fold it into a net-worth total 
 
 ### The enum is intentionally coarse
 
-Banks expose far richer sub-types than these six. An investment household might show up as IRA, 401(k), or brokerage; a lending product as mortgage, auto loan, or line of credit. Those rich labels **collapse** into the coarse enum — IRA/401(k)/brokerage all become `investment`, mortgage/auto loan/line of credit all become `loan`. If you need the bank's original label, keep the account's `name` (e.g. "Home Mortgage", "Roth IRA"); the `type` alone won't recover it.
+Banks expose far richer sub-types than these six. An investment household might show up as IRA, 401(k), or brokerage; a lending product as mortgage, auto loan, or line of credit. Those rich labels **collapse** into the coarse enum — IRA/401(k)/brokerage all become `investment`, mortgage/auto loan/line of credit all become `loan`.
+
+Nothing is lost when they do. The finer label survives on **`subtype`**, which is always present alongside `type`:
+
+| `subtype` | `type` |
+| --- | --- |
+| `money_market`, `certificate_of_deposit` | `savings` |
+| `mortgage`, `line_of_credit` | `loan` |
+| `ira`, `roth`, `rollover`, `plan_401k`, `plan_529`, `investment_tax_deferred` | `investment` |
+| `bank` | `checking` |
+| `other_liability`, `rewards`, `cash`, `prepaid` | `other` |
+| `unknown` | `other` |
+
+`subtype` is an **open vocabulary**, deliberately not an enum: new values appear as sources start reporting new products, and a new value is never a breaking change. `type` is the opposite, closed and stable. So branch on `type`; use `subtype` for display, or for finer routing you control and can update.
+
+<Warning>
+`subtype` is `unknown` when the source reported no account type at all. That is every FDE account, and roughly half of the accounts created from uploaded statements. Those accounts report `type: other`, so treat `other` as "not classified", not as a category.
+</Warning>
 
 <Info>
 Per-account data availability is **not** derived from `type`. A `savings` account isn't guaranteed to expose statements, and a `loan` isn't guaranteed to expose transactions. Read each account's `realized_capabilities` block to know what's actually available. (Today the backend tracks capability status at the bank level, so accounts within one connection share the same snapshot — see [Per-capability health](#per-capability-health).)

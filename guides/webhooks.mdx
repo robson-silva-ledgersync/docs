@@ -412,6 +412,16 @@ Which of them show up depends on the source:
 | `available_balance` | MX only. |
 | `realized_capabilities` | All three sources. |
 
+`current_balance` is normalized exactly as it is on `GET /accounts`: positive is
+value the client holds, negative is value they owe. The two surfaces agree, so a
+credit card read from the API and the same card seen on this event carry the
+same signed figure. It is wrapped as
+`{ "amount": ..., "iso_currency_code": ... }` here, where `GET /accounts`
+returns a bare decimal.
+
+`available_balance` is available credit rather than a debt, so it is never
+sign-flipped on either surface.
+
 `client_id` on this event is the same `cli_` id you get back from
 `GET /v3/clients` — use it directly on any client-scoped endpoint. The key is
 omitted entirely when the owning client cannot be resolved, so treat it as

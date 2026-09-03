@@ -3,6 +3,55 @@ title: "Changelog"
 description: "New features, improvements, and fixes to the LedgerSync v3 API. Newest first."
 ---
 
+<Update label="2026-09-02" tags={["Accounts"]}>
+  ## Account `type` is now guaranteed, and balances are signed consistently
+
+  Three things about the Account object were true in the reference but not in
+  the responses. They are true now, and a contract test keeps them that way.
+
+  **`type` is always one of the six documented values, and never null.**
+  It used to be a pass-through of whatever the underlying aggregator called the
+  account, so a Finicity credit card arrived as `creditcard`, an
+  uploaded-statement one as `credit card`, and only MX ever sent the documented
+  `credit_card`. Accounts from portal-based connections sent no `type` at all.
+  If you branch on `type === "credit_card"` you will now match every credit
+  card, on every source.
+
+  **New `subtype` field.** The coarse enum discards real detail, so the
+  source's own label now travels alongside it: `money_market`, `mortgage`,
+  `line_of_credit`, `ira`, `plan_401k`, `bank`, and so on. It is an open
+  vocabulary rather than an enum, so new values are never a breaking change.
+  Branch on `type`; use `subtype` for display or for finer routing you control.
+
+  If you were relying on the old raw values, **`subtype` is what you were
+  reading before**, so switching your comparison from `type` to `subtype` gets
+  you exactly the previous behaviour.
+
+  **`current_balance` is signed from the account holder's point of view.**
+  Positive is value the client holds, negative is value they owe, on every
+  source. Previously the sign followed whichever aggregator supplied the
+  account, so the same credit card could be positive or negative depending on
+  how it happened to be connected. Summing `current_balance` across a client's
+  accounts now gives net worth directly.
+
+  A real credit balance on an overpaid card is still positive, and a checking
+  account in overdraft is still negative, so the sign stays meaningful in both
+  directions. `available_balance` is unchanged: on a card it is available
+  credit, not a debt, and it is never sign-flipped.
+
+  The `account.refresh.completed` webhook is signed the same way, so the value
+  you read from `GET /accounts` and the value you receive on the event agree
+  for the same account.
+
+  **`available_balance` capability now reports honestly.** It was declared
+  `never` for every source while MX accounts were returning a real value. MX is
+  now `sometimes`, which is accurate: MX reports it for many checking accounts
+  and few credit cards. Every other source is genuinely `never`.
+
+  Also fixed: the transactions endpoint told you to check a `status` field that
+  does not exist. The field is the `pending` boolean.
+</Update>
+
 <Update label="2026-08-25" tags={["Connections"]}>
   ## Refresh now pulls transactions, and its operation actually finishes
 

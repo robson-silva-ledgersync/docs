@@ -3,7 +3,9 @@ title: "Keeping data fresh"
 description: "How current the balances and transactions from GET /accounts are, how to check, and how to force a refresh when you need fresher-than-daily data."
 ---
 
-Each Account exposes a `current_balance` (and an `available_balance` for MX accounts), plus its transactions through `GET /accounts/{id}/transactions`. This guide explains how fresh that data is, how to tell, and how to pull fresher data on demand.
+Each Account exposes a `current_balance`, plus its transactions through `GET /accounts/{id}/transactions`. This guide explains how fresh that data is, how to tell, and how to pull fresher data on demand. For what `current_balance` means and how it is signed, see [Asset vs liability](/guides/connection-lifecycle#asset-vs-liability).
+
+`available_balance` is reported by MX only, and only for some accounts: it is common on checking and rare on credit cards. Read `realized_capabilities.available_balance` rather than assuming it is present.
 
 ## How fresh is `GET /accounts`?
 
