@@ -306,6 +306,49 @@ The side each `type` sits on, for classification:
 Treat `other` as unknown, not as an asset. Don't fold it into a net-worth total without inspecting the account. New or unclassified account kinds land here.
 </Warning>
 
+### Credit-card terms
+
+A credit card or line of credit can carry a **`liabilities`** object with the terms the bank publishes:
+
+```json
+{
+  "id": "acc_FINICITY_84213",
+  "type": "credit_card",
+  "current_balance": -14381.66,
+  "last_refreshed_at": "2026-09-04T06:12:03Z",
+  "liabilities": {
+    "credit_limit": 65000.00,
+    "available_credit": 50596.54,
+    "statement_balance": -14381.66,
+    "minimum_payment": 143.00,
+    "payment_due_date": "2026-09-24"
+  }
+}
+```
+
+**The object is absent unless we know something.** It is null for every account that is not a card or line of credit, and null for cards at banks that publish no terms. Its presence is the signal, so check for the object before reading fields inside it. Individual fields are independently nullable for the same reason: an absent field means the bank did not report it, never that the value is zero.
+
+Coverage differs by source:
+
+| Source | What it reports |
+| --- | --- |
+| Finicity | All five fields, where the bank publishes them |
+| MX | Everything except the statement balance, which MX does not track |
+| Portal connections (FDE) | None, so `liabilities` is always null |
+| Uploaded statements | None, so `liabilities` is always null |
+
+**`statement_balance` follows the same sign rule as `current_balance`:** what the client owes is negative, so the two agree on the same account.
+
+<Warning>
+That sign is normalized by us, not reported. Banks disagree with each other about it, several of them reporting a card's statement balance as a positive number while reporting the same debt as a negative account balance. We resolve it to "owed is negative" so you never have to know which convention a given bank used.
+
+One consequence is worth knowing: a card that was **in credit** at statement close, because the holder overpaid, is indistinguishable from one that owed the same amount and is reported as owed. `credit_limit`, `available_credit` and `minimum_payment` are always positive.
+</Warning>
+
+<Note>
+`payment_due_date` is the bank's own figure and only as current as the last refresh. A bank that has not yet published a new cycle is still reporting the previous one, so **a date in the past means the cycle rolled over and we have not seen the new one**, not that a payment is overdue. Read `last_refreshed_at` before acting on it.
+</Note>
+
 ### The enum is intentionally coarse
 
 Banks expose far richer sub-types than these six. An investment household might show up as IRA, 401(k), or brokerage; a lending product as mortgage, auto loan, or line of credit. Those rich labels **collapse** into the coarse enum — IRA/401(k)/brokerage all become `investment`, mortgage/auto loan/line of credit all become `loan`.

@@ -3,6 +3,49 @@ title: "Changelog"
 description: "New features, improvements, and fixes to the LedgerSync v3 API. Newest first."
 ---
 
+<Update label="2026-09-04" tags={["Accounts"]}>
+  ## Credit-card terms on the Account
+
+  Credit limit, statement balance, minimum payment and payment due date were
+  not available on the API. They are now, on a new **`liabilities`** object:
+
+  ```json
+  {
+    "id": "acc_FINICITY_84213",
+    "type": "credit_card",
+    "current_balance": -14381.66,
+    "liabilities": {
+      "credit_limit": 65000.00,
+      "available_credit": 50596.54,
+      "statement_balance": -14381.66,
+      "minimum_payment": 143.00,
+      "payment_due_date": "2026-09-24"
+    }
+  }
+  ```
+
+  The object is **absent unless we know something**, so it is null for every
+  account that is not a credit card or line of credit, and null for cards at
+  banks that publish no terms. Check for the object before reading fields
+  inside it, and treat an absent field as "the bank did not say", not zero.
+
+  Bank connections report all five fields where the bank publishes them. MX
+  reports every field except the statement balance, which it does not track.
+  Portal connections and uploaded statements report none.
+
+  **`statement_balance` is signed like `current_balance`:** what the client
+  owes is negative, so the two agree on the same account. That sign is
+  normalized rather than reported, because banks disagree with each other
+  about it. One consequence: a card that was in credit at statement close is
+  reported as owed. `credit_limit`, `available_credit` and `minimum_payment`
+  are always positive.
+
+  `payment_due_date` is only as current as the last refresh, so a date in the
+  past means the cycle rolled over before our last pull, not that a payment is
+  overdue. See
+  [Credit-card terms](/guides/connection-lifecycle#credit-card-terms).
+</Update>
+
 <Update label="2026-09-04" tags={["Transactions", "Accounts"]}>
   ## Fetching a single transaction works on every source, and accounts now say how far back they go
 

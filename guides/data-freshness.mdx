@@ -33,11 +33,18 @@ It is measured from the transactions themselves, not copied from what the bank o
 }
 ```
 
-Read it per account rather than assuming a fixed window, because depth varies a lot:
+### What we request at connect
 
-- **A newly linked bank connection starts with roughly the last quarter.** History then grows *forward* from there with each refresh, so an account linked a year ago holds about a year.
-- **Uploaded statements go back as far as the statements do.** A client who uploaded three years of PDFs has three years, available immediately.
-- **It is `null` when we hold no transactions for that account yet**, which is the normal state between linking a connection and its first transaction pull finishing.
+| Source | History requested on first connect |
+| --- | --- |
+| Finicity | The last **90 days** |
+| MX | The last **730 days**. MX returns what it holds, which is often less |
+| Portal connections (FDE) | Not windowed. You get what the extraction run returns |
+| Uploaded statements | Exactly the statements that were uploaded |
+
+After that first pull, history grows **forward** with each refresh. It does not reach further back, so an account linked a year ago holds about a year.
+
+What actually arrives inside the requested window is up to the institution, and it is not something we can tell you before the connection exists. That is what the field is for: read `oldest_transaction_date` per account instead of assuming a window. It is `null` when we hold no transactions for that account yet, which is normal between linking a connection and its first transaction pull finishing.
 
 <Note>
   `oldest_transaction_date` can move **backwards**. It is a fact about what we hold right now, and a backfill landing earlier transactions lowers it. Re-read it rather than caching it as a fixed property of the account.
