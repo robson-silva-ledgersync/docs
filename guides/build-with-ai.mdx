@@ -16,13 +16,16 @@ You can get a working LedgerSync integration without reading these docs end to e
   </Card>
 </CardGroup>
 
-## What you have to do yourself
+## Getting set up
 
 <Info>
-  None of this is API-callable. Your assistant cannot create your account, solve
-  the CAPTCHA, approve your access request, or read a secret out of your
-  browser. Do these seven yourself, then hand it the key.
+  Only the first four are truly yours to do: your assistant cannot create your
+  account, solve the CAPTCHA, approve your access request, or read a secret out
+  of your browser. Everything after that is API-callable, so once you hand over
+  the key your assistant can finish the setup itself.
 </Info>
+
+### Only you can do these
 
 <Steps>
 
@@ -58,32 +61,57 @@ You can get a working LedgerSync integration without reading these docs end to e
   </Warning>
 </Step>
 
-<Step title="Create a webhook subscription">
-  Add your endpoint on the **Webhooks** page and pick your events. You need this: the canonical connection id arrives by webhook.
-
-  <Warning>
-    The `signing_secret` (`whsec_...`) is returned **once, on create, and can
-    never be read back**. It is derived rather than stored, so there is no
-    "show secret" button anywhere. If you lose it your only option is to rotate,
-    which means updating your verifier. Put it in a real secrets manager now.
-  </Warning>
-</Step>
-
-<Step title="Allowlist your redirect URLs">
-  If you pass a `redirect_url`, add it on the **Redirect URLs** page first, or the call is rejected. Do this **separately for each environment**: sandbox and live are different databases, so a sandbox entry does not carry over to live.
-</Step>
-
 <Step title="Make your webhook endpoint publicly reachable">
-  We POST to your URL directly from our servers, so `localhost` will never receive anything. Use a tunnel while developing.
+  This one is on you because it is your infrastructure, not ours. We POST to your URL directly from our servers, so `localhost` will never receive anything. Use a tunnel while developing.
 
   <Note>
     We do not validate the URL when you save it, so a typo is accepted happily
-    and then fails silently on every delivery. Fire a test event from the
-    Webhooks page to confirm the endpoint really is reachable.
+    and then fails silently on every delivery. Fire a test event once it is set
+    up to confirm the endpoint really is reachable.
   </Note>
 </Step>
 
 </Steps>
+
+### Your assistant can do the rest
+
+Give it the key and it can finish the setup over the API. Both of these are in the brief below, so you should not have to ask twice.
+
+<Steps>
+
+<Step title="Create the webhook subscription">
+  `POST /v3/webhooks/subscriptions` with `{"url": "...", "event_types": [...]}`, using a key scoped `write:webhooks` or `manage:webhooks`. You need this: the canonical connection id arrives by webhook.
+
+  <Warning>
+    The `signing_secret` (`whsec_...`) comes back **once, in the create
+    response, and can never be read back**. It is derived rather than stored, so
+    there is no "show secret" button anywhere and no endpoint returns it later.
+    Tell your assistant to print it once and put it straight into your secrets
+    manager. If it scrolls past in a chat log and you lose it, your only option
+    is to rotate and update your verifier.
+  </Warning>
+</Step>
+
+<Step title="Allowlist your redirect URLs">
+  `POST /v3/settings/redirect-urls` with `{"allowed_redirect_urls": ["https://..."]}`, using a key scoped `write:settings`. Required before you can pass a `redirect_url` anywhere.
+
+  <Warning>
+    **This replaces the whole list, it does not append.** Posting one URL
+    silently drops every other entry, so read the current list with `GET` first
+    and send it back with your addition. Max 20 entries, 2048 characters each.
+    The environment comes from the key you use, so a sandbox key can only ever
+    change the sandbox list.
+  </Warning>
+</Step>
+
+</Steps>
+
+<Tip>
+  A key scoped `write:api-keys` can also mint further keys over the API, and
+  bearer callers are not re-checked against your access request. So the approval
+  above is a one-time gate: after your first key, your assistant can provision
+  whatever else it needs without going back to the portal.
+</Tip>
 
 ### Later: going live
 
@@ -266,12 +294,42 @@ dedupe on `event_id`. Deliveries are not ordered.
     Reusing one across a different account, filter or date window is a 400.
 11. Never put an `sk_` key in client-side code, a mobile app, or a browser.
 
+## Setup you can do yourself, once I give you a key
+
+Do not send me to the web dashboard for these. Both are API calls.
+
+Create the webhook subscription (needs scope `write:webhooks` or
+`manage:webhooks`):
+
+```
+POST /webhooks/subscriptions
+{"url": "https://myapp.example/webhooks/ledgersync",
+ "event_types": ["connection.active", "connection.requires_action",
+                 "connection.failed", "connection.disconnected"]}
+```
+
+The response carries `signing_secret` ONCE. Print it once, tell me to store it
+in a secrets manager, and never log it again. No endpoint returns it later.
+
+Allowlist a redirect URL, only if I need one (needs scope `write:settings`):
+
+```
+GET  /settings/redirect-urls            -> {"environment": "...",
+                                            "allowed_redirect_urls": [...]}
+POST /settings/redirect-urls
+{"allowed_redirect_urls": ["https://myapp.example/done"]}
+```
+
+POST REPLACES the whole list. Always GET first, add to what comes back, and
+send the merged list, or you will silently delete my other entries. Max 20
+entries. The environment is taken from the key, never passed in the body.
+
 ## What to ask me before you write code
 
 - My API key, and whether it is sandbox or live.
-- The public URL of my webhook receiver.
+- The public URL of my webhook receiver (a tunnel is fine in development;
+  `localhost` will never receive a delivery).
 - My language and framework.
-- Whether my portal access request has been approved yet.
 
 ## Testing
 
