@@ -3523,6 +3523,62 @@ components:
             reconciled.
 
     # ---------- Account ----------
+    AccountLiabilities:
+      type: object
+      description: |
+        Credit-card terms, reported per account. Every field is independently
+        nullable: institutions differ in what they publish, and a value absent
+        here means the bank did not report it, never that it is zero.
+
+        Availability differs by source. Finicity reports all five. MX reports
+        every field except the statement balance, which it does not track at
+        all. Portal connections and uploaded statements report none of them, so
+        this object is always null there.
+      properties:
+        credit_limit:
+          type: [number, 'null']
+          description: >-
+            The account's total credit line, as a positive amount.
+          example: 65000.00
+        available_credit:
+          type: [number, 'null']
+          description: >-
+            Credit still available to draw on, as a positive amount. Typically
+            the credit limit minus the current balance, computed by the bank
+            rather than by us, so it may not reconcile exactly against
+            `current_balance` at any given instant.
+          example: 50596.54
+        statement_balance:
+          type: [number, 'null']
+          description: >-
+            The amount owed at the last statement close, NEGATIVE like every
+            other amount owed in this API, so it agrees in sign with
+            `current_balance` on the same account. This is a normalized
+            magnitude: institutions disagree with each other on the sign of
+            this figure, several of them reporting a debt as positive while
+            reporting the same debt as a negative account balance, so passing
+            the reported sign through would make the field unusable. One
+            consequence is that a card that was in credit at statement close,
+            because the holder overpaid, is reported as owed.
+          example: -14381.66
+        minimum_payment:
+          type: [number, 'null']
+          description: >-
+            The minimum the bank requires by `payment_due_date`, as a positive
+            amount.
+          example: 143.00
+        payment_due_date:
+          type: [string, 'null']
+          format: date
+          description: >-
+            When the next payment is due. This is the bank's own figure and it
+            is only as current as the last refresh: a bank that has not yet
+            published a new cycle will still be reporting the previous one, so
+            a date in the past means the cycle has rolled over and we have not
+            seen the new one, not that a payment is overdue. Check
+            `last_refreshed_at` before acting on it.
+          example: "2026-09-24"
+
     Account:
       type: object
       required: [id, source, iso_currency_code, type]
@@ -3621,6 +3677,18 @@ components:
             backwards, never forwards, when a backfill lands, and it is not a
             promise about what a future refresh will retrieve.
           example: "2023-04-11"
+        liabilities:
+          description: |
+            Credit-card terms for this account: what the client can borrow,
+            what they owed at the last statement close, and what the bank
+            wants next. Null for every account that is not a credit card or
+            line of credit, and also for cards at institutions that do not
+            report these values, so its presence is itself the signal that
+            anything is known. Individual fields inside it are independently
+            nullable for the same reason.
+          oneOf:
+            - $ref: '#/components/schemas/AccountLiabilities'
+            - type: 'null'
         realized_capabilities:
           description: |
             Per-account observed outcome of the most recent attempt at
