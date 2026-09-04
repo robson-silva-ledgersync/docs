@@ -86,9 +86,13 @@ Give it the key and it can finish the setup over the API. Both of these are in t
     The `signing_secret` (`whsec_...`) comes back **once, in the create
     response, and can never be read back**. It is derived rather than stored, so
     there is no "show secret" button anywhere and no endpoint returns it later.
-    Tell your assistant to print it once and put it straight into your secrets
-    manager. If it scrolls past in a chat log and you lose it, your only option
-    is to rotate and update your verifier.
+    Lose it and your only option is to rotate and update your verifier.
+
+    **Do not let an assistant echo it back to you.** If it can write files, have
+    it write the secret straight into your `.env` or secret store without
+    printing it. In a plain chat it has no filesystem, so have it make the call
+    and then stop: copy the secret out of the response yourself. A secret
+    repeated into a conversation is in that transcript for good.
   </Warning>
 </Step>
 
@@ -308,8 +312,11 @@ POST /webhooks/subscriptions
                  "connection.failed", "connection.disconnected"]}
 ```
 
-The response carries `signing_secret` ONCE. Print it once, tell me to store it
-in a secrets manager, and never log it again. No endpoint returns it later.
+The response carries `signing_secret` ONCE and no endpoint returns it later.
+Do NOT echo it back to me. If you can write files, write it straight into
+`.env` and tell me only that you did. If you cannot, stop after the call and
+tell me to copy it out of the response myself. Never repeat it in your reply,
+never put it in code you show me, never log it.
 
 Allowlist a redirect URL, only if I need one (needs scope `write:settings`):
 
