@@ -17,6 +17,34 @@ Every Account carries a **`last_refreshed_at`** timestamp — the moment its dat
   For most use cases you do **not** need to call `/refresh`. The daily auto-refresh keeps active connections current, and `GET /accounts` always returns the latest snapshot. Reach for `/refresh` only when you need fresher-than-daily data.
 </Info>
 
+## How far back does the history go?
+
+Freshness is one axis; depth is the other. Every Account carries an **`oldest_transaction_date`**: the oldest transaction we actually hold for it.
+
+It is measured from the transactions themselves, not copied from what the bank or the aggregator says it has. So it is exactly the minimum `date` you get if you page that account's full history, and the two can never disagree.
+
+```json
+{
+  "id": "acc_FINICITY_84213",
+  "name": "Business Checking",
+  "type": "checking",
+  "last_refreshed_at": "2026-09-04T06:12:03Z",
+  "oldest_transaction_date": "2026-05-28"
+}
+```
+
+Read it per account rather than assuming a fixed window, because depth varies a lot:
+
+- **A newly linked bank connection starts with roughly the last quarter.** History then grows *forward* from there with each refresh, so an account linked a year ago holds about a year.
+- **Uploaded statements go back as far as the statements do.** A client who uploaded three years of PDFs has three years, available immediately.
+- **It is `null` when we hold no transactions for that account yet**, which is the normal state between linking a connection and its first transaction pull finishing.
+
+<Note>
+  `oldest_transaction_date` can move **backwards**. It is a fact about what we hold right now, and a backfill landing earlier transactions lowers it. Re-read it rather than caching it as a fixed property of the account.
+</Note>
+
+Like `Transaction.date`, it is a calendar day (`YYYY-MM-DD`) with no time component, and it is truncated by the same code, so comparing the two is safe.
+
 ## Forcing a refresh
 
 When you need up-to-the-moment data (a user tapped "refresh", you're reconciling something time-sensitive), call `POST /connections/{id}/refresh`:

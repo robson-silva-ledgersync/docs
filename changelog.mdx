@@ -3,6 +3,41 @@ title: "Changelog"
 description: "New features, improvements, and fixes to the LedgerSync v3 API. Newest first."
 ---
 
+<Update label="2026-09-04" tags={["Transactions", "Accounts"]}>
+  ## Fetching a single transaction works on every source, and accounts now say how far back they go
+
+  **`GET /v3/transactions/{id}` resolves ids from all four sources.** It only
+  ever worked for Finicity and uploaded-statement transactions. An MX id came
+  back `404`, and a portal-connection (FDE) id failed outright, even though
+  both were listed by `GET /accounts/{id}/transactions` moments earlier. An id
+  we hand you now resolves.
+
+  **FDE transactions carry `account_id`.** The field is documented as required
+  and was arriving `null` on that source, so there was no way to tell which
+  account a transaction belonged to without tracking the request you made to
+  get it.
+
+  **New `oldest_transaction_date` on the Account.** It answers "how much
+  history do I have here", per account:
+
+  ```json
+  {
+    "id": "acc_FINICITY_84213",
+    "type": "checking",
+    "oldest_transaction_date": "2026-05-28"
+  }
+  ```
+
+  It is measured from the transactions we hold rather than copied from what the
+  upstream provider reports about itself, so it is exactly the minimum `date`
+  you get if you page that account's whole history. It is `null` when we hold
+  no transactions for the account yet, and it moves backwards if a backfill
+  lands earlier data, so read it rather than caching it. See
+  [How far back does the history go?](/guides/data-freshness#how-far-back-does-the-history-go).
+
+  The field is optional and nullable, so it is additive for existing clients.
+</Update>
+
 <Update label="2026-09-02" tags={["Accounts"]}>
   ## Account `type` is now guaranteed, and balances are signed consistently
 
