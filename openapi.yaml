@@ -3606,6 +3606,21 @@ components:
             Check `realized_capabilities.available_balance` rather than
             assuming it is present.
         last_refreshed_at: { type: [string, 'null'], format: date-time }
+        oldest_transaction_date:
+          type: [string, 'null']
+          format: date
+          description: >-
+            How far back our transaction history for this account actually
+            goes: the `date` of the oldest transaction we hold. It is the
+            minimum `date` you will see if you page this account's entire
+            history through `GET /accounts/{account_id}/transactions`.
+            Measured from the transactions we hold, not a claim by the
+            aggregator about what it could supply. Null means we hold no
+            transactions for this account at all, which is normal for one
+            that was linked but has not completed a first refresh. It moves
+            backwards, never forwards, when a backfill lands, and it is not a
+            promise about what a future refresh will retrieve.
+          example: "2023-04-11"
         realized_capabilities:
           description: |
             Per-account observed outcome of the most recent attempt at
