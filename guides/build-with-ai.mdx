@@ -5,9 +5,26 @@ description: "Hand one page to Claude or ChatGPT and let it build your bank conn
 
 Give the text on this page to Claude or ChatGPT and it writes your bank connection for you. You do not need to code or read any other page here.
 
-You need your own software for the bank data to go into, and someone who can put the finished code into it. That is either the person who looks after it for you, or an AI tool that edits code directly, such as [Claude Code](https://claude.com/claude-code) or [Cursor](https://cursor.com). Claude and ChatGPT in a browser tab will write the code correctly, but they cannot install it for you.
+```mermaid
+graph LR
+  A[You paste<br/>one message] --> B[Your AI writes<br/>the code]
+  B --> C[You send a client<br/>a secure link]
+  C --> D[They sign in at<br/>their own bank]
+  D --> E[Transactions land<br/>in your software]
+```
 
-Your own hands-on time is about 15 minutes. The waiting is us approving your account, and, if someone else looks after your software, them fitting it in.
+<CardGroup cols={2}>
+  <Card title="You need your own software" icon="code">
+    Somewhere for the bank data to land. This page connects LedgerSync to software you already have.
+  </Card>
+  <Card title="And someone to install it" icon="user">
+    Whoever looks after that software, or an AI tool that edits code directly like [Claude Code](https://claude.com/claude-code) or [Cursor](https://cursor.com). A browser chat writes the code but cannot install it.
+  </Card>
+</CardGroup>
+
+<Info>
+  **About 15 minutes of your time.** The rest of the wait is us approving your account, and, if someone else looks after your software, them fitting it in.
+</Info>
 
 ## 1. Things only you can do
 
@@ -37,7 +54,9 @@ Open a **new** chat with Claude or ChatGPT, or with whichever AI tool edits your
   <Step title="Paste this in as your first message">
     You do not need to read any of it. It is written for the AI, not for you. Use the copy button in the top corner of the box.
 
-````markdown paste-1-practice.md
+<Accordion title="Open the message to copy" icon="clipboard" defaultOpen={false}>
+
+```markdown paste-1-practice.md
 # LedgerSync API: build my integration
 
 Follow this document exactly. Do not invent endpoints, fields, query
@@ -145,10 +164,8 @@ exact query that produced it.
 
 Errors look like this. Branch on `error.code` and nothing else:
 
-```json
-{"error": {"code": "not_found", "message": "...", "type": "not_found",
-           "category": "RESOURCE_NOT_FOUND", "trace_id": "..."}}
-```
+    {"error": {"code": "not_found", "message": "...", "type": "not_found",
+               "category": "RESOURCE_NOT_FOUND", "trace_id": "..."}}
 
 On a 429, honor the `Retry-After` header and back off.
 
@@ -156,11 +173,9 @@ On a 429, honor the `Retry-After` header and back off.
 
 Check every delivery before trusting it:
 
-```
-signed = X-LS-Webhook-Timestamp + "." + the raw request body
-expected = hex(HMAC_SHA256(key = signing_secret, message = signed))
-compare expected with the X-LS-Webhook-Signature header, constant-time
-```
+    signed = X-LS-Webhook-Timestamp + "." + the raw request body
+    expected = hex(HMAC_SHA256(key = signing_secret, message = signed))
+    compare expected with the X-LS-Webhook-Signature header, constant-time
 
 The key is the whole `whsec_...` string as UTF-8. Do not decode it.
 Capture the raw body bytes before any JSON parsing touches them. Reject
@@ -203,7 +218,9 @@ id still only arrives on the webhook, exactly as in rule 1.
 
 Test bank: FinBank, `ins_0a01a5430925d0b2`. Inside the page, sign in with
 username `demo` and password `go`. Use the sandbox URL and a sandbox key.
-````
+```
+
+</Accordion>
   </Step>
 
   <Step title="Say what you want, in your own words">
