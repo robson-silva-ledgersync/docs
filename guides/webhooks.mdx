@@ -123,7 +123,7 @@ event:
 Never trust a delivery you haven't verified. The **signed payload** is the
 timestamp header, a literal `.`, then the raw body. (Generated code gets this
 backwards often, signing the body alone. If an assistant wrote your verifier,
-see [Check your assistant's work](/guides/build-with-ai#check-your-assistants-work).)
+see [If something is not working](/guides/build-with-ai#4-if-something-is-not-working).)
 
 ```
 signed_payload = X-LS-Webhook-Timestamp + "." + raw_body

@@ -1,463 +1,321 @@
 ---
-title: "Build with an AI assistant"
-description: "Hand Claude or ChatGPT one brief and let it write your LedgerSync integration, with the manual steps only you can do and the generated-code mistakes to check for."
+title: "Connect with copy and paste"
+description: "Hand one page to Claude or ChatGPT and let it build your bank connection for you. No coding by you."
 ---
 
-You can get a working LedgerSync integration without reading these docs end to end: copy the brief on this page into an AI assistant and let it write the code. What an assistant cannot do is create your account, get it approved, or copy your keys out of the portal. Those steps are below, first, because one of them needs a person on our side.
+Give the text on this page to Claude or ChatGPT and it writes your bank connection for you. You do not need to code or read any other page here.
 
-## Pick your setup
+## Is this page for you?
 
-<CardGroup cols={2}>
-  <Card title="Chatting with Claude or ChatGPT" icon="clipboard" href="#paste-the-brief-into-a-chat">
-    Copy the brief, paste it as your first message, describe your app. Best for getting a working draft fast.
-  </Card>
-  <Card title="Running a coding agent" icon="code" href="#point-a-coding-agent-at-the-live-urls">
-    Point Claude Code, Cursor, or any agent at our machine-readable docs and the live spec. Best when the agent will run the code.
-  </Card>
-</CardGroup>
-
-## Getting set up
-
-<Info>
-  Only the first four are truly yours to do: your assistant cannot create your
-  account, solve the CAPTCHA, approve your access request, or read a secret out
-  of your browser. Everything after that is API-callable, so once you hand over
-  the key your assistant can finish the setup itself.
-</Info>
-
-### Only you can do these
-
-<Steps>
-
-<Step title="Create a portal account">
-  Go to [portal.ledgersyncappv2.com](https://portal.ledgersyncappv2.com) and sign in.
-</Step>
-
-<Step title="Request sandbox access">
-  Fill in the access-request form. You will solve a Cloudflare Turnstile challenge, which is verified on our side, so no script can complete this for you.
-
-  Use a real work address: disposable email domains are rejected. Sign-ups are also throttled to 3 per IP address per 24 hours.
-</Step>
-
-<Step title="Wait for a person to approve it">
-  <Warning>
-    **There is no auto-approval, sandbox included.** A LedgerSync admin reviews
-    every access request by hand, and a reviewer is notified as soon as yours
-    lands. Nothing on your side speeds this up, and there is no API to check it.
-
-    If it is blocking you, reply to your confirmation email or write to
-    [support@ledgersync.com](mailto:support@ledgersync.com) and ask for it to be
-    picked up. Requests nobody actions expire after 30 days.
-  </Warning>
-</Step>
-
-<Step title="Mint a sandbox API key">
-  Once approved, open **Developers → API keys** and create a sandbox key. It starts with `sk_test_` followed by 64 hex characters. Live keys start with `sk_live_`.
-
-  <Warning>
-    The key is shown **exactly once**, at creation. We store only a hash of it,
-    so we cannot show it to you again. Copy it into your secret store before you
-    close the panel; if you lose it, mint a new one.
-  </Warning>
-</Step>
-
-<Step title="Make your webhook endpoint publicly reachable">
-  This one is on you because it is your infrastructure, not ours. We POST to your URL directly from our servers, so `localhost` will never receive anything. Use a tunnel while developing.
-
-  <Note>
-    We do not validate the URL when you save it, so a typo is accepted happily
-    and then fails silently on every delivery. Fire a test event once it is set
-    up to confirm the endpoint really is reachable.
-  </Note>
-</Step>
-
-</Steps>
-
-### Your assistant can do the rest
-
-Give it the key and it can finish the setup over the API. Both of these are in the brief below, so you should not have to ask twice.
-
-<Steps>
-
-<Step title="Create the webhook subscription">
-  `POST /v3/webhooks/subscriptions` with `{"url": "...", "event_types": [...]}`, using a key scoped `write:webhooks` or `manage:webhooks`. You need this: the canonical connection id arrives by webhook.
-
-  <Warning>
-    The `signing_secret` (`whsec_...`) comes back **once, in the create
-    response, and can never be read back**. It is derived rather than stored, so
-    there is no "show secret" button anywhere and no endpoint returns it later.
-    Lose it and your only option is to rotate and update your verifier.
-
-    **Do not let an assistant echo it back to you.** If it can write files, have
-    it write the secret straight into your `.env` or secret store without
-    printing it. In a plain chat it has no filesystem, so have it make the call
-    and then stop: copy the secret out of the response yourself. A secret
-    repeated into a conversation is in that transcript for good.
-  </Warning>
-</Step>
-
-<Step title="Allowlist your redirect URLs">
-  `POST /v3/settings/redirect-urls` with `{"allowed_redirect_urls": ["https://..."]}`, using a key scoped `write:settings`. Required before you can pass a `redirect_url` anywhere.
-
-  <Warning>
-    **This replaces the whole list, it does not append.** Posting one URL
-    silently drops every other entry, so read the current list with `GET` first
-    and send it back with your addition. Max 20 entries, 2048 characters each.
-    The environment comes from the key you use, so a sandbox key can only ever
-    change the sandbox list.
-  </Warning>
-</Step>
-
-</Steps>
-
-<Tip>
-  A key scoped `write:api-keys` can also mint further keys over the API, and
-  bearer callers are not re-checked against your access request. So the approval
-  above is a one-time gate: after your first key, your assistant can provision
-  whatever else it needs without going back to the portal.
-</Tip>
-
-### Later: going live
-
-Live access is a separate request with a different order: run the Activate Live wizard, **pay first**, then wait for approval, and only then can you mint an `sk_live_` key. Payment is what submits your application for review, so an unpaid application is not sitting in a queue anywhere.
+This page is for people who have **their own software that someone can add code to**. It plugs bank data into that software.
 
 <Warning>
-  Two failures here are permanent rather than temporary, and both mean a step is
-  missing rather than something to retry: an application that was never
-  submitted is rejected outright, and an unpaid live request cannot be approved
-  by anyone, including us. Full checklist in [Going live](/guides/going-live).
+  **If the software you want the transactions in is something you bought or subscribe to, like QuickBooks or Xero, stop here.** You cannot add code to it, so this page will not work for you. Email [support@ledgersync.com](mailto:support@ledgersync.com) and say which product you use. There is a different route for you and we will point you at it.
 </Warning>
 
-## The brief
+If you do have your own software, you also need **someone who can put the finished code into it**. That is either the person who looks after it for you, or an AI tool that edits code directly, such as [Claude Code](https://claude.com/claude-code) or [Cursor](https://cursor.com). Claude and ChatGPT in a browser tab will write the code correctly, but they cannot install it for you.
 
-This is the whole contract in one block. Copy it and paste it into your assistant as your first message.
+Your own hands-on time is about 15 minutes. The waiting is us approving your account, and, if someone else looks after your software, them fitting it in.
 
-````markdown LedgerSync v3 integration brief
-# LedgerSync v3 API: integration brief
+## 1. Things only you can do
+
+These three cannot be automated. Do them first, in order.
+
+<Steps>
+  <Step title="Sign up">
+    Create an account at [portal.ledgersyncappv2.com](https://portal.ledgersyncappv2.com). Use a real work email address. Temporary ones are rejected.
+  </Step>
+  <Step title="Wait for us to approve you">
+    Someone on our team checks every request by hand. There is no way to speed this up and no status page to watch. If a few days pass with no word, email [support@ledgersync.com](mailto:support@ledgersync.com).
+  </Step>
+  <Step title="Get your key">
+    Once approved, sign in and open **Build → API keys** in the left menu. Create a key and choose **sandbox** for the environment. That is the practice setting: it uses fake bank data, so nothing you do can touch a real account.
+
+    <Warning>
+      Your key is shown **once**. Paste it into a note on your computer before you close the page. If you lose it, make a new one.
+    </Warning>
+  </Step>
+</Steps>
+
+## 2. Build the practice version
+
+Open a **new** chat with Claude or ChatGPT, or with whichever AI tool edits your code. A fresh conversation works best.
+
+<Steps>
+  <Step title="Paste this in as your first message">
+    You do not need to read any of it. It is written for the AI, not for you. Use the copy button in the top corner of the box.
+
+````markdown paste-1-practice.md
+# LedgerSync API: build my integration
 
 Follow this document exactly. Do not invent endpoints, fields, query
-parameters, or error codes. If you need something that is not here, fetch
-https://docs.ledgersyncappv2.com/llms-full.txt and read it, or tell me you
-do not know. Do not guess.
+parameters, or error codes.
+
+I am not a programmer. Assume I cannot answer a technical question
+without help.
+
+If you need something only I can give you, ask me for one thing at a
+time, in plain words, and explain what it is and where I would find it.
+If I say I do not know, do not stop and do not guess: tell me the
+options, pick a sensible default, and carry on.
+
+You need three things from me. Ask for them one at a time:
+
+- My API key. Assume it is a sandbox key unless I tell you otherwise.
+- Where my app runs, so you know where to put the code. If I do not
+  know, ask me who looks after my website and tell me to forward your
+  answer to them.
+- A public web address for receiving updates. If I do not have one, do
+  not stall: set one up yourself if you can, or explain in one sentence
+  what it is and offer to use a temporary tunnel for testing. Never just
+  ask me for a URL and wait. `localhost` will never work.
+
+When I give you my key, put it in my project's environment settings.
+Never print it back to me and never write it into code you show me.
+
+If you can fetch a web page yourself and need more detail than this
+document carries, read https://docs.ledgersyncappv2.com/llms-full.txt
 
 ## What this API does
 
-LedgerSync links your users' bank accounts and returns their accounts,
-balances, transactions and statements through one REST API, across several
-underlying data sources. Bank credentials are entered into a LedgerSync-hosted
-page and never touch your servers.
+LedgerSync links my users' bank accounts and returns their accounts,
+balances, transactions and statements through one REST API. Bank
+passwords are typed into a LedgerSync-hosted page and never reach my
+servers.
 
 ## Base URLs and auth
 
 Sandbox: https://api-sandbox.ledgersyncappv2.com/v3
 Live:    https://api.ledgersyncappv2.com/v3
 
-Header on every request: `Authorization: Bearer sk_test_...` (sandbox) or
-`sk_live_...` (live). JSON over HTTPS. There is no SDK; use a plain HTTP
-client. A sandbox key does not authenticate against the live base URL, or
-the reverse.
+Send `Authorization: Bearer <my key>` on every request. JSON over HTTPS.
+There is no SDK, so use a plain HTTP client. A sandbox key does not work
+against the live URL, or the reverse.
 
-Every response carries an `X-LS-Trace-Id` header. Log it.
+Every response has an `X-LS-Trace-Id` header. Log it.
 
-## Objects
+## How the objects fit together
 
-Client (`cli_` + 24 hex) is your record of one end user.
-  -> Connection (`con_<SOURCE>_<number>`, e.g. `con_FINICITY_41294`), one per
-     linked bank.
+Client (`cli_` + 24 hex) is my record of one end user.
+  -> Connection (`con_<SOURCE>_<number>`, e.g. `con_FINICITY_41294`),
+     one per linked bank.
     -> Account (`acc_<SOURCE>_<number>`)
       -> Transaction (`txn_<SOURCE>_<number>`) and Statement
          (`stmt_<SOURCE>_<number>`)
 
-SOURCE is one of FINICITY, MX, FDE, PDF, chosen by us, never by you.
-Other ids: institution `ins_` + 16 hex, operation `op_` + 32 hex, webhook
-subscription `whk_` + 32 hex, webhook event `evt_` + a dashed UUID.
+SOURCE is FINICITY, MX, FDE or PDF, and LedgerSync picks it, never me.
 
-## The happy path (use this one)
+## Build this flow
 
-1. `POST /clients` with `{"name": "..."}`. Store the returned `id` (`cli_...`).
-2. `POST /clients/{client_id}/connect-session` with an empty body, or
-   `{"redirect_url": "..."}` if you allowlisted one. Returns
-   `{"url": "...", "expires_at": "..."}`.
-3. Send that `url` to your end user. They open it, search for their own bank,
-   sign in, and pick accounts. You build no bank picker and see no credentials.
-4. Wait for the `connection.active` webhook. Read `data.connection.id` from it.
-   THAT is the canonical connection id. Store it against your user.
+1. `POST /clients` with `{"name": "..."}`. Store the returned `cli_...` id.
+2. `POST /clients/{client_id}/connect-session` with an empty body.
+   Returns `{"url": "...", "expires_at": "..."}`.
+3. Send that url to my end user. They open it, find their own bank, sign
+   in, and choose accounts. I build no bank picker and never see their
+   password.
+4. Wait for the `connection.active` webhook. Read `data.connection.id`
+   from it. That is the real connection id. Store it against my user.
 5. `GET /accounts?client_id=cli_...&connection_id=con_FINICITY_41294`
 6. `GET /accounts/{account_id}/transactions?client_id=cli_...&from=2026-01-01`
 
-## If you build your own bank picker instead
-
-1. `GET /institutions?q=chase` to find an `ins_...` id. Not paginated;
-   returns `{"data": [...]}`.
-2. `POST /clients/{client_id}/connections` with `{"institution_id": "ins_..."}`.
-   There is no `source` field. Returns `202` with
-   `{"operation_id": "op_...", "status": "queued", "poll_url": "...",
-   "estimated_seconds": 5}`.
-3. `GET /operations/{operation_id}`. Take
-   `result.connection.action.widget_url` and open it for the user.
-4. Get the canonical id from the `connection.active` webhook, exactly as
-   above. The operation's `result.connection.id` is usually a placeholder
-   (`con_<uuid>`), and the operation result is never rewritten, so it never
-   turns into the canonical id later. See rule 1.
+To receive webhooks, create a subscription once with
+`POST /webhooks/subscriptions` with `{"url": "...", "event_types": ["*"]}`.
+The response carries a `signing_secret` ONCE and no endpoint returns it
+later. Do NOT echo it back to me. If you can write files, write it
+straight into `.env` and tell me only that you did. If you cannot, stop
+after the call and tell me to copy it out of the response myself. Never
+repeat it in your reply, never put it in code you show me, never log it.
 
 ## Reading data
 
-`GET /accounts?client_id=...` optionally `&connection_id=...`
+`GET /accounts?client_id=...` and optionally `&connection_id=...`
 `GET /accounts/{account_id}/transactions?client_id=...&from=YYYY-MM-DD&to=YYYY-MM-DD`
-   `from` is inclusive, `to` is exclusive. Newest first. Pending rows are
-   always included; branch on the `pending` boolean.
+   `from` includes that day, `to` excludes it. Newest first. Pending rows
+   are always included, so branch on the `pending` field.
 `GET /accounts/{account_id}/statements?client_id=...`
 `GET /statements/{statement_id}/download?client_id=...` returns PDF bytes.
 
-`client_id` is REQUIRED on every one of these. Omitting it is a 400.
+`client_id` is REQUIRED on every one of those. Leaving it off is a 400.
 
-Transaction fields: `id`, `account_id`, `external_id`, `amount`,
-`iso_currency_code`, `date`, `description`, `merchant_name`, `category`,
-`pending`. That is the complete set. `amount` is signed: money out is
-negative, money in is positive.
+Transaction fields, and this is the complete list: `id`, `account_id`,
+`external_id`, `amount`, `iso_currency_code`, `date`, `description`,
+`merchant_name`, `category`, `pending`. `amount` is negative for money
+out and positive for money in.
 
-Account `type` is one of checking, savings, credit_card, loan, investment,
-other. `current_balance` is signed from the account holder's point of view,
-so a credit card you owe on comes back negative.
+Account `type` is checking, savings, credit_card, loan, investment or
+other. `current_balance` is from the account holder's point of view, so a
+credit card with a balance owed comes back negative.
 
-## Pagination
+Lists page with `?cursor=...&limit=...` and return
+`{"data": [...], "next_cursor": "...", "has_more": true}`. Keep passing
+`next_cursor` back until `has_more` is false. A cursor only works for the
+exact query that produced it.
 
-Request: `?cursor=<opaque>&limit=<1..500>`. Default limit 100.
-Response: `{"data": [...], "next_cursor": "...", "has_more": true}`.
-Loop until `has_more` is false, passing back `next_cursor` verbatim.
-A cursor is scoped to the exact query that produced it.
-
-## Errors
+Errors look like this. Branch on `error.code` and nothing else:
 
 ```json
-{"error": {"code": "not_found", "message": "...", "doc_url": "...",
-           "type": "not_found", "category": "RESOURCE_NOT_FOUND",
-           "is_user_actionable": false, "trace_id": "..."}}
+{"error": {"code": "not_found", "message": "...", "type": "not_found",
+           "category": "RESOURCE_NOT_FOUND", "trace_id": "..."}}
 ```
 
-Branch on `error.code`. On 429, honor `Retry-After` and back off with jitter.
+On a 429, honor the `Retry-After` header and back off.
 
-## Webhooks
+## Verifying webhooks
 
-Event types: `connection.requires_action`, `connection.active`,
-`connection.failed`, `connection.disconnected`,
-`connection.capability_changed`, `account.refresh.completed`,
-`account.refresh.failed`, `statement.available`, `webhook.test`. `*`
-subscribes to all.
-
-Delivery headers: `X-LS-Webhook-Event-Id`, `-Event-Type`, `-Timestamp`,
-`-Signature`, and `-Signature-Prev` during a secret rotation.
-
-Verify every delivery:
+Check every delivery before trusting it:
 
 ```
-signed_payload = X-LS-Webhook-Timestamp + "." + raw_request_body
-expected       = hex(HMAC_SHA256(key = signing_secret, msg = signed_payload))
-compare expected with X-LS-Webhook-Signature, constant-time
+signed = X-LS-Webhook-Timestamp + "." + the raw request body
+expected = hex(HMAC_SHA256(key = signing_secret, message = signed))
+compare expected with the X-LS-Webhook-Signature header, constant-time
 ```
 
-The key is the whole `whsec_...` string as UTF-8 bytes. Do not base64-decode
-it. Capture the raw body bytes BEFORE any JSON middleware parses them.
+The key is the whole `whsec_...` string as UTF-8. Do not decode it.
+Capture the raw body bytes before any JSON parsing touches them. Reject
+anything whose timestamp is more than 5 minutes old.
 
-Also reject any delivery whose `X-LS-Webhook-Timestamp` is more than 5
-minutes old, so a captured payload cannot be replayed later.
+Reply 2xx within about 10 seconds and queue anything slower: we drop the
+connection after that and treat it as a failure. We retry for 24 hours,
+so the same event can arrive twice. Ignore duplicates by `event_id`.
 
-Acknowledge with a 2xx within 30 seconds; queue slow work. We retry failures
-with backoff for 24 hours, so the same event can arrive more than once:
-dedupe on `event_id`. Deliveries are not ordered.
+## Rules that will break my integration if you get them wrong
 
-## Rules you must follow
+1. Only ever store a connection id shaped `con_<SOURCE>_<number>`. A
+   `con_` followed by a plain uuid is a temporary placeholder and returns
+   400 everywhere. The real id comes from the `connection.active`
+   webhook, or from `GET /clients/{client_id}/connections`. Re-checking
+   the operation never turns the placeholder into the real one.
+2. `client_id` goes on every accounts, transactions and statements read.
+3. Branch on `error.code`. Never on the HTTP status or the message text.
+4. Sign `timestamp + "." + body`, never the body on its own.
+5. Never automatically retry a failed POST. It creates a duplicate.
+6. `external_id` and `metadata` on a Client come back empty on every
+   read, so never build a lookup on them. Use the `cli_` id.
+7. A statement `download_url` is a partial address. Join it to the API
+   host, not to the `/v3` URL, and send my key with it.
+8. The first webhook for a new connection is
+   `connection.requires_action`. There is no `connection.initiated`.
+9. There is no event for a newly opened account. Re-read `GET /accounts`
+   and compare ids.
+10. Never put my key in anything that runs in a browser or a phone app.
 
-1. Only ever store a connection id of the form `con_<SOURCE>_<number>`,
-   e.g. `con_FINICITY_41294`. Decide by shape: `con_` followed by a UUID is
-   a placeholder and returns 400 on every read endpoint. The initiate
-   operation's result is written once and never rewritten, so a placeholder
-   there stays a placeholder however long you poll. Get the canonical id
-   from the `connection.active` webhook, or from
-   `GET /clients/{client_id}/connections`.
-2. `client_id` is a required query parameter on every accounts,
-   transactions and statements read.
-3. Branch on `error.code`. Never on `error.type`, `error.category`,
-   `error.message`, or the HTTP status alone.
-4. Sign `timestamp + "." + raw_body`, not the body alone. Constant-time
-   compare.
-5. `Idempotency-Key` is documented but NOT implemented. Do not auto-retry a
-   failed POST: it creates a duplicate. Make retries safe yourself.
-6. `external_id` and `metadata` on a Client are echoed at creation and come
-   back `null` on every later GET. Key your joins on the `cli_` id and keep
-   your own mapping.
-7. A statement `download_url` is a relative, unsigned path. Join it to the
-   API host (not to the `/v3` base URL, or you get `/v3/v3/...`) and send
-   the Authorization header. It is not a link a browser can open on its own.
-8. The first webhook a new connection produces is
-   `connection.requires_action`. There is no `connection.initiated` event;
-   never wait for one.
-9. There is no account-added event. To detect a newly opened account,
-   re-list `GET /accounts` and diff on id.
-10. A pagination cursor only works against the query that minted it.
-    Reusing one across a different account, filter or date window is a 400.
-11. Never put an `sk_` key in client-side code, a mobile app, or a browser.
+## Only if I ask you for my own bank picker
 
-## Setup you can do yourself, once I give you a key
-
-Do not send me to the web dashboard for these. Both are API calls.
-
-Create the webhook subscription (needs scope `write:webhooks` or
-`manage:webhooks`):
-
-```
-POST /webhooks/subscriptions
-{"url": "https://myapp.example/webhooks/ledgersync",
- "event_types": ["connection.active", "connection.requires_action",
-                 "connection.failed", "connection.disconnected"]}
-```
-
-The response carries `signing_secret` ONCE and no endpoint returns it later.
-Do NOT echo it back to me. If you can write files, write it straight into
-`.env` and tell me only that you did. If you cannot, stop after the call and
-tell me to copy it out of the response myself. Never repeat it in your reply,
-never put it in code you show me, never log it.
-
-Allowlist a redirect URL, only if I need one (needs scope `write:settings`):
-
-```
-GET  /settings/redirect-urls            -> {"environment": "...",
-                                            "allowed_redirect_urls": [...]}
-POST /settings/redirect-urls
-{"allowed_redirect_urls": ["https://myapp.example/done"]}
-```
-
-POST REPLACES the whole list. Always GET first, add to what comes back, and
-send the merged list, or you will silently delete my other entries. Max 20
-entries. The environment is taken from the key, never passed in the body.
-
-## What to ask me before you write code
-
-- My API key, and whether it is sandbox or live.
-- The public URL of my webhook receiver (a tunnel is fine in development;
-  `localhost` will never receive a delivery).
-- My language and framework.
+`GET /institutions?q=chase` finds an `ins_...` id, then
+`POST /clients/{client_id}/connections` with `{"institution_id": "..."}`
+returns a `202`. Read `GET /operations/{operation_id}` and open
+`result.connection.action.widget_url` for the user. The real connection
+id still only arrives on the webhook, exactly as in rule 1.
 
 ## Testing
 
-Sandbox bank: FinBank, `ins_0a01a5430925d0b2`. Sign in inside the widget with
-username `demo`, password `go`. Use the sandbox base URL and an `sk_test_` key.
+Test bank: FinBank, `ins_0a01a5430925d0b2`. Inside the page, sign in with
+username `demo` and password `go`. Use the sandbox URL and a sandbox key.
 ````
-
-<Note>
-  If your assistant needs something the brief does not carry, give it
-  [`https://docs.ledgersyncappv2.com/llms-full.txt`](https://docs.ledgersyncappv2.com/llms-full.txt).
-  That is this entire documentation site as one text file, about 220 KB, kept
-  current automatically. It is too large to paste into most chats, which is why
-  the brief above exists, but it is ideal for an agent that can fetch a URL.
-</Note>
-
-## Two ways to hand this to an assistant
-
-### Paste the brief into a chat
-
-<Steps>
-  <Step title="Open a new chat">
-    Claude or ChatGPT, either is fine. Start a fresh conversation so nothing else competes for context.
   </Step>
-  <Step title="Paste the brief as your first message">
-    Use the copy button on the block above.
+
+  <Step title="Say what you want, in your own words">
+    Before you press send, add a sentence to the same message. Fill in the blank and do not worry about getting the words right:
+
+    *"I want my clients' bank transactions to show up in ______. Give me a way to create a bank link for each client myself. Build the practice version first."*
+
+    Now press send.
   </Step>
-  <Step title="Add what you are building, in the same message">
-    For example: "I'm building a bookkeeping dashboard in Node and Express. My webhook receiver will be at `https://myapp.example/webhooks/ledgersync`. Write the sandbox integration."
+
+  <Step title="Answer its questions">
+    It will ask you a few things, one at a time, in plain words. If you do not know an answer, say so. It has been told to explain the options and keep going rather than leave you stuck.
+
+    <Warning>
+      Give your key only when it asks for it, and only once. Never paste it in unprompted. If your key ends up displayed on screen, treat it as spent: make a new one in the portal and give it that one instead.
+    </Warning>
   </Step>
-  <Step title="Give it the full docs when it needs more">
-    Point it at `https://docs.ledgersyncappv2.com/llms-full.txt` for anything the brief does not cover.
+
+  <Step title="Hand it to whoever looks after your software">
+    Skip this step if your AI tool edits your code directly.
+
+    When the AI says the code is ready, ask it: *"Write a short message I can forward to the person who looks after my software, explaining what to install."* Send them that message and a link to this page. Carry on once they tell you it is in.
+  </Step>
+
+  <Step title="Check it worked">
+    Ask for the practice connection link, open it, type **FinBank** into the bank search, pick it, then sign in with username `demo` and password `go`.
+
+    Made-up transactions should come back into your software. That is what success looks like.
+
+    Nothing came back? Go to [section 4](#4-if-something-is-not-working).
   </Step>
 </Steps>
 
-<Warning>
-  **Never paste an `sk_test_` or `sk_live_` key into a web chat.** Have the
-  assistant write the code so the key is read from an environment variable, and
-  supply the real value yourself when you run it.
-</Warning>
+## 3. Go live
 
-<Tip>
-  Every page on this site has **Copy**, **View as Markdown**, **Open in
-  ChatGPT** and **Open in Claude** buttons next to its title. If you just want
-  to ask questions about one page, that is faster than any of this.
-</Tip>
+Real bank accounts need a second approval. Same shape as before: a few things only you can do, then one more paste.
 
-### Point a coding agent at the live URLs
+<Steps>
+  <Step title="Start your live application">
+    On the portal home page there is a panel about live access. Click **Request access**, or **Continue application** if you started one earlier.
+  </Step>
+  <Step title="Add a payment method">
+    The wizard walks you through it. Paying is what submits your application, so an unpaid one is not waiting in a queue anywhere. You are not charged until you start using live bank data.
+  </Step>
+  <Step title="Wait for approval">
+    A person reviews it, same as the first time.
+  </Step>
+  <Step title="Create your live key">
+    Back to **Build → API keys**, create another key, and this time choose **live** for the environment. Shown once again, so copy it somewhere safe straight away.
+  </Step>
+  <Step title="Paste this into the same chat">
+    Use the same conversation as before, so it already knows your setup. If that chat is gone, start a new one and paste the first box again before this one.
 
-Give your agent these four URLs alongside the brief.
+````markdown paste-2-going-live.md
+# Switch my LedgerSync integration to live
 
-| URL | What it is | Use it for |
-| --- | --- | --- |
-| `https://docs.ledgersyncappv2.com/llms.txt` | An index of every page on this site, one line each | Letting an agent choose what to read |
-| `https://docs.ledgersyncappv2.com/llms-full.txt` | This entire site as one text file (~220 KB) | Long-context models, or saving into your repo |
-| `https://api.ledgersyncappv2.com/v3/openapi.yaml` | The live OpenAPI spec | Generating a typed client |
-| `https://portal.ledgersyncappv2.com/ledgersync-v3.postman_collection.json` | The public Postman collection | Driving real calls, or importing into a test runner |
+Ask me for my live key before you change anything. Do not ask me to type
+it into a file you show me, and do not print it back to me. Put it in my
+environment settings.
 
-Saving `llms-full.txt` into your repository is worth the 220 KB: it keeps the agent accurate across sessions and survives a context reset.
+1. Change the base URL to https://api.ledgersyncappv2.com/v3 and use my
+   live key on every request from now on.
+2. Create the webhook subscription again against live with
+   `POST /webhooks/subscriptions`. Subscriptions do not carry over from
+   sandbox. The new `signing_secret` comes back once: write it into
+   `.env` if you can, otherwise tell me to copy it out of the response
+   myself. Never echo it back to me and never log it.
+3. If I gave you a redirect address earlier, add it to the live list too.
+   Call `GET /settings/redirect-urls` first, add mine to whatever comes
+   back, and POST the combined list. Posting without reading first
+   deletes my other entries. Sandbox and live keep separate lists.
 
-<Warning>
-  **Where the brief and the OpenAPI spec disagree about which connection id to
-  store, the brief is correct.** An agent that generates a client purely from
-  the spec will persist the placeholder `con_<uuid>` and get a 400 on its first
-  read. Give it rule 1 explicitly.
-</Warning>
+Nothing about how you read or write data changes between sandbox and live.
+````
+  </Step>
+</Steps>
 
-## Check your assistant's work
+From here on it works exactly like the practice run, with real banks. You send each client a link, they find their own bank and sign in on our page, and their transactions start arriving in your software. You never see their bank password.
 
-Generated code usually runs. These are the seven things that make it run
-*wrongly*, in rough order of how often they show up.
+## 4. If something is not working
 
-| Check | What wrong looks like |
-| --- | --- |
-| Every stored connection id looks like `con_<SOURCE>_<number>`, never `con_<uuid>` | `400 missing source separator` on the first read after linking |
-| Signature is over `timestamp + "." + body` | Every delivery fails verification, or worse, verification is skipped |
-| `client_id` is on every accounts / transactions / statements read | `400` naming `client_id` |
-| Error handling branches on `error.code` | Users re-prompted for bank credentials during an outage |
-| No automatic retry on a failed POST | Duplicate clients and duplicate connections, silently |
-| No joins built on `external_id` or `metadata` | Lookups match nothing, because both read back `null` |
-| `download_url` joined to the API host, with the auth header | `401`, or a `/v3/v3/...` 404 |
+You do not need to know why. Paste this into the same chat and let it check its own work.
 
-### The connection id
+````markdown paste-3-fix-it.md
+Check your own code against this list, one line at a time, and fix
+anything that does not match.
 
-This is the one that costs the most time, because it fails at the *next* call rather than where the mistake was made, so it looks like a data problem.
+- Every connection id you saved looks like con_SOURCE_NUMBER, never con_
+  followed by a plain uuid.
+- client_id is on every accounts, transactions and statements request.
+- You branch on error.code, not on the HTTP status or the message text.
+- The webhook signature is built from timestamp + "." + the raw body,
+  not the body on its own, and you reject timestamps over 5 minutes old.
+- You never automatically retry a failed POST.
+- download_url is joined to the API host, not the /v3 URL, and sent with
+  my key.
+- Nothing looks up a Client by external_id or metadata, because both come
+  back empty. It uses the cli_ id.
 
-<Warning>
-  `POST /clients/{id}/connections` returns an operation. That operation reaches
-  `succeeded` as soon as the widget URL exists, which is while your user still
-  has the widget open, and its stored result is never rewritten afterwards. So
-  a placeholder id there stays a placeholder no matter how long you poll.
+Tell me in plain words what you changed.
+````
 
-  Judge the id by its shape rather than by the operation's status:
-  `con_<SOURCE>_<number>` is canonical and safe to store, `con_` followed by a
-  UUID is not. When you have a placeholder, the canonical id comes from the
-  `connection.active` webhook (`data.connection.id`) or from
-  `GET /clients/{client_id}/connections`. Full explanation in
-  [Connection lifecycle](/guides/connection-lifecycle).
-</Warning>
+Still stuck? Email [support@ledgersync.com](mailto:support@ledgersync.com) with what you were doing and we will look.
 
-### The webhook signature
+---
 
-Assistants reliably write `HMAC(secret, body)`, which never matches. The signed input is the timestamp header, a literal `.`, and then the raw body. Two more details that get lost: the key is the entire `whsec_...` string treated as UTF-8 bytes rather than something to decode, and the body must be the raw bytes as received, captured before any JSON parsing middleware touches them. Worked examples in [Webhooks](/guides/webhooks).
-
-<Tip>
-  Quickest way to run all seven: paste this section back into the same chat and
-  ask the assistant to audit its own code against it, one row at a time.
-</Tip>
-
-## Where to go next
-
-<CardGroup cols={2}>
-  <Card title="Quickstart" icon="rocket" href="/guides/quickstart">
-    The same integration, written by hand, in about 15 minutes.
-  </Card>
-  <Card title="Webhooks" icon="webhook" href="/guides/webhooks">
-    The full event catalog, signature recipe and retry behavior.
-  </Card>
-  <Card title="Errors" icon="triangle-exclamation" href="/guides/errors">
-    Every error code and what to do about each one.
-  </Card>
-  <Card title="Testing in sandbox" icon="flask" href="/guides/testing">
-    Test banks, credentials and the MFA scenarios you can trigger.
-  </Card>
-</CardGroup>
+Building this by hand instead? The [Quickstart](/guides/quickstart) covers the same ground for developers.
