@@ -1,50 +1,69 @@
 ---
 title: "Connect with copy and paste"
-description: "Hand one page to Claude or ChatGPT and let it build your bank connection for you. No coding by you."
+description: "Let Claude or ChatGPT build your connection to real bank accounts. Follow the steps and copy one message."
 ---
 
-Give the text on this page to Claude or ChatGPT and it writes your bank connection for you. You do not need to code or read any other page here. About 15 minutes of your time; the rest of the wait is us approving your account.
+Get your LedgerSync key, copy one message into Claude or ChatGPT, and let it build your bank connection. You can connect your own bank or send a secure link to a client.
 
 ```mermaid
 graph LR
-  A[You paste<br/>one message] --> B[Your AI writes<br/>the code]
-  B --> C[You send a client<br/>a secure link]
-  C --> D[They sign in at<br/>their own bank]
-  D --> E[Transactions land<br/>in your software]
+  A[Get your<br/>live key] --> B[Copy one message<br/>into your AI]
+  B --> C[Open a secure link<br/>and choose your bank]
+  C --> D[See transactions<br/>in your software]
 ```
 
-## 1. Things only you can do
+## 1. Get your live key
 
-These three cannot be automated. Do them first, in order.
+Do these steps in order. If you have already completed a step, move to the next one. Click or tap any screenshot to enlarge it.
 
 <Steps>
   <Step title="Sign up">
-    Create an account at [portal.ledgersyncappv2.com](https://portal.ledgersyncappv2.com). Use a real work email address. Temporary ones are rejected.
+    Create an account at [portal.ledgersyncappv2.com](https://portal.ledgersyncappv2.com) using your work email address. Complete the account application when prompted.
   </Step>
-  <Step title="Wait for us to approve you">
-    Someone on our team checks every request by hand. There is no way to speed this up and no status page to watch. If a few days pass with no word, email [support@ledgersync.com](mailto:support@ledgersync.com).
+  <Step title="Wait for account approval">
+    Our team reviews your application. Watch your email for approval or a request for more information. If a few days pass with no word, email [support@ledgersync.com](mailto:support@ledgersync.com).
   </Step>
-  <Step title="Get your key">
-    Once approved, sign in and open **Build → API keys** in the left menu. Create a key and choose **sandbox** for the environment. That is the practice setting: it uses fake bank data, so nothing you do can touch a real account.
+  <Step title="Request access to real banks">
+    Once approved, sign in to the portal and open **Build → Overview** in the left menu. Select **Live** at the top right, then click **Request access**. If you already started, click **Continue application**.
 
-    <Warning>
-      Your key is shown **once**. Paste it into a note on your computer before you close the page. If you lose it, make a new one.
-    </Warning>
+    <Frame caption="Open Overview under Build, select Live at the top right, then click Request access.">
+      <img src="/images/build-with-ai/request-live-access.png" alt="Full portal screen with Overview selected in the left sidebar, Live at the top right, and Request access highlighted" />
+    </Frame>
+
+    Follow the application steps and add a payment method when prompted. Finish this step so your live application can be reviewed.
+  </Step>
+  <Step title="Wait for live approval">
+    Our team reviews your request for real bank connections. Watch your email and provide any extra information requested.
+  </Step>
+  <Step title="Create your live key">
+    Check that **Live** is still selected at the top right. Open **Build → API keys** in the left menu.
+
+    <Frame caption="In the portal's left menu, find Build and click API keys.">
+      <img src="/images/build-with-ai/api-keys-menu.png" alt="Full portal screen showing API keys highlighted under Build in the left sidebar and the API keys page on the right" />
+    </Frame>
+
+    Under **Create new key**, set **Environment** to **Live**, then click **Create key**.
+
+    <Frame caption="On the API keys page, set Environment to Live under Create new key, then click Create key.">
+      <img src="/images/build-with-ai/create-live-key.png" alt="Full API keys screen with its sidebar and header visible, Environment set to Live, and Create key highlighted" />
+    </Frame>
+
+    Copy your key and keep it somewhere private, such as your password manager. It is shown **only once**. If you lose it, create a new one.
   </Step>
 </Steps>
 
-## 2. Build the practice version
+## 2. Connect your bank with AI
 
-Open a **new** chat with Claude or ChatGPT, or with whichever AI tool edits your code. A fresh conversation works best.
+Open a new chat with Claude, ChatGPT, or the AI tool you use to build your app.
 
 <Steps>
-  <Step title="Paste this in as your first message">
-    You do not need to read any of it. It is written for the AI, not for you. Use the copy button in the top corner of the box.
+  <Step title="Copy this message">
+    Open the box below and use its copy button. Paste it into your new chat, but do not press send yet. You do not need to read the text inside the box; it tells the AI what to build.
 
 <Accordion title="Open the message to copy" icon="clipboard" defaultOpen={false}>
 
-```markdown paste-1-practice.md
-# LedgerSync API: build my integration
+```markdown connect-my-bank.md
+# LedgerSync API: build my live bank integration
 
 Follow this document exactly. Do not invent endpoints, fields, query
 parameters, or error codes.
@@ -59,17 +78,19 @@ options, pick a sensible default, and carry on.
 
 You need three things from me. Ask for them one at a time:
 
-- My API key. Assume it is a sandbox key unless I tell you otherwise.
+- My live API key, starting with `sk_live_`. Help me put it directly in
+  my project's secret or environment settings if your tool supports that.
 - Where my app runs, so you know where to put the code. If I do not
   know, ask me who looks after my website and tell me to forward your
   answer to them.
 - A public web address for receiving updates. If I do not have one, do
   not stall: set one up yourself if you can, or explain in one sentence
-  what it is and offer to use a temporary tunnel for testing. Never just
-  ask me for a URL and wait. `localhost` will never work.
+  what it is and help me get a permanent HTTPS address for the app. Never
+  just ask me for a URL and wait. `localhost` will never work.
 
-When I give you my key, put it in my project's environment settings.
-Never print it back to me and never write it into code you show me.
+Keep my live key in server-side secret or environment settings. Never
+print it back to me, log it, or write it into code you show me. Keep
+secret files out of version control. Never ask for my bank password.
 
 If you can fetch a web page yourself and need more detail than this
 document carries, read https://docs.ledgersyncappv2.com/llms-full.txt
@@ -81,14 +102,11 @@ balances, transactions and statements through one REST API. Bank
 passwords are typed into a LedgerSync-hosted page and never reach my
 servers.
 
-## Base URLs and auth
+## Base URL and auth
 
-Sandbox: https://api-sandbox.ledgersyncappv2.com/v3
-Live:    https://api.ledgersyncappv2.com/v3
-
+Use https://api.ledgersyncappv2.com/v3 from the start, with my live key.
 Send `Authorization: Bearer <my key>` on every request. JSON over HTTPS.
-There is no SDK, so use a plain HTTP client. A sandbox key does not work
-against the live URL, or the reverse.
+Use a plain HTTP client for this integration.
 
 Every response has an `X-LS-Trace-Id` header. Log it.
 
@@ -103,10 +121,35 @@ Client (`cli_` + 24 hex) is my record of one end user.
 
 SOURCE is FINICITY, MX, FDE or PDF, and LedgerSync picks it, never me.
 
+## Set up live updates first
+
+Before anyone opens a bank connection link, deploy the HTTPS receiver
+with the signature checks below, then create the live subscription.
+
+To receive webhooks, create a subscription once with
+`POST /webhooks/subscriptions` with `{"url": "...", "event_types": ["*"]}`.
+The response carries a `signing_secret` ONCE and no endpoint returns it
+later. Save it directly in the deployed receiver's server-side secret or
+environment settings. If you cannot configure those settings, tell me
+how to save the secret from the response there without pasting it into
+chat. Never repeat it in your reply, put it in example code, or log it.
+Restart or redeploy the receiver if needed so it loads the new secret.
+Confirm the deployed receiver has signature verification enabled before
+anyone opens a bank link. A local `.env` file alone does not configure a
+hosted app.
+
+If the app needs to send the user back to it after bank sign-in, configure
+its HTTPS return address. First `GET /settings/redirect-urls`, then add
+the address to `allowed_redirect_urls` without removing existing entries.
+`POST /settings/redirect-urls` with `{"allowed_redirect_urls": ["..."]}`
+sets the complete list. Pass the address as `redirect_url` when creating
+the connect session. If no return address is needed, omit that field.
+
 ## Build this flow
 
 1. `POST /clients` with `{"name": "..."}`. Store the returned `cli_...` id.
-2. `POST /clients/{client_id}/connect-session` with an empty body.
+2. `POST /clients/{client_id}/connect-session` with `{}` (or with the
+   optional `redirect_url` configured above).
    Returns `{"url": "...", "expires_at": "..."}`.
 3. Send that url to my end user. They open it, find their own bank, sign
    in, and choose accounts. I build no bank picker and never see their
@@ -115,14 +158,6 @@ SOURCE is FINICITY, MX, FDE or PDF, and LedgerSync picks it, never me.
    from it. That is the real connection id. Store it against my user.
 5. `GET /accounts?client_id=cli_...&connection_id=con_FINICITY_41294`
 6. `GET /accounts/{account_id}/transactions?client_id=cli_...&from=2026-01-01`
-
-To receive webhooks, create a subscription once with
-`POST /webhooks/subscriptions` with `{"url": "...", "event_types": ["*"]}`.
-The response carries a `signing_secret` ONCE and no endpoint returns it
-later. Do NOT echo it back to me. If you can write files, write it
-straight into `.env` and tell me only that you did. If you cannot, stop
-after the call and tell me to copy it out of the response myself. Never
-repeat it in your reply, never put it in code you show me, never log it.
 
 ## Reading data
 
@@ -201,100 +236,70 @@ returns a `202`. Read `GET /operations/{operation_id}` and open
 `result.connection.action.widget_url` for the user. The real connection
 id still only arrives on the webhook, exactly as in rule 1.
 
-## Testing
+## Finish with a real bank connection
 
-Test bank: FinBank, `ins_0a01a5430925d0b2`. Inside the page, sign in with
-username `demo` and password `go`. Use the sandbox URL and a sandbox key.
+Give me a way to create a secure bank link for each client. Tell me where
+to click in my app, then have me open a link and connect my own bank.
+Show me where the returned accounts and transactions appear in my app.
+If something fails, check your work and explain the next action in plain
+words. Do not create duplicate clients or subscriptions when resuming
+an existing integration; inspect its saved configuration first.
 ```
 
 </Accordion>
   </Step>
+  <Step title="Say what you want">
+    Add this sentence to the end of the same message. Fill in the blank with the name of your app or where you want to see the transactions:
 
-  <Step title="Say what you want, in your own words">
-    Before you press send, add a sentence to the same message. Fill in the blank and do not worry about getting the words right:
-
-    *"I want my clients' bank transactions to show up in ______. Give me a way to create a bank link for each client myself. Build the practice version first."*
+    *"I want my clients' bank transactions to show up in ______. Give me a way to create a bank link for each client myself."*
 
     Now press send.
   </Step>
+  <Step title="Answer the AI's questions">
+    <p style={{ fontSize: "1.35rem", fontWeight: 700, textDecoration: "underline" }}>KEEP USING THIS SAME CHAT</p>
 
-  <Step title="Answer its questions">
-    It will ask you a few things, one at a time, in plain words. If you do not know an answer, say so. It has been told to explain the options and keep going rather than leave you stuck.
+    Keep all your replies here so the AI remembers your setup. It will ask for one thing at a time and explain where to find it. If you do not know an answer, say so.
 
-    <Warning>
-      Give your key only when it asks for it, and only once. Never paste it in unprompted. If your key ends up displayed on screen, treat it as spent: make a new one in the portal and give it that one instead.
-    </Warning>
+    When it asks for your key, follow its instructions for saving it privately in your app. Never share your bank password in the chat.
   </Step>
+  <Step title="Put the connection into your app">
+    If your AI tool can install the code, let it finish and show you where to create a bank link.
 
-  <Step title="Hand it to whoever looks after your software">
-    Skip this step if your AI tool edits your code directly.
-
-    When the AI says the code is ready, ask it: *"Write a short message I can forward to the person who looks after my software, explaining what to install."* Send them that message and a link to this page. Carry on once they tell you it is in.
+    If someone else looks after your software, ask the AI: *"Write a short message I can forward to the person who looks after my software, explaining what to install."* Send them that message and a link to this page. Continue when they tell you it is ready.
   </Step>
+  <Step title="Connect a bank and check it worked">
+    Ask the AI where to create your bank connection link. Open the link, type your bank's name, and select it from the results.
 
-  <Step title="Check it worked">
-    Ask for the practice connection link, open it, type **FinBank** into the bank search, pick it, then sign in with username `demo` and password `go`.
+    <Frame caption="Open the secure bank link from your app to reach this screen. Type your bank's name and choose it from the results. Chase is an example.">
+      <img src="/images/build-with-ai/find-your-bank.png" alt="Full bank connection screen showing the page heading, search field, and a highlighted Chase result" />
+    </Frame>
 
-    Made-up transactions should come back into your software. That is what success looks like.
+    Follow the bank's sign-in steps and choose the accounts you want to connect. Enter your bank password only in the bank connection window.
 
-    Nothing came back? Go to [section 4](#4-if-something-is-not-working).
-  </Step>
-</Steps>
+    Return to your app. Your connected accounts and transactions should appear there once the bank finishes sending them. Ask the AI to show you where to look.
 
-## 3. Go live
+    For a client's bank, send the link to that client so they can sign in themselves. You never need their bank password.
 
-Real bank accounts need a second approval. Same shape as before: a few things only you can do, then one more paste.
-
-<Steps>
-  <Step title="Start your live application">
-    On the portal home page there is a panel about live access. Click **Request access**, or **Continue application** if you started one earlier.
-  </Step>
-  <Step title="Add a payment method">
-    The wizard walks you through it. Paying is what submits your application, so an unpaid one is not waiting in a queue anywhere. You are not charged until you start using live bank data.
-  </Step>
-  <Step title="Wait for approval">
-    A person reviews it, same as the first time.
-  </Step>
-  <Step title="Create your live key">
-    Back to **Build → API keys**, create another key, and this time choose **live** for the environment. Shown once again, so copy it somewhere safe straight away.
-  </Step>
-  <Step title="Paste this into the same chat">
-    Use the same conversation as before, so it already knows your setup. If that chat is gone, start a new one and paste the first box again before this one.
-
-````markdown paste-2-going-live.md
-# Switch my LedgerSync integration to live
-
-Ask me for my live key before you change anything. Do not ask me to type
-it into a file you show me, and do not print it back to me. Put it in my
-environment settings.
-
-1. Change the base URL to https://api.ledgersyncappv2.com/v3 and use my
-   live key on every request from now on.
-2. Create the webhook subscription again against live with
-   `POST /webhooks/subscriptions`. Subscriptions do not carry over from
-   sandbox. The new `signing_secret` comes back once: write it into
-   `.env` if you can, otherwise tell me to copy it out of the response
-   myself. Never echo it back to me and never log it.
-3. If I gave you a redirect address earlier, add it to the live list too.
-   Call `GET /settings/redirect-urls` first, add mine to whatever comes
-   back, and POST the combined list. Posting without reading first
-   deletes my other entries. Sandbox and live keep separate lists.
-
-Nothing about how you read or write data changes between sandbox and live.
-````
+    Nothing came back? Go to [If you need help](#3-if-you-need-help).
   </Step>
 </Steps>
 
-From here on it works exactly like the practice run, with real banks. You send each client a link, they find their own bank and sign in on our page, and their transactions start arriving in your software. You never see their bank password.
+## 3. If you need help
 
-## 4. If something is not working
+<p style={{ fontSize: "1.35rem", fontWeight: 700, textDecoration: "underline" }}>KEEP USING THIS SAME CHAT</p>
 
-You do not need to know why. Paste this into the same chat and let it check its own work.
+Describe what happened and paste the message below into the chat you used above. Let the AI check its work.
 
-````markdown paste-3-fix-it.md
+If that conversation is gone, start a new one. Paste the setup message from [section 2](#2-connect-your-bank-with-ai), explain that your app is already built, and ask it to inspect the existing setup before changing anything. Then paste the message below.
+
+```markdown fix-my-connection.md
 Check your own code against this list, one line at a time, and fix
 anything that does not match.
 
+- The API host is https://api.ledgersyncappv2.com/v3, with my live key
+  stored only on the server. Never print the key or signing secret.
+- The live update receiver is reachable over HTTPS and its subscription
+  points to that address.
 - Every connection id you saved looks like con_SOURCE_NUMBER, never con_
   followed by a plain uuid.
 - client_id is on every accounts, transactions and statements request.
@@ -308,10 +313,10 @@ anything that does not match.
   back empty. It uses the cli_ id.
 
 Tell me in plain words what you changed.
-````
+```
 
-Still stuck? Email [support@ledgersync.com](mailto:support@ledgersync.com) with what you were doing and we will look.
+Still stuck? Email [support@ledgersync.com](mailto:support@ledgersync.com) with what you were doing and we will help. Do not include your key or bank password.
 
 ---
 
-Building this by hand instead? The [Quickstart](/guides/quickstart) covers the same ground for developers.
+Building this by hand instead? The [Quickstart](/guides/quickstart) covers the developer steps.
