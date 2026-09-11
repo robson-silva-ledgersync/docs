@@ -2950,9 +2950,11 @@ components:
         param:
           type: string
           description: |
-            For validation failures (4xx), the request field that
-            tripped the check. Dot-separated path for nested
-            fields.
+            On every 400 or 413 that is about one request field
+            (`validation_failed` and `invalid_request` alike), the
+            field that tripped the check. Dot-separated path for
+            nested fields. Absent on errors that are not about a
+            field (auth, not found, upstream faults).
           example: client.email
         trace_id:
           type: string
