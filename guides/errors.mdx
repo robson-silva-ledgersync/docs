@@ -38,7 +38,8 @@ every error. The rest appear only when they apply.
 | `is_user_actionable` | `true` when the **end user** (not you) can resolve it, e.g. by re-authenticating in the widget. |
 | `doc_url` | Deep link to the page for this specific code. |
 | `trace_id` | The id of this exact request in our logs. Quote it in support tickets. |
-| `param` / `errors[]` | On `validation_failed`, names the offending field(s). **Absent on most other 400s** — `invalid_request` names the field inside `message` instead, as `Field 'cursor': ...`. Read `message` as the fallback. |
+| `param` | On every `400` or `413` that is about one request field, the field that tripped the check: `validation_failed` and `invalid_request` alike (dot-separated path for nested fields, e.g. `client.email`). The same name also appears inside `message`, as `Field 'cursor': ...`, so `message` remains a valid fallback. Absent on errors that are not about a field (auth, not found, conflicts, upstream faults). Before 2026-09-11 only schema `validation_failed` carried it; `invalid_request` named the field inside `message` only. |
+| `errors[]` | Schema validation only: on `validation_failed` raised by request-body schema checks, one `{ param, message, code }` entry per failing field, so a body with several bad fields reports all of them at once. Not present on `invalid_request`. |
 | `source_diagnostic_code` | On bank-side errors, the raw upstream code (`FIN-103`, `MX-DENIED`, `FDE-INTERNAL`). For **support triage, not control flow**. |
 
 <Warning>
@@ -51,7 +52,7 @@ every error. The rest appear only when they apply.
 
 | Status | Meaning | Typical fix |
 | --- | --- | --- |
-| `400` | Validation / malformed request | Read `error.message` (and `error.param`), fix the field, retry. Don't retry unchanged. |
+| `400` | Validation / malformed request | Read `error.param` (the offending field) and `error.message` (why), fix the field, retry. Don't retry unchanged. |
 | `401` | Auth: missing, malformed, or wrong key/signature | Send `Authorization: Bearer sk_test_...`; check the key matches the environment. |
 | `403` | Authenticated but not allowed (scope, unapproved access, billing) | Fix the key's scope or finish the portal step named in the message. |
 | `404` | Not found or not visible to your key | Confirm the id and its environment. |
@@ -85,8 +86,8 @@ and each `error.doc_url` deep-links to one entry.
 
 | Code | HTTP | When it fires | What to do |
 | --- | --- | --- | --- |
-| `validation_failed` | 400 | A field failed schema validation. `error.param` / `error.errors[]` name it. | Fix the named field(s), resubmit. |
-| `invalid_request` | 400 | Rejected for a non-schema reason (bad state transition, unsupported source, malformed cursor). The offending field is named inside `message`, as `Field 'cursor': ...`; `error.param` is not set. | Read `message`, fix the named field, resubmit. |
+| `validation_failed` | 400 | A field failed schema validation, or a hand-rolled check classified as schema-level (an unknown webhook `event_types` entry, an unsupported `source`). `error.param` names the field; `error.errors[]` additionally lists every failing field on request-body schema checks. | Fix the named field(s), resubmit. |
+| `invalid_request` | 400 | Rejected for a non-schema reason (bad state transition, unsupported source, malformed cursor, an id with the wrong prefix). `error.param` names the offending field, and `message` repeats it as `Field 'cursor': ...`. | Fix the field named in `param`, resubmit. |
 | `method_not_allowed` | 405 | Right route, wrong HTTP method. | Use the documented method; regenerate clients from the spec. |
 | `idempotency_conflict` | 409 | Same `Idempotency-Key`, different body/path. **Reserved: never returned today** (see the note below). | Reuse the exact original body to retry, or a new key for a new request. |
 | `version_conflict` | 409 | Write carried a stale `row_version` (someone else moved the row). | Re-fetch to get the current `row_version` and state, then retry if still needed. |
