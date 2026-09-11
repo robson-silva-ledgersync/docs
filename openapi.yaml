@@ -498,8 +498,17 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [url, expires_at]
+                required: [sid, url, expires_at]
                 properties:
+                  sid:
+                    type: string
+                    description: >-
+                      This session's opaque id. Pass it to
+                      `DELETE /v3/clients/{client_id}/connect-session/{sid}` to kill
+                      the link before it expires. It is also the link's credential,
+                      since the `url` carries it, so keep it server-side and never
+                      hand it to anyone you would not hand the link itself.
+                    example: "9f2c4b7e1a8d6350f4e2c9b7a1d83e56"
                   url:
                     type: string
                     format: uri
@@ -507,7 +516,10 @@ paths:
                   expires_at:
                     type: string
                     format: date-time
-                    description: When the link stops working. Revoke it earlier with DELETE if needed.
+                    description: >-
+                      When the link stops working. To kill it sooner, call
+                      `DELETE /v3/clients/{client_id}/connect-session/{sid}` with the
+                      `sid` above.
         '400':
           description: The request or `redirect_url` was invalid. Body carries the canonical `ErrorEnvelope`.
           content:
@@ -532,8 +544,12 @@ paths:
       summary: Revoke a hosted connect link
       description: |
         Invalidate a previously created connect link so it can no longer be
-        opened. Scoped to your account: an unknown, already-revoked, or
-        foreign session returns `404`.
+        opened. Pass the `sid` the create call returned.
+
+        Scoped to your account and to the client the link was created for: an
+        unknown, already-revoked, or foreign session returns `404`, as does a
+        session that belongs to one of your other clients. Use the same
+        `client_id` you created the link with.
       responses:
         '204': { description: The link was revoked. }
         '401': { $ref: '#/components/responses/Unauthorized' }
