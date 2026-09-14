@@ -79,9 +79,9 @@ There is no `connection.initiated` **event**. The `initiated` connection *status
 </Note>
 
 <Warning>
-There is also **no account-added event**. When a client opens a new account at a bank they already linked, nothing is pushed to you. `connection.active` fires on the transition into `active`, so an already-active connection that stays active produces no event, and `account.refresh.completed` tells you a refresh finished, not that the account set changed.
+There is also **no v3 account-added event**. `connection.active` is not a reliable account-addition signal: it may be absent or emitted again without proving the account set changed. `account.refresh.completed` tells you a refresh finished. Compare paginated account lists before and after the flow to determine which LedgerSync account IDs are new to your integration.
 
-To find the new account, re-list `GET /v3/accounts?client_id=...&connection_id=...` and diff on account id. See [Adding a new account](/guides/adding-accounts).
+To find new account records, re-list all pages of `GET /v3/accounts?client_id=...` and diff on account ID. Add `connection_id` only when you deliberately want to exclude accounts on other connections, including a new connection created by a changed bank login or source. See [Adding a new account](/guides/adding-accounts).
 </Warning>
 
 ## Delivery shape

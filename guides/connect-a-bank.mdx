@@ -3,9 +3,13 @@ title: "Connect a bank"
 description: "Send a member a link, let them pick and connect their own bank, and receive their data. No institution picker to build."
 ---
 
-There are two ways to get a user's bank connected. Both finish with the same
+There are two ways to connect a user's bank for the first time. Both finish with the same
 `connection.active` webhook and the same data behind it. Choose based on how
 much UI you want to own.
+
+<Note>
+Adding an account to an existing Finicity bank uses **Full Connect** for the same client. Call `POST /v3/clients/{client_id}/connections`, open the operation's widget URL, and use the existing bank's add-account option. A matching institution login reuses the stored connection. Follow [Adding a new account](/guides/adding-accounts) for this flow; it uses account-list comparison to detect additions and does not rely on another `connection.active` event.
+</Note>
 
 <CardGroup cols={2}>
   <Card title="Hosted link" icon="wand-magic-sparkles">

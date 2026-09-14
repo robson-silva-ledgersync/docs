@@ -3,7 +3,7 @@ title: "Adding a new account"
 description: "Your client opened a new account at a bank they already linked. What to call to get it syncing, per source, and how to detect that it arrived."
 ---
 
-A client links Chase, and three months later they open a second checking account under the same Chase login. Nothing in the API creates that Account for you: an Account exists once the source hands it to LedgerSync. What you call to make that happen depends on the connection's **source**, and the two answers are genuinely different, so read the table before you write the retry.
+A client links Chase, and three months later they open a second checking account under the same Chase login. An Account exists in LedgerSync once the source returns it and LedgerSync saves it. The call to make depends on the connection's **source**.
 
 <Tip>
 You can read the source off the connection id: `con_MX_1224`, `con_FDE_882`, `con_FINICITY_41294`. See [The two id formats](/guides/connection-lifecycle#the-two-id-formats).
@@ -15,74 +15,81 @@ You can read the source off the connection id: `con_MX_1224`, `con_FDE_882`, `co
 | --- | --- | --- |
 | `con_MX_*` | **MX.** Every aggregation re-reads the member's full account list and adds accounts LedgerSync has not seen before. | Nothing, if you can wait for the scheduled pass. `POST /connections/{id}/refresh` to pull it in now. |
 | `con_FDE_*` | **LedgerSync.** Each extraction run re-reads the sub-accounts behind the connection and inserts codes it has not seen before. | `POST /connections/{id}/refresh`. Extraction also re-runs on its own, but not on a cadence you should plan around, so call refresh when you need the account now. |
-| `con_FINICITY_*` | **Nobody**, until the client sits through a hosted session. A Finicity refresh only updates the accounts already attached to the connection. | `POST /connections/{id}/reauthorize`, then send the client the hosted URL. |
+| `con_FINICITY_*` | The client shares the additional account in **Mastercard Full Connect**, then LedgerSync saves it. The v3 Finicity refresh only updates accounts already attached to the connection. | `POST /v3/clients/{client_id}/connections` for the **existing client**, then open the operation's `result.connection.action.widget_url`. |
 | PDF accounts (`acc_PDF_*`) | Not applicable. Uploaded-statement data has no Connection at all: an `acc_PDF_*` account carries `connection_id: null`, and no `con_PDF_*` id exists to refresh or reauthorize. | Nothing. |
 
 <Warning>
-On a Finicity connection, `POST /connections/{id}/refresh` will **never** return an account the client did not already share. It matches the accounts the connection already holds and updates those. Calling it more often does not change that. This is the single most common wasted integration loop on this path.
+On a Finicity connection, the v3 `POST /connections/{id}/refresh` updates the accounts LedgerSync already holds. It does not import missing accounts or ask the client to share additional ones. Repeated refresh calls do not perform account selection.
 </Warning>
 
 ## Why Finicity is different
 
-A refresh is a data pull, not a consent change. On MX and FDE the pull happens to carry the full account list, so an account that appeared since the last pass simply shows up and gets inserted. On Finicity the account list is fixed at consent time: the client picks which accounts to share inside a Connect session, and Finicity only offers the unshared ones again inside another Connect session.
+A refresh cannot grant access to an account the client has not shared. MX and FDE refresh paths also import newly returned accounts. The v3 Finicity refresh path updates stored accounts; use Full Connect when the client wants to share another account.
 
-So the Finicity answer is not an API call that adds an account. It is an API call that mints a session for a human, and the human does the adding.
+Mastercard distinguishes [Full Connect, Lite, and Fix](https://developer.mastercard.com/open-finance-us/documentation/connect/generate-2-connect-url-apis/). Full Connect includes account management. Connect Fix handles connection repair, such as credentials or MFA that need attention.
 
-## Finicity: reauthorize the active connection
+<a id="finicity-reauthorize-the-active-connection"></a>
 
-`POST /v3/connections/{connection_id}/reauthorize` is documented as the repair path for `failed` and `disconnected` connections, but it is **not gated on status**. A healthy `active` connection is a valid target, and that is exactly the case here: nothing is broken, the client just has an account you were never offered.
+## Finicity: open Full Connect for the existing client
+
+Call `POST /v3/clients/{client_id}/connections` using the client who owns the existing connection and the bank's v3 catalog `institution_id`. Routing selects the source; when it selects Finicity, this opens Full Connect using the client's existing Finicity customer.
+
+**Starting this session does not force a new stored connection.** Choose the existing bank in the widget and use its add-account option, such as **"Add another Chase account"**. When Mastercard returns the same institution login, LedgerSync reuses the existing `con_FINICITY_*` connection. Existing accounts with the same provider account IDs keep their LedgerSync account rows and IDs; a newly shared account receives a new `acc_FINICITY_*` ID.
+
+<Warning>
+Earlier instructions on this page incorrectly recommended `/reauthorize` for adding accounts to a healthy Finicity connection. That endpoint uses Connect Fix. It can return a valid URL and then show **"No action required"** because there is nothing to repair. HTTP `200` does not mean account selection will appear. Use Full Connect for account addition.
+</Warning>
 
 <Steps>
-  <Step title="Call reauthorize on the active connection">
+  <Step title="Start a session for the existing client">
+    Use the same `client_id`; do not create another Client. Supply the bank's `ins_...` identifier from `GET /v3/institutions`, not the existing `con_...` identifier.
+
     ```bash
-    curl -X POST https://api.ledgersyncappv2.com/v3/connections/con_FINICITY_41294/reauthorize \
+    curl -X POST https://api.ledgersyncappv2.com/v3/clients/cli_01HXYZ.../connections \
       -H "Authorization: Bearer sk_live_..." \
-      -H "Content-Length: 0"
+      -H "Content-Type: application/json" \
+      -d '{"institution_id":"ins_01HZX9CHASE"}'
     ```
 
-    ```json 200 OK
-    {
-      "connection_id": "con_FINICITY_41294",
-      "source": "FINICITY",
-      "action": {
-        "kind": "reauthorize",
-        "reauth_url": "https://connect.ledgersyncappv2.com/...",
-        "expires_at": "2026-08-27T12:00:00Z"
-      }
-    }
-    ```
-
-    <Note>
-    Send `Content-Length: 0` explicitly. The endpoint takes no body, and the load balancer in front of the API rejects a body-less POST without that header with `411 Length Required`.
-    </Note>
+    Replace the example IDs with your client's and institution's actual IDs. The response is `202 Accepted` with an `operation_id`. There is no `source` or existing `connection_id` field to send in this request. An optional allowlisted `redirect_url` returns the browser to your app; see [Redirect flow](/guides/connect-a-bank#redirect-flow).
   </Step>
 
-  <Step title="Send the client reauth_url">
-    Redirect the client to it, or email it. The link stays valid until `action.expires_at`, which is days out rather than minutes, and it can be opened more than once, so a client who closes the tab can come back to the same link.
+  <Step title="Read the operation and open widget_url">
+    Read `GET /v3/operations/{operation_id}` until it succeeds or fails. On success, open `result.connection.action.widget_url` from the Finicity result. Use `result.connection.source` to check which source routing selected.
+
+    <Note>
+    Operation `succeeded` means the widget URL is ready. It does not mean the client completed account selection or that new accounts have been saved. The returned `con_<uuid>` is a session placeholder, not a new canonical bank connection ID. Keep your existing `con_FINICITY_*` ID; see [The two id formats](/guides/connection-lifecycle#the-two-id-formats).
+    </Note>
+
+    Read `result.connection.action.expires_at` for the widget's expiry. The separate repair link's lifetime does not apply to this URL.
 
     <Warning>
-    `reauth_url` is a **bearer link**. Whoever holds it can act on that connection, without logging in to anything of yours. Send it over a channel you trust, keep it out of application logs, and do not park it in a shared inbox.
+    The widget URL grants access to the hosted session. Share it through a trusted channel and keep it out of application logs.
     </Warning>
   </Step>
 
-  <Step title="The client signs in and ticks the new account">
-    The hosted page runs the source's own reconnect flow against the existing connection. The client authenticates, and the bank shows the full account list. This is the only moment an account they skipped the first time is offered again. You do not control how many accounts they tick, and they may well tick several.
+  <Step title="Add an account under the existing bank">
+    In Full Connect, select the existing bank and its add-account option. For example, the existing Chase account list includes **"Add another Chase account"**. Complete any bank authentication or consent steps and share the additional account. The screens and available accounts depend on the institution; an OAuth bank may handle selection on its own site.
   </Step>
 
   <Step title="Re-list accounts and diff">
-    Nothing is pushed to you when the session ends with a new account attached. Re-read `GET /accounts` and diff on account id, as below.
+    After the client completes the hosted session, allow time for LedgerSync to save the accounts, then re-read `GET /v3/accounts?client_id=...` and compare account IDs with your pre-session snapshot, as below. Do not wait for the operation's placeholder ID to change.
   </Step>
 </Steps>
 
 <Warning>
-**The link does not always lead back to Finicity.** For some institutions, American Express in particular, LedgerSync reconnects the bank through MX instead. Reauthorize on a `con_FINICITY_*` connection then returns a URL that runs an **MX** add-bank flow, and every account the client ticks arrives on a **new `con_MX_*` connection with new `acc_` ids**. The original Finicity connection keeps its old accounts under their old ids, and the new account never appears on it.
-
-Branch on the `source` field of the reauthorize response: it is the source the returned URL actually leads to. When it differs from the source encoded in the connection id you passed, expect a new connection, and re-list at the client level (`GET /accounts?client_id=...`) rather than filtering on the connection id you started from. Treat the accounts that arrive as new records, not as a rename of the ones you hold.
+Connection reuse depends on the returned institution login. Linking a different bank login, or routing through a different source, can produce another connection and new account IDs. List accounts for the whole client and inspect their `connection_id` rather than treating the initiate endpoint's name or placeholder as proof that a second connection was created.
 </Warning>
 
 <Warning>
-**Do not loop, do not schedule.** Every call mints a session a human has to sit through, and a completed session ends in a real aggregation at the institution. Statements the newly shared accounts bring back are fetched from the bank and are not free, so re-running the flow on a timer spends money for nothing. Call reauthorize once, in response to something a person actually asked for, and then wait for the client to open the link you already sent instead of minting another one.
+**Start a session when the client asks to add an account.** Wait for them to complete it instead of repeatedly minting URLs. Completing a session triggers bank aggregation and may fetch statements, so it should not run on a timer.
 </Warning>
+
+### When to use reauthorize
+
+Use `POST /v3/connections/{connection_id}/reauthorize` when an existing connection needs repair. It takes no body; send `Content-Length: 0`. The response contains `action.reauth_url` and `action.expires_at`. That repair link can be reopened until it expires. Treat it as a bearer link and share it only through a trusted channel. See [Handling failed and disconnected](/guides/connection-lifecycle#handling-failed-and-disconnected) for the response example.
+
+For some institutions, including American Express, a Finicity repair can route through MX. Check the repair response's `source`: accounts linked through MX have new connection and account IDs, while the original Finicity connection keeps its old ones. List by `client_id` across sources in that case. This repair behavior is separate from the Full Connect account-addition flow above.
 
 ## MX and FDE: a refresh is enough
 
@@ -103,38 +110,39 @@ Do **not** send an MX or FDE client through reauthorize to add an account. It pu
 ## Detect the new account: re-list and diff
 
 <Warning>
-There is **no account-added webhook**. `connection.active` does not fire when an already-active connection stays active, and `account.refresh.completed` tells you a refresh finished, not that the account set changed. Comparing account lists is the supported way to learn that an account arrived.
+There is **no v3 account-added webhook**. `connection.active` is not a reliable account-addition signal: it may be absent or emitted again without proving the account set changed. `account.refresh.completed` tells you a refresh finished. Compare account lists to determine whether an account arrived.
 </Warning>
 
 <Steps>
   <Step title="Snapshot the ids you hold">
-    Before you refresh or send the link, record the set of `id` values from `GET /accounts` for that client. Page through with `next_cursor` until `has_more` is `false` (see [Pagination](/guides/pagination)).
+    Before you refresh or open the widget, record the set of `id` values from `GET /v3/accounts?client_id=...`. Page through with `next_cursor` until `has_more` is `false` (see [Pagination](/guides/pagination)).
   </Step>
 
   <Step title="Re-list after the flow">
     ```bash
-    curl "https://api.ledgersyncappv2.com/v3/accounts?client_id=cli_01HXYZ...&connection_id=con_FINICITY_41294" \
+    curl "https://api.ledgersyncappv2.com/v3/accounts?client_id=cli_01HXYZ..." \
       -H "Authorization: Bearer sk_live_..."
     ```
 
-    On the MX-redirect case above, drop `connection_id` and list by `client_id` alone, because the accounts landed on a connection id you have never seen.
+    Read every page again. Listing by `client_id` alone also catches accounts on a new connection if the bank login or source changed. Use `connection_id` only when you deliberately want to limit the result to that connection.
   </Step>
 
   <Step title="Diff on id">
-    Any `acc_` id in the new list that is not in your snapshot is a new account. Persist it, then read its transactions and statements exactly as you would for any other account. Ids are stable, so this diff is safe to run repeatedly.
+    Any `acc_` ID in the new list that is not in your snapshot is a newly observed LedgerSync account. Persist it, then read its transactions and statements as they become available. Repeating the ID comparison does not add the same record twice. A new ID on another connection can represent a bank account you already know, so do not assume it is a newly opened bank account.
   </Step>
 </Steps>
 
 When to run the second read:
 
 - **MX and FDE** have a cue. Re-list when `account.refresh.completed` arrives for that connection.
-- **Finicity** has none, because the client finishes the session on their own time. Re-list when the client tells you they are done, and otherwise on a slow schedule for a day or so after you sent the link. A tight poll adds nothing, since nothing changes until a human opens the link.
+- **Finicity** has no dedicated account-added event. Re-list after the client completes the widget or returns to your app, allowing time for account ingestion. If needed, repeat account reads with backoff for a bounded period; do not start another hosted session as a polling mechanism.
 
 ## What does not work
 
-- **Refreshing a Finicity connection again.** It updates the accounts already attached and returns `202` every time, so the loop looks healthy and never produces the account.
-- **Waiting for a webhook.** No event announces a new account, and no event fires when an active connection stays active.
-- **Creating a second connection to the same bank.** `POST /clients/{id}/connections` builds a **fresh** connection. When the aggregator issues a new underlying login, the accounts the client re-picks come back with new `con_`, `acc_` and `txn_` ids, so you hold the same accounts twice and a delta pull duplicates transactions you already have. Keep re-initiate for connections that genuinely need rebuilding, and see [Handling failed and disconnected](/guides/connection-lifecycle#handling-failed-and-disconnected).
+- **Using Finicity `/reauthorize` as an account picker.** Connect Fix can end with "No action required" on a healthy connection.
+- **Refreshing a Finicity connection to discover missing accounts.** The v3 refresh updates accounts already attached to the connection.
+- **Treating operation success or `connection.active` as proof of addition.** Read and compare accounts after the client completes the session.
+- **Treating every initiate call as a new stored connection.** The Full Connect flow reuses a matching existing bank login. Choosing a different login can create another connection, so inspect the returned account identities before importing overlapping transaction history.
 
 <CardGroup cols={2}>
   <Card title="Connection lifecycle" icon="arrows-rotate" href="/guides/connection-lifecycle">

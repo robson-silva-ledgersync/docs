@@ -165,7 +165,7 @@ The `action` object on a `requires_action` connection is a tagged union — read
 | `action.kind` | Fields | Status |
 | --- | --- | --- |
 | `widget_url` | `widget_url`, `expires_at` | **The only kind emitted on a `requires_action` connection.** Open the URL in a browser, iframe, or webview. |
-| `reauthorize` | `reauth_url`, `expires_at` | Returned on demand by [`POST /connections/{id}/reauthorize`](#handling-failed-and-disconnected) to repair a connection in place. **Not gated on status**: it is also valid on an `active` connection, which is how you let a client add an account (see [Reauthorizing an active connection](#reauthorizing-an-active-connection)). Not emitted on a `requires_action` connection's own `action`. |
+| `reauthorize` | `reauth_url`, `expires_at` | Returned on demand by [`POST /connections/{id}/reauthorize`](#handling-failed-and-disconnected) to repair an existing connection. Not gated on status, but Finicity Connect Fix may report "No action required" on a healthy connection. Use [Full Connect to add Finicity accounts](/guides/adding-accounts#finicity-open-full-connect-for-the-existing-client). Not emitted on a `requires_action` connection's own `action`. |
 | `mfa_challenge` | `challenge_id`, `questions[]` | Reserved for a future release — not emitted today. There is intentionally no inline MFA-answer flow. |
 
 <Note>
@@ -179,7 +179,7 @@ Both statuses mean the same thing to your UI: **the user needs to re-link.** You
 - `failed` — bad credentials, or the aggregator reported a failure. Common after a password change at the bank.
 - `disconnected` — the user revoked access on their side, or the link otherwise needs rebuilding.
 
-### Reauthorize in place — keeps your ids (recommended)
+### Reauthorize an existing connection (recommended for repair)
 
 `POST /v3/connections/{connection_id}/reauthorize` repairs the **existing** connection. It returns a `reauthorize` action with a LedgerSync-hosted `reauth_url`:
 
@@ -195,24 +195,24 @@ Both statuses mean the same thing to your UI: **the user needs to re-link.** You
 }
 ```
 
-Redirect the user to `reauth_url` to re-enter credentials or re-consent at the institution, then wait for `connection.active`. When the repair stays on the same source (check the `source` field, and read the warning below), it repairs this very connection: its `con_`, `acc_`, and `txn_` ids stay **the same**, so a delta re-sync over the overlap window dedupes cleanly against transactions you already have.
+Redirect the user to `reauth_url` to re-enter credentials or re-consent at the institution, then watch for recovery and re-read the connection and accounts. A repair aims to preserve the existing connection and account identities. For Finicity, the same institution login and provider account IDs reuse the stored rows; a changed login requires a successful repair match to retain those identities. Check the returned `source` and canonical account IDs before assuming an overlap pull will deduplicate against records you already hold.
 
 <Info>
 Ownership is enforced server-side: a `connection_id` that doesn't belong to the authenticated customer returns `404`. Available for `FINICITY`, `MX`, and `FDE`. Uploaded-statement (`PDF`) sources are read-only and have no connection to reauthorize.
 </Info>
 
 <Warning>
-**Id stability is not unconditional.** `source` names the source the returned URL actually leads to, and it is not always the source in the connection id you passed: at a few institutions a `con_FINICITY_*` connection reauthorizes through **MX**, the user links a **new** connection, and the accounts arrive under new `con_` / `acc_` / `txn_` ids while the original connection keeps its old ones. Compare `source` against the source segment of the id you sent before assuming your ids survived. See [Adding a new account](/guides/adding-accounts#finicity-reauthorize-the-active-connection).
+**Id stability is not unconditional.** `source` names the source the returned URL actually leads to, and it is not always the source in the connection id you passed: at a few institutions a `con_FINICITY_*` connection reauthorizes through **MX**, the user links a **new** connection, and the accounts arrive under new `con_` / `acc_` / `txn_` ids while the original connection keeps its old ones. Compare `source` against the source segment of the id you sent before assuming your ids survived. See [When to use reauthorize](/guides/adding-accounts#when-to-use-reauthorize).
 
 Whether an institution can be repaired in place at all also depends on the aggregator. If reauthorize can't recover the connection, fall back to re-initiate.
 </Warning>
 
-### Re-initiate — fresh connection, new ids
+### Re-initiate a hosted session
 
-Re-linking with `POST /v3/clients/{id}/connections` runs the initiate → widget → active flow again for the same Client. Use it when you want (or need) a brand-new connection.
+`POST /v3/clients/{id}/connections` starts another hosted session for the same Client. For Finicity, it opens Full Connect using the existing customer. Choosing the add-account option under an existing bank login can extend the stored connection; calling this endpoint does not force a new bank connection. It is also a fallback when a repair cannot recover access.
 
 <Warning>
-When the aggregator issues a new underlying login, a fresh connection **mints new `con_` / `acc_` / `txn_` ids** for the same accounts — so a delta pull can return transactions you already hold under new ids. Prefer **reauthorize** when you want id stability; keep re-initiate as the fallback.
+If the source returns a different underlying login that is not matched to the existing connection, a new connection can carry new account and transaction IDs for bank accounts you already hold. Prefer **reauthorize** for a repair and **Full Connect** for Finicity account addition. Re-list the client's accounts after either flow to confirm their canonical identities.
 </Warning>
 
 <Note>
@@ -221,9 +221,9 @@ Prefer not to build a bank picker at all? Use the hosted [connect session](/guid
 
 ## Reauthorizing an active connection
 
-Reauthorize is not only a repair path. The endpoint does **not** check the connection's status, so a healthy `active` connection is a valid target.
+The endpoint does **not** reject a request just because the connection is `active`. That is separate from whether the provider has a repair for the user to complete. On Finicity, the URL uses **Connect Fix** and can show **"No action required"** on a healthy connection.
 
-The one common reason to use it that way is **account discovery on Finicity**. When a client opens a new account at a bank they already linked, a Finicity refresh will never return it: the account set is fixed at consent time, and only a hosted session offers the accounts the client did not share. Reauthorize mints that session against the existing connection. MX and FDE need nothing here, because their refresh already picks up new accounts.
+**Use Full Connect to add Finicity accounts.** Call `POST /v3/clients/{client_id}/connections` for the existing client, obtain the operation's `result.connection.action.widget_url`, and choose the existing bank's add-account option. The same institution login reuses the existing connection. A v3 Finicity refresh only updates stored accounts; MX and FDE refresh paths also import newly returned accounts. See [Adding a new account](/guides/adding-accounts) for the complete flow and account-list comparison.
 
 <Warning>
 Reauthorize does not always keep you on the same source. The response carries a `source` field naming the source the returned URL leads to, and on a few institutions a `con_FINICITY_*` connection reauthorizes through MX, which lands the accounts on a **new** connection with new ids. Branch on `source` rather than assuming id stability.
@@ -234,7 +234,7 @@ Reauthorize does not always keep you on the same source. The response carries a 
 </Warning>
 
 <Card title="Adding a new account" icon="plus" href="/guides/adding-accounts">
-The full per-source table, the Finicity reauthorize flow, and how to detect the new account once it lands.
+The per-source table, the Finicity Full Connect flow, and how to detect the new account once it lands.
 </Card>
 
 ## Per-capability health
