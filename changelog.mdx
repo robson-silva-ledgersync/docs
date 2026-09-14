@@ -3,6 +3,41 @@ title: "Changelog"
 description: "New features, improvements, and fixes to the LedgerSync v3 API. Newest first."
 ---
 
+<Update label="2026-09-14" tags={["Webhooks"]}>
+  ## Webhook subscriptions now report delivery health
+
+  `last_success_at` and `last_failure_at` were in the `WebhookSubscription`
+  schema but documented as reserved, and never appeared in a response. They are
+  now populated and returned on every `GET`, `LIST` and `PATCH`:
+
+  ```json
+  {
+    "id": "whk_7c1e4a9b83d24f6ab05e2f8c91d3a640",
+    "url": "https://yourapp.com/webhooks/ledgersync",
+    "status": "active",
+    "last_success_at": "2026-09-14T11:43:02Z",
+    "last_failure_at": "2026-09-12T21:08:05Z"
+  }
+  ```
+
+  Read them together: **`last_failure_at` newer than `last_success_at` means
+  deliveries are failing right now**, and that is the condition worth alerting
+  on. A subscription stays `active` however badly delivery is going, because we
+  keep retrying rather than disabling your endpoint, so `status` alone was never
+  enough to tell you your webhooks had stopped arriving.
+
+  Failures are stamped on every failed attempt, including retries still to come,
+  and a later success never clears `last_failure_at`, so an endpoint that keeps
+  flapping stays visible. Both fields are **omitted** rather than sent as `null`
+  when there is nothing to report, so check for the key rather than comparing to
+  `null`.
+
+  Existing subscriptions were **backfilled** from delivery history, so the
+  timestamps are meaningful immediately rather than only reflecting deliveries
+  from today onward. See
+  [Check delivery health](/guides/webhooks#check-delivery-health).
+</Update>
+
 <Update label="2026-09-04" tags={["Accounts"]}>
   ## Credit-card terms on the Account
 

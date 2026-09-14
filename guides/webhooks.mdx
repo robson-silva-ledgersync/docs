@@ -13,7 +13,7 @@ Webhooks are the recommended way to learn about connection state. You *can* poll
 
 ## Subscribe
 
-The easiest path is the **Webhooks page in the portal**: paste your endpoint URL, tick the events you want, and copy the signing secret. It's the recommended day-to-day way to manage subscriptions, rotate secrets, and inspect recent deliveries.
+The easiest path is the **Webhooks page in the portal**: paste your endpoint URL, tick the events you want, and copy the signing secret. It's the recommended day-to-day way to manage subscriptions, rotate secrets, and inspect recent deliveries. If you'd rather monitor delivery health from your own code, every subscription also reports it over the API. See [Check delivery health](#check-delivery-health).
 
 To do it programmatically, `POST /v3/webhooks/subscriptions`:
 
@@ -286,6 +286,48 @@ curl -X POST \
 You get back `202` with `{ "event_id": "..." }`. There is no `operation_id` and nothing to poll — watch your endpoint for the `webhook.test` delivery. Note the two forms of that id: the response gives you a bare UUID, while the delivery's `X-LS-Webhook-Event-Id` header and the envelope's `event_id` carry the same UUID as `evt_` plus its hex digits with the dashes removed. Strip the dashes and add the prefix if you want to match them up. (Send the explicit `Content-Length: 0`; the load balancer in front of the API rejects body-less POSTs without it.)
 
 The test delivery is signed with your **real** signing secret, so it exercises your verification code end-to-end. It also **bypasses the `event_types` filter**, so you can trigger it regardless of what you subscribed to. Use it to confirm your endpoint is reachable, your signature check passes, and your dedupe logic works before you rely on live events.
+
+## Check delivery health
+
+A test fire tells you your endpoint works *right now*. To tell whether deliveries have actually been arriving *since*, read the two timestamps every subscription carries:
+
+<CodeGroup>
+```bash Read delivery health
+curl https://api-sandbox.ledgersyncappv2.com/v3/webhooks/subscriptions/whk_7c1e4a9b83d24f6ab05e2f8c91d3a640 \
+  -H "Authorization: Bearer sk_test_..."
+```
+
+```json Response
+{
+  "id": "whk_7c1e4a9b83d24f6ab05e2f8c91d3a640",
+  "url": "https://yourapp.com/webhooks/ledgersync",
+  "event_types": ["connection.active", "connection.failed"],
+  "status": "active",
+  "created_at": "2026-09-03T14:22:08Z",
+  "last_success_at": "2026-09-14T11:43:02Z",
+  "last_failure_at": "2026-09-12T21:08:05Z"
+}
+```
+</CodeGroup>
+
+| Field | Means |
+| --- | --- |
+| `last_success_at` | The last time we got a `2xx` from your endpoint. |
+| `last_failure_at` | The last time a delivery failed: a non-`2xx`, a timeout, or a connection error. |
+
+Read them together, not separately:
+
+- **`last_failure_at` newer than `last_success_at`** means deliveries are failing right now. This is the one to alert on.
+- **`last_success_at` newer** means the endpoint recovered. An older `last_failure_at` is just history; we never clear it on a later success, deliberately, because an endpoint that keeps flapping is worth being able to see.
+- **Both absent** means nothing has ever been delivered to this subscription. Expected for one you just created.
+
+<Warning>
+A subscription stays `active` no matter how badly delivery is going, because we keep retrying rather than disabling your endpoint out from under you. So `status` on its own will never tell you your webhooks are broken. **`last_failure_at` is the field to watch.**
+</Warning>
+
+<Info>
+Both fields are **omitted entirely** rather than sent as `null` when there is nothing to report, so check whether the key is present rather than comparing to `null`. Failures are stamped on every failed attempt, including retries that will be tried again, so `last_failure_at` moves during a retry storm instead of waiting for the 24-hour budget to run out. Test fires count toward `last_success_at`: they are real signed deliveries to the same URL.
+</Info>
 
 ## `connection.capability_changed` in depth
 

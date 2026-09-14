@@ -57,6 +57,16 @@ swapping the key. Walk this checklist before your first real user.
     it to land.
   </Step>
 
+  <Step title="Alert on last_failure_at">
+    A test fire proves your endpoint works today; it says nothing about
+    tomorrow. `GET /v3/webhooks/subscriptions` returns `last_success_at` and
+    `last_failure_at` on every subscription. Alert when `last_failure_at` is
+    newer than `last_success_at`. Note that a subscription stays `active` no
+    matter how badly delivery is going, so `status` alone will never tell you
+    your webhooks have stopped arriving. Details in
+    [Check delivery health](/guides/webhooks#check-delivery-health).
+  </Step>
+
   <Step title="Plan for connection.failed and connection.disconnected">
     Banks reject credentials, MFA tokens expire, users revoke access. Subscribe
     to both events and surface a clear **re-link** call to action in your UI
