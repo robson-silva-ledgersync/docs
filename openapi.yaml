@@ -3901,16 +3901,22 @@ components:
           type: [string, 'null']
           format: date-time
           description: |
-            Reserved. Not populated yet: this field is absent from
-            every response today. Do not build delivery monitoring on
-            it.
+            When LedgerSync last received a 2xx from this endpoint.
+            Omitted until the first successful delivery. Test fires
+            (`POST /webhooks/subscriptions/{id}/test`) count toward it:
+            they are real signed deliveries to the same URL.
         last_failure_at:
           type: [string, 'null']
           format: date-time
           description: |
-            Reserved. Not populated yet: this field is absent from
-            every response today. Do not build delivery monitoring on
-            it.
+            When a delivery to this endpoint last failed: a non-2xx
+            response, a timeout, or a connection error. Omitted until
+            the first failure. Updated on every failed attempt,
+            including retries that will be tried again, and never
+            cleared by a later success. Compare the two to tell whether
+            the endpoint is healthy right now: a `last_failure_at`
+            newer than `last_success_at` means deliveries are currently
+            failing.
 
     WebhookSubscriptionCreateRequest:
       type: object
