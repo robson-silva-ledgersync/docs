@@ -605,7 +605,7 @@ paths:
     post:
       tags: [Connections]
       operationId: initiateConnection
-      summary: Start a new bank connection
+      summary: Open a bank connection session
       description: |
         Kick off a connection between a Client and a bank. Send only
         `institution_id` (a v3 catalog id from `GET /v3/institutions`).
@@ -627,21 +627,47 @@ paths:
           credentials and answers any security questions in-session.
           Raw credentials are never sent to the API.
 
-        This one's genuinely async — the bank or document pipeline
-        takes a few seconds to a minute. You get `202 Accepted` and an
-        `operation_id` right away; the `connection.active` (or
-        `connection.requires_action` / `connection.failed`) webhook
-        fires when it's done. Poll `GET /operations/{operation_id}`
-        if you can't run a webhook handler.
+        You get `202 Accepted` and an `operation_id` right away. Poll
+        `GET /operations/{operation_id}` until the widget URL is ready,
+        then open `result.connection.action.widget_url`. Operation
+        `succeeded` means the URL was issued; the user still needs to
+        complete the widget. Connection lifecycle webhooks report later
+        status changes.
+
+        ### Add accounts to an existing Finicity connection
+
+        Call this endpoint with the existing `client_id` and the bank's
+        v3 catalog `institution_id`. When routed to Finicity, it opens
+        Full Connect using that client's existing Finicity customer.
+        In the widget, use the option to add accounts under the existing
+        bank and complete the bank's authorization and account selection.
+        `POST /connections/{connection_id}/reauthorize` opens Finicity
+        Connect Fix for repairs and does not guarantee account selection
+        on a healthy connection.
+
+        If Finicity returns the same institution login and account
+        identities, LedgerSync reuses the existing connection and account
+        ids and attaches newly shared accounts. A different provider login
+        can create a separate connection, so this is not an unconditional
+        guarantee that all ids stay the same.
+
+        Snapshot all pages of `GET /v3/accounts?client_id=...` before the
+        session, then re-list after completion and compare account ids.
+        There is no public `account.added` webhook, and adding accounts
+        to an active connection does not guarantee another
+        `connection.active` event. The widget completion redirect and
+        operation success do not establish that the accounts are already
+        persisted; allow time for the account list to update.
 
         **Note on `connection.id`.** For Finicity and MX the embedded
         `result.connection.id` is a UUID-shaped **placeholder**
         (`con_<uuid>`) that cannot be used with any other endpoint.
-        The canonical id, `con_<SOURCE>_<bankAccountId>` such as
-        `con_FINICITY_41294` or `con_MX_1224`, is only assigned once
-        the user finishes the widget and the source pushes its first
-        callback. This operation reaches `succeeded` as soon as the
-        widget URL is issued, and its stored `result` is never
+        For a first-time connection, the canonical id,
+        `con_<SOURCE>_<bankAccountId>` such as `con_FINICITY_41294` or
+        `con_MX_1224`, is assigned when the source callback creates the
+        connection. An account-addition session can reuse an already
+        assigned canonical id. This operation reaches `succeeded` as soon
+        as the widget URL is issued, and its stored `result` is never
         rewritten, so a placeholder here stays a placeholder. Check
         the shape before storing an id, and read the canonical one
         from the `connection.active` webhook or from
@@ -868,57 +894,51 @@ paths:
         required: true
         description: |
           Canonical Connection id (`con_<SOURCE>_<bankAccountId>`) of the
-          connection to repair, or of the active connection whose
-          account selection you want the end-user to revisit. The
-          placeholder UUID from initiate and any `con_PDF_*` id are
-          rejected with `400`.
+          connection to repair. The placeholder UUID from initiate and
+          any `con_PDF_*` id are rejected with `400`.
         schema:
           type: string
           example: con_FINICITY_41294
     post:
       tags: [Connections]
       operationId: reauthorizeConnection
-      summary: Reauthorize a connection, or add accounts opened later
+      summary: Reauthorize a connection
       description: |
-        Mint a hosted page the end-user opens to re-consent at the
-        institution, normally keeping the SAME `con_` / `acc_` / `txn_`
-        ids. Two distinct reasons to call it:
+        Mint a hosted page the end-user opens to repair credentials or
+        re-consent at the institution, typically when the connection
+        reports `status = requires_action`.
 
-        1. **Repair.** The connection reports
-           `status = requires_action` and the aggregator needs the
-           end-user to re-enter credentials or re-consent.
-        2. **Add an account opened after link time.** The hosted page
-           re-opens the institution's account-selection step, so an
-           account the end-user opened (or chose not to share) after the
-           original link can be ticked and starts syncing. This is the
-           supported way to pick up such an account on a `FINICITY`
-           connection, where `POST /connections/{connection_id}/refresh`
-           only updates accounts we already hold.
+        **This endpoint is not gated on status.** It accepts an `active`
+        connection, but Finicity Connect Fix may report that there is
+        nothing to repair. Calling it on a healthy connection does not
+        guarantee that an account picker will open.
 
-        **This endpoint is not gated on status.** It is equally callable
-        on an `active` connection, which is what makes reason 2 work.
+        ### Adding Finicity accounts
 
-        ### Why not just create a new connection?
+        Use `POST /v3/clients/{client_id}/connections` with the existing
+        Client and the bank's v3 catalog `institution_id`. When routed to
+        Finicity, that opens Full Connect on the existing provider customer.
+        Have the end-user choose the option to add accounts under the
+        existing bank, then complete authorization and account selection.
+        The same institution login reuses the existing LedgerSync
+        connection. Starting Full Connect does not force a new connection
+        on every session; a different provider login can create one.
+        See that endpoint for detecting newly added accounts.
 
-        `POST /clients/{client_id}/connections` starts a **fresh**
-        connection. When the aggregator issues a new underlying login for
-        the same bank, that mints new `con_` / `acc_` / `txn_` ids for the
-        same underlying account, so a later delta pull returns transactions
-        you already have under **new** ids (your upsert would duplicate
-        them). Reauthorize repairs the existing connection instead, so the
-        ids stay stable and a delta re-sync over the overlap window dedupes
-        cleanly on `txn_…`. That holds for every response whose `source`
-        matches the source segment of the `connection_id` you sent, which
-        is the normal case; see "Ids are not always stable" below for the
-        one response shape where it does not.
+        A Finicity `POST /connections/{connection_id}/refresh` updates
+        accounts already held by LedgerSync. It does not open account
+        selection or import an account that the user has not shared.
 
         ### What you get back
 
         A hosted `reauth_url`, a LedgerSync-hosted page the end-user opens
         to complete the source-specific flow (Finicity Connect Fix, MX
         member reconnect, FDE credential recapture) against the existing
-        connection. Redirect the user to it, then wait for the
-        `connection.active` / `connection.failed` webhook for the outcome.
+        connection. Redirect the user to it; connection status changes
+        produce `connection.active` / `connection.failed` webhooks.
+        An already active connection may have no new status transition,
+        so do not require another `connection.active` event to finish a
+        no-op session.
 
         The response also carries `source`: the provider the URL leads to.
         See "Ids are not always stable" below.
@@ -932,6 +952,14 @@ paths:
         and do not embed it in a page that a third party can scrape.
 
         ### Ids are not always stable
+
+        Repairs aim to retain existing `con_` / `acc_` / `txn_` ids.
+        Finicity can issue a different underlying login during repair;
+        when that cannot be matched back to the existing connection, a
+        separate connection can result even if the response `source`
+        is unchanged. Re-list the Client's connections and accounts after
+        the session instead of treating a matching `source` as proof of
+        stable ids.
 
         For a bank LedgerSync now serves exclusively through a different
         provider, the URL we hand back is an add-bank link for that
@@ -950,8 +978,9 @@ paths:
         `connection.active` webhook that follows carries the **new**
         connection's id, not the one you passed, so key off the Client
         rather than the connection: wait for `connection.active`, then
-        re-list `GET /v3/connections` and `GET /v3/accounts` for that
-        Client and re-map, rather than expecting the old ids to come back.
+        re-list `GET /v3/clients/{client_id}/connections` and
+        `GET /v3/accounts?client_id=...` and re-map, rather than expecting
+        the old ids to come back.
 
         ### Call it because a person asked, not on a timer
 
@@ -989,9 +1018,9 @@ paths:
         '200':
           description: |
             A hosted reauthorization URL, plus the `source` it leads to.
-            Same source as the `connection_id` means the existing
-            connection is repaired and its ids stay stable; a different
-            one means the URL mints a new connection.
+            A different source means the URL starts a new connection.
+            A matching source targets repair of the existing connection,
+            but does not guarantee stable ids if Finicity changes the login.
           headers:
             X-LS-Trace-Id: { $ref: '#/components/headers/X-LS-Trace-Id' }
           content:
@@ -3457,8 +3486,10 @@ components:
             - $ref: '#/components/schemas/Source'
           description: |
             The source the hosted URL leads to. Usually the same source as
-            the `connection_id` you passed, meaning the existing connection
-            is repaired in place and its ids stay stable.
+            the `connection_id` you passed. Repairs aim to retain existing
+            ids, but a matching source does not guarantee this: Finicity
+            may issue a different login that cannot be matched back to the
+            existing connection.
 
             When it differs, the URL hands the end-user to a different
             provider (today: a Finicity connection at a bank we now serve
@@ -3467,7 +3498,8 @@ components:
             under the same Client; the old connection is not repaired.
             Compare this against the source segment of the
             `connection_id` you sent, and if it differs, re-list
-            `GET /v3/connections` and `GET /v3/accounts` for the Client
+            `GET /v3/clients/{client_id}/connections` and
+            `GET /v3/accounts?client_id=...`
             after the `connection.active` webhook rather than expecting
             the old ids to come back.
           example: FINICITY
