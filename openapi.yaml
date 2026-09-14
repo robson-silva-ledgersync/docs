@@ -283,8 +283,9 @@ paths:
       summary: List clients
       description: |
         Page through the Clients you've created. Use `cursor` for
-        pagination (it's opaque — just hand back what we sent) and
-        filter by `email` to look up a specific user.
+        pagination (it's opaque — just hand back what we sent), and
+        filter by `email` or by your own `external_id` to look up a
+        specific user. Sending both applies both.
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
@@ -292,6 +293,13 @@ paths:
           name: email
           description: Look up a Client by exact email match. Useful when you only know the user by their email.
           schema: { type: string, format: email }
+        - in: query
+          name: external_id
+          description: >-
+            Look up a Client by the `external_id` you set on it. Matched
+            exactly, including case. This is the lookup that lets you go from
+            your own user record to ours without keeping a mapping table.
+          schema: { type: string, maxLength: 255 }
       responses:
         '200':
           description: OK
@@ -3186,21 +3194,29 @@ components:
         id: { type: string, example: cli_01HXYZ8A6N7K2W9PQ4T5Z3V6E0 }
         external_id:
           type: [string, 'null']
-          description: Integrator-supplied identifier; useful for joining to your own systems.
+          maxLength: 255
+          description: >-
+            Your own identifier for this user. Stored as sent and returned on
+            every read, so you can join our Clients back to your records
+            without keeping a mapping table. Filter on it with
+            `GET /v3/clients?external_id=`. Null when you never set one.
         email: { type: [string, 'null'], format: email }
         name: { type: [string, 'null'] }
         phone: { type: [string, 'null'], description: Contact phone number for the client. }
         metadata:
-          type: object
+          type: [object, 'null']
           additionalProperties: { type: string }
-          description: Free-form key-value pairs for integrator use. Max 20 keys.
+          description: >-
+            Free-form string key-value pairs for your own use, stored as sent
+            and returned on every read. At most 20 keys. Null when you never
+            set any.
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
 
     ClientCreateRequest:
       type: object
       properties:
-        external_id: { type: [string, 'null'] }
+        external_id: { type: [string, 'null'], maxLength: 255, description: Your own identifier for this user. }
         email: { type: [string, 'null'], format: email }
         name: { type: [string, 'null'] }
         phone: { type: [string, 'null'], description: Contact phone number for the client. Required when sms_invitation is true. }
@@ -3208,20 +3224,27 @@ components:
           type: [boolean, 'null']
           description: If true, texts the client a login invitation on creation. Requires a non-blank phone.
         metadata:
-          type: object
+          type: [object, 'null']
           additionalProperties: { type: string }
+          description: Free-form string key-value pairs for your own use. At most 20 keys.
 
     ClientUpdateRequest:
       type: object
-      description: All fields optional; only fields present are updated.
+      description: >-
+        All fields optional; only fields present are updated. Sending a field
+        as null clears it. `metadata` is replaced as a whole object rather than
+        merged key by key, so send the complete set you want to keep.
       properties:
-        external_id: { type: [string, 'null'] }
+        external_id: { type: [string, 'null'], maxLength: 255, description: Your own identifier for this user. }
         email: { type: [string, 'null'], format: email }
         name: { type: [string, 'null'] }
         phone: { type: [string, 'null'], description: Contact phone number for the client. }
         metadata:
-          type: object
+          type: [object, 'null']
           additionalProperties: { type: string }
+          description: >-
+            Free-form string key-value pairs, at most 20. Replaces the stored
+            object as a whole rather than merging keys; send null to clear it.
 
     # ---------- Connection ----------
     ConnectionStatus:
