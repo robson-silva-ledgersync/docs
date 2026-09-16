@@ -3008,9 +3008,10 @@ components:
             field that tripped the check. Dot-separated path for
             nested fields, with array positions in brackets
             (`line.amount`, `items[1].amount`). Absent on errors that
-            are not about a field (auth, not found, upstream faults),
-            and on a body that is not valid JSON at all, where no
-            single field can be identified.
+            are not about a field (auth, not found, upstream faults).
+            When the body itself could not be parsed there is no one
+            field to blame: most endpoints omit `param`, and the few
+            that parse the body themselves report the literal `body`.
           example: client.email
         trace_id:
           type: string
@@ -4304,9 +4305,12 @@ components:
         Schema validation additionally fills `error.errors[]` when
         several fields fail at once.
 
-        `error.param` is absent only when no single field is to blame:
-        a body that isn't valid JSON at all, or an error that isn't
-        about a field (auth, not found, upstream faults).
+        `error.param` is absent when no single field is to blame: an
+        error that isn't about a field (auth, not found, upstream
+        faults), or a body that could not be parsed at all. In that
+        last case a few endpoints that parse the body themselves
+        report the literal `body` rather than omitting `param`;
+        either way there is no field to highlight.
       headers:
         X-LS-Trace-Id: { $ref: '#/components/headers/X-LS-Trace-Id' }
       content:
