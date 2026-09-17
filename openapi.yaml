@@ -2019,8 +2019,13 @@ paths:
                 properties:
                   event_id:
                     type: string
-                    description: Id of the queued test event.
-                    example: 4bf92f35-77b3-4da6-a3ce-929d0e0e4736
+                    description: |
+                      Id of the queued test event. This is the delivered id:
+                      the same string arrives in the delivery's
+                      `X-LS-Webhook-Event-Id` header and as the envelope's
+                      `event_id`, so you can match the two without
+                      reformatting either one.
+                    example: evt_6d84cf35-b2ee-4734-b408-4e6f10fedad8
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
         '411':
