@@ -152,7 +152,7 @@ Two things to internalize now, because they save debugging later:
     -H "Content-Length: 0"
   ```
 
-  That returns `{ "event_id": "..." }` and nothing to poll — watch your endpoint for the `webhook.test` delivery. The response returns a bare UUID; the delivered `X-LS-Webhook-Event-Id` is the same UUID as `evt_` plus its digits with the dashes removed.
+  That returns `{ "event_id": "evt_6d84cf35-b2ee-4734-b408-4e6f10fedad8" }` and nothing to poll — watch your endpoint for the `webhook.test` delivery. The id you get back is exactly what the delivery carries, both in its `X-LS-Webhook-Event-Id` header and in the envelope's `event_id`, so you can match them up as-is.
 </Step>
 
 <Step title="Create a Client">

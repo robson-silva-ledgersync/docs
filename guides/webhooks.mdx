@@ -102,7 +102,7 @@ event:
 
 ```json Example delivery body
 {
-  "event_id": "evt_01HXYZ...",
+  "event_id": "evt_6d84cf35-b2ee-4734-b408-4e6f10fedad8",
   "type": "connection.active",
   "created_at": "2026-07-07T14:22:05Z",
   "api_version": "2026-05-22",
@@ -231,6 +231,7 @@ If your endpoint doesn't return a `2xx` quickly, we retry with **exponential bac
 
 - **Return `2xx` within 30 seconds.** Do the minimum — verify, enqueue, respond. Push slow work (DB writes, downstream calls) onto a background queue. A slow handler looks like a failure and gets retried.
 - **Deliveries can repeat.** A retry after a network blip — or a delivery you already processed but responded to slowly — means the same event can arrive more than once. **Dedupe on `event_id`.** Treat it as an idempotency key: if you've seen it, ack and move on.
+- **Treat `event_id` as an opaque string.** Compare the exact value you received; don't parse it, and don't validate a prefix or a length. Most events carry an `evt_` prefix, while `account.refresh.completed`, `account.refresh.failed` and `statement.available` currently arrive as a bare UUID. An event's id never changes between retries, so exact-string comparison is always the right check.
 
 ```python Idempotent handling
 if seen_before(event["event_id"]):
@@ -283,7 +284,7 @@ curl -X POST \
   -H "Content-Length: 0"
 ```
 
-You get back `202` with `{ "event_id": "..." }`. There is no `operation_id` and nothing to poll — watch your endpoint for the `webhook.test` delivery. Note the two forms of that id: the response gives you a bare UUID, while the delivery's `X-LS-Webhook-Event-Id` header and the envelope's `event_id` carry the same UUID as `evt_` plus its hex digits with the dashes removed. Strip the dashes and add the prefix if you want to match them up. (Send the explicit `Content-Length: 0`; the load balancer in front of the API rejects body-less POSTs without it.)
+You get back `202` with `{ "event_id": "evt_6d84cf35-b2ee-4734-b408-4e6f10fedad8" }`. There is no `operation_id` and nothing to poll — watch your endpoint for the `webhook.test` delivery. **That id is the delivery's own id.** The identical string arrives in the `X-LS-Webhook-Event-Id` header and as the envelope's `event_id`, so you can match the call to the delivery, or look it up in your dedupe store, with no reformatting. A `202` means queued, not delivered: if your endpoint is unreachable the delivery is retried on the normal schedule, and nothing about the `202` changes. (Send the explicit `Content-Length: 0`; the load balancer in front of the API rejects body-less POSTs without it.)
 
 The test delivery is signed with your **real** signing secret, so it exercises your verification code end-to-end. It also **bypasses the `event_types` filter**, so you can trigger it regardless of what you subscribed to. Use it to confirm your endpoint is reachable, your signature check passes, and your dedupe logic works before you rely on live events.
 
@@ -359,7 +360,7 @@ This debounce keeps a single transient error from spamming you. The event fires 
 
 ```json connection.capability_changed
 {
-  "event_id": "evt_01HXYZ...",
+  "event_id": "evt_7929029e-bc8f-49c2-a8ee-9c8cdcd3196e",
   "type": "connection.capability_changed",
   "created_at": "2026-07-07T14:22:05Z",
   "api_version": "2026-05-22",
