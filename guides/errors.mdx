@@ -57,10 +57,10 @@ every error. The rest appear only when they apply.
 | `403` | Authenticated but not allowed (scope, unapproved access, billing) | Fix the key's scope or finish the portal step named in the message. |
 | `404` | Not found or not visible to your key | Confirm the id and its environment. |
 | `405` | Right route, wrong HTTP method | Use the method the API reference documents. |
-| `409` | Conflict (stale `row_version`) | Re-fetch, then retry with fresh token/body. |
+| `409` | Conflict: a reused `Idempotency-Key`, or a stale `row_version` | For a stale `row_version`, re-fetch then retry. For an idempotency conflict see the note below — when `Retry-After` is present, retry with the **same** key. |
 | `422` | Accepted but couldn't be processed (statement extraction) | Read the operation's `error.message`; fix the input. |
 | `429` | Rate limit against **your** quota | Back off with jitter; honor `Retry-After`. |
-| `5xx` | Our side or the bank's side | Retry with backoff; escalate with the trace id. |
+| `5xx` | Our side or the bank's side | Retry with backoff; escalate with the trace id. On a `POST`, retry with the **same** `Idempotency-Key` — see the note below. |
 
 ## Error-code catalog
 
@@ -89,7 +89,7 @@ and each `error.doc_url` deep-links to one entry.
 | `validation_failed` | 400 | A field failed schema validation, or a hand-rolled check classified as schema-level (an unknown webhook `event_types` entry, an unsupported `source`). `error.param` names the field; `error.errors[]` additionally lists every failing field on request-body schema checks. | Fix the named field(s), resubmit. |
 | `invalid_request` | 400 | Rejected for a non-schema reason (bad state transition, unsupported source, malformed cursor, an id with the wrong prefix, a field of the wrong type). `error.param` names the offending field, and `message` repeats it as `Field 'cursor': ...`. If the body is not valid JSON at all, no single field can be named: `param` is either absent or the literal `body`. | Fix the field named in `param`, resubmit. |
 | `method_not_allowed` | 405 | Right route, wrong HTTP method. | Use the documented method; regenerate clients from the spec. |
-| `idempotency_conflict` | 409 | Same `Idempotency-Key`, different body/path. **Reserved: never returned today** (see the note below). | Reuse the exact original body to retry, or a new key for a new request. |
+| `idempotency_conflict` | 409 | Either you reused an `Idempotency-Key` for a different body/path, or the original request carrying that key is still running (that case carries `Retry-After`). | With `Retry-After`: wait, then retry with the **same** key. Without it: send the original body unchanged to replay, or use a fresh key for a genuinely new request. |
 | `version_conflict` | 409 | Write carried a stale `row_version` (someone else moved the row). | Re-fetch to get the current `row_version` and state, then retry if still needed. |
 | `read_only_client` | 403 | The target Client is read-only — an aliased/linked pre-existing v2 client. Writes and connection mutations are rejected. | Only mutate native `cli_` clients; treat aliased linked clients as read-only. |
 | `billing_managed_externally` | 409 | A billing action was attempted on a customer whose billing is managed outside the API. | Manage that customer's billing through the configured external flow, not the API. |
@@ -97,13 +97,16 @@ and each `error.doc_url` deep-links to one entry.
 | `statement_extraction_failed` | 422 | A `statement.extract` operation finished `failed` (bad scan, not a statement, corrupt pages). Arrives **inside the polled operation's `error`**, not as a direct HTTP response. | Fix the document (clearer scan, all pages, real bank PDF) and re-`POST /v3/statements/extract`. |
 
 <Warning>
-  **`Idempotency-Key` is reserved and not honored yet.** The header is accepted
-  and ignored: no response is replayed and `idempotency_conflict` is never
-  returned. Do **not** auto-retry a failed `POST` on the assumption that the key
-  protects you — a retried `POST /v3/clients` or
-  `POST /v3/clients/{id}/connections` creates a second one. Send the header if
-  you want to be ready for it, but make retries safe on your side, and reconcile
-  by listing before you re-create.
+  **Retry a `POST` only with the same `Idempotency-Key`.** Send the header on
+  every `POST /v3/clients`, `POST /v3/clients/{id}/connections` and
+  `POST /v3/connections/{id}/refresh`, and reuse the same value for every retry
+  of that one logical request. We replay the original response, including a
+  `4xx` or `5xx`, for 24 hours, and a replay carries `Idempotent-Replayed: true`.
+
+  Retrying **without** the header, or with a fresh key, is a brand-new request:
+  it creates a second client or a second bank-connection session. A `409` is not
+  a reason to mint a new key — if it carries `Retry-After`, the first attempt is
+  still running, so wait and send the same key again.
 </Warning>
 
 ### Rate limit
@@ -142,7 +145,7 @@ When it does, `error.accounts[]` lists each account with its own `status`
 
 | Code | HTTP | When it fires | What to do |
 | --- | --- | --- | --- |
-| `internal_error` | 500 | Something broke on our side (usually transient). | Retry once with backoff; escalate with the `trace_id`. |
+| `internal_error` | 500 | Something broke on our side (usually transient). | Retry once with backoff, reusing the same `Idempotency-Key` on a `POST`; escalate with the `trace_id`. |
 | `upstream_unavailable` | 502 | A service v3 depends on (the main LedgerSync backend behind the bridge) is unreachable. Distinct from `source_internal_error`, our platform leg, not the aggregator. | Retry with exponential backoff; escalate with the `trace_id` if it persists. |
 
 ### Connection & source errors (the bank side)

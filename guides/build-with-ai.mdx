@@ -217,7 +217,11 @@ so the same event can arrive twice. Ignore duplicates by `event_id`.
 2. `client_id` goes on every accounts, transactions and statements read.
 3. Branch on `error.code`. Never on the HTTP status or the message text.
 4. Sign `timestamp + "." + body`, never the body on its own.
-5. Never automatically retry a failed POST. It creates a duplicate.
+5. Put an `Idempotency-Key` header on every POST, and reuse the exact
+   same value for every retry of that one request. Retrying without the
+   header, or with a new key, creates a duplicate. A 409 carrying
+   `Retry-After` means the first attempt is still running: wait, then
+   send the same key again.
 6. `external_id` and `metadata` on a Client come back empty on every
    read, so never build a lookup on them. Use the `cli_` id.
 7. A statement `download_url` is a partial address. Join it to the API
@@ -306,7 +310,8 @@ anything that does not match.
 - You branch on error.code, not on the HTTP status or the message text.
 - The webhook signature is built from timestamp + "." + the raw body,
   not the body on its own, and you reject timestamps over 5 minutes old.
-- You never automatically retry a failed POST.
+- Every POST carries an Idempotency-Key, and a retry of that request
+  reuses the same value instead of generating a new one.
 - download_url is joined to the API host, not the /v3 URL, and sent with
   my key.
 - Nothing looks up a Client by external_id or metadata, because both come
