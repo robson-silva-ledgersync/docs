@@ -693,6 +693,7 @@ paths:
         '202': { $ref: '#/components/responses/Accepted' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '5XX': { $ref: '#/components/responses/ServerError' }
 
@@ -882,6 +883,7 @@ paths:
             Returned by the upstream HTTPS load balancer when a POST
             arrives without a `Content-Length` header. Retry with
             `Content-Length: 0` set explicitly.
+        '409': { $ref: '#/components/responses/Conflict' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '502':
           description: |
@@ -2598,25 +2600,32 @@ components:
       in: header
       required: false
       description: |
-        > **Reserved, not yet honored.** The header is accepted and
-        > ignored today: nothing reads it, no response is replayed,
-        > and `idempotency_conflict` is never returned. **Do not
-        > auto-retry a failed POST on the assumption that this
-        > protects you** — a retried `POST /clients` or
-        > `POST /clients/{id}/connections` creates a duplicate. Send
-        > the header if you want to be ready for it; do not depend on
-        > it. The behavior described below is the intended contract
-        > for a future release.
-
         Safe-retry key for POSTs. Send any unique string per logical
         request (a UUIDv4 is great). If the network drops and you retry
         with the same `Idempotency-Key` within 24 hours, you get the
-        exact same response back instead of creating a duplicate.
+        exact same response back instead of creating a duplicate. A
+        replayed response carries `Idempotent-Replayed: true`.
 
         **Cached responses include failures (4xx and 5xx) too.** If a
         call failed because of a bad input and you want to try again
         with the corrected input, use a **fresh** key — otherwise
         you'll keep getting the cached failure.
+
+        **If the original request is still running** you get `409`
+        with a `Retry-After` header. Retry with the **same** key after
+        that interval. Do not generate a new key to get past a 409 —
+        a new key is a new request, which is exactly the duplicate this
+        header prevents.
+
+        Reusing a key for a genuinely different request (different
+        body, or a different path) returns `409 idempotency_conflict`.
+        The key is scoped to the API key that first used it, so a
+        sandbox key and a live key never share an entry.
+
+        A replay still counts against your request rate limit, but it
+        does not consume the daily refresh budget on
+        `POST /connections/{connection_id}/refresh`, and it does not
+        take a connection-concurrency slot.
       schema:
         type: string
         maxLength: 255
@@ -4355,11 +4364,27 @@ components:
           schema: { $ref: '#/components/schemas/ErrorEnvelope' }
     Conflict:
       description: |
-        Two common cases: the resource already exists, or you reused
-        an `Idempotency-Key` with a different request body than the
-        original call.
+        Two cases, and they want opposite things from you.
+
+        You reused an `Idempotency-Key` for a genuinely different
+        request (different body, or a different path). Send the
+        original request unchanged to replay its response, or use a
+        fresh key for the new one.
+
+        Or the original request carrying that key is **still running**.
+        The response carries `Retry-After`; retry with the **same** key
+        after that interval. Do not mint a new key to get past this —
+        that creates the duplicate the header exists to prevent.
       headers:
         X-LS-Trace-Id: { $ref: '#/components/headers/X-LS-Trace-Id' }
+        Retry-After:
+          description: |
+            Seconds to wait before retrying with the same
+            `Idempotency-Key`. Present only when the original request
+            is still in flight.
+          required: false
+          schema:
+            type: integer
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorEnvelope' }
