@@ -742,6 +742,12 @@ paths:
         removes the Connection record. Accounts and transactions are
         kept for your historical reference unless you delete the
         whole Client.
+
+        Once the delete succeeds, a `connection.disconnected` webhook
+        is sent for the connection. It carries `client_id` whenever
+        LedgerSync could read the connection's owner just before the
+        delete. Repeating the call afterwards returns 404 and sends
+        nothing.
       responses:
         '204': { description: Connection removed. }
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -1379,8 +1385,8 @@ paths:
       summary: Get an account
       description: |
         Look up a single Account by id. Returns name, type, current
-        balance, mask (last 4 of the account number), and the
-        Connection it came from.
+        balance, mask (at most the last 4 digits of the account number,
+        on every source), and the Connection it came from.
       parameters:
         - $ref: '#/components/parameters/ClientId'
       responses:
@@ -3270,18 +3276,18 @@ components:
       description: |
         Connection lifecycle status.
 
-        - `initiated` — Connection started, waiting for end-user or upstream to complete
-        - `requires_action` — Awaiting MFA or reauthorization from the end-user
-        - `active` — Healthy, refreshing on schedule
-        - `failed` — Connection failed; review `last_error`
-        - `disconnected` — End-user revoked or LedgerSync disconnected
+        - `initiated`: Connection started, waiting for end-user or upstream to complete
+        - `requires_action`: The end user has to act: answer MFA, re-enter credentials or reauthorize. `last_error` says which. When `last_error.is_user_actionable` is false (the institution locked the account) the action is at the bank itself, not in the widget
+        - `active`: Healthy, refreshing on schedule
+        - `failed`: The source or institution failed in a way the end user cannot fix; review `last_error`
+        - `disconnected`: The connection no longer refreshes: the source stopped aggregating it (reconnect through reauthorization), LedgerSync could not refresh it, or it was deleted
       enum: [initiated, requires_action, active, failed, disconnected]
       x-enum-descriptions:
         - Connection started, waiting for end-user or upstream to complete
-        - Awaiting MFA or reauthorization from the end-user
+        - The end user has to act (MFA, credentials or reauthorization); see last_error
         - Healthy, refreshing on schedule
-        - Connection failed; review last_error
-        - End-user revoked or LedgerSync disconnected
+        - Failed in a way the end user cannot fix; review last_error
+        - No longer refreshing (stopped by the source, not refreshable, or deleted)
 
     # ---------- Capabilities (chunk 3) ----------
     CapabilityPromise:
@@ -3617,14 +3623,16 @@ components:
     AccountLiabilities:
       type: object
       description: |
-        Credit-card terms, reported per account. Every field is independently
+        Credit terms of a liability account (credit card, line of credit,
+        loan or mortgage), reported per account. Every field is independently
         nullable: institutions differ in what they publish, and a value absent
         here means the bank did not report it, never that it is zero.
 
-        Availability differs by source. Finicity reports all five. MX reports
-        every field except the statement balance, which it does not track at
-        all. Portal connections and uploaded statements report none of them, so
-        this object is always null there.
+        Availability differs by source and by bank. Finicity and MX report
+        these terms where the institution publishes them, and many
+        institutions publish only some of them. Portal connections and
+        uploaded statements report none of them, so this object is always
+        null there.
       properties:
         credit_limit:
           type: [number, 'null']
@@ -3719,7 +3727,10 @@ components:
           example: money_market
         mask:
           type: [string, 'null']
-          description: Last 4 digits of the account number (Plaid-style mask).
+          description: >-
+            Last 4 digits of the account number (Plaid-style mask), on every
+            source. Never more than 4 digits, fewer when the source holds a
+            shorter number, and null when it holds none.
           example: "1234"
         iso_currency_code:
           type: string
@@ -3770,13 +3781,15 @@ components:
           example: "2023-04-11"
         liabilities:
           description: |
-            Credit-card terms for this account: what the client can borrow,
+            Credit terms for this account: what the client can borrow,
             what they owed at the last statement close, and what the bank
-            wants next. Null for every account that is not a credit card or
-            line of credit, and also for cards at institutions that do not
-            report these values, so its presence is itself the signal that
-            anything is known. Individual fields inside it are independently
-            nullable for the same reason.
+            wants next. Present only on liability accounts: credit cards,
+            lines of credit, loans and mortgages. Null on every other account
+            (checking, savings, investment), even when the source reports
+            terms for it, and also on liability accounts at institutions that
+            do not report these values, so its presence is itself the signal
+            that anything is known. Individual fields inside it are
+            independently nullable for the same reason.
           oneOf:
             - $ref: '#/components/schemas/AccountLiabilities'
             - type: 'null'
