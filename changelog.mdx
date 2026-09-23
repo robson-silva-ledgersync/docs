@@ -3,6 +3,67 @@ title: "Changelog"
 description: "New features, improvements, and fixes to the LedgerSync v3 API. Newest first."
 ---
 
+<Update label="2026-09-23" tags={["Connections", "Webhooks"]}>
+  ## Connection status and webhooks now agree
+
+  `GET /v3/connections/{id}` and the `connection.*` webhooks now report the same
+  status for the same state.
+
+  - **MX connections read their real status.** The read endpoint used to report
+    any unhealthy MX connection as `disconnected`. It now follows MX's own member
+    status, the same one the webhooks report: MX `PREVENTED` (too many failed
+    sign-ins) and `DENIED` read `requires_action` with `credentials_invalid`, MX
+    `DISCONNECTED` and `CLOSED` read `disconnected`, and a healthy or still-syncing
+    member reads `active`. Expect some MX connections to move from `disconnected`
+    to their real status.
+  - **The reason matches the status.** A `connection.requires_action` for MX
+    `PREVENTED` used to carry `institution_unavailable` with
+    `is_user_actionable: false`. It now carries `credentials_invalid`, actionable.
+    An MX-locked account is the one deliberate exception: `requires_action` with
+    `account_locked_by_institution` and `is_user_actionable: false`, because the
+    user acts at the bank. See [Errors](/guides/errors) for the MX codes behind
+    each error.
+  - **Connection events name the client.** `data.connection.client_id` is now
+    present on status-change events whenever the owner can be resolved, and the
+    key is omitted, never `null`, when it cannot.
+  - **Deleting a connection sends `connection.disconnected`,** as the testing guide
+    already described.
+  - **Status changes found by the scheduled daily refresh now send webhooks.** A
+    connection that recovers on its own after `connection.failed` sends
+    `connection.active`. One exception remains: a Finicity MFA challenge on an
+    existing connection reads `requires_action` on `GET` without an event.
+
+  `disconnected` no longer means "the user revoked access": it means the source
+  stopped aggregating the connection, you deleted it, or (for Finicity and portal
+  connections) LedgerSync's own refresh of it failed. See
+  [Connection lifecycle](/guides/connection-lifecycle#the-status-flow).
+</Update>
+
+<Update label="2026-09-23" tags={["Accounts", "Transactions"]}>
+  ## Card terms, account masks and retracted transactions
+
+  - **`liabilities` appears only on liability accounts,** such as credit cards,
+    lines of credit, loans and mortgages. It no longer appears on checking, savings or
+    investment accounts, even when the bank reports a figure there. Identify cards
+    by `type: credit_card`; loans and mortgages carry the object too.
+  - **MX now reports the statement balance.** It was dropped before, so every MX
+    `statement_balance` was null. It fills in as each MX account next syncs.
+  - **Card terms refresh on the scheduled daily refresh,** not only when a refresh
+    is triggered.
+  - **`mask` is now filled for MX, portal (FDE) and uploaded-statement accounts,**
+    as at most the last 4 digits of the account number. It used to be null for
+    all three.
+  - **`GET /v3/transactions/{id}` returns `404` for a Finicity transaction the
+    source retracted.** The list never returned those; the single read now agrees.
+    If you stored such an id, treat the 404 as "removed".
+
+  **Corrections to the 2026-09-04 entry.** The object's presence is not the card
+  signal (loans and mortgages carry it). Finicity does not report all five fields
+  everywhere, and MX does report the statement balance. The real coverage, measured
+  per source and field, is in
+  [Credit-card terms](/guides/connection-lifecycle#credit-card-terms).
+</Update>
+
 <Update label="2026-09-14" tags={["Webhooks"]}>
   ## Webhook subscriptions now report delivery health
 

@@ -16,9 +16,11 @@ stateDiagram-v2
     [*] --> initiated: POST /connections
     initiated --> requires_action: widget_url ready
     requires_action --> active: user finishes linking
-    requires_action --> failed: bad creds / aggregator failure
-    active --> disconnected: user revokes access
-    active --> failed: credentials go bad
+    requires_action --> failed: bank or aggregator failure
+    active --> requires_action: credentials, MFA or reauthorization needed
+    active --> disconnected: link removed at the source, or deleted
+    active --> failed: bank or aggregator failure
+    failed --> active: recovers on a later refresh
     failed --> requires_action: user re-links
     disconnected --> requires_action: user re-links
     active --> [*]
@@ -32,7 +34,7 @@ A connection has five statuses:
 | `requires_action` | Someone needs to do something: finish the widget, re-enter credentials, answer an MFA challenge, or unlock the account at the bank. | Keep the widget open, or re-open the same `widget_url`. No auto-timeout. |
 | `active` | Linked and healthy. Accounts, transactions, and statements are flowing. | Read data. Watch capability and refresh events. If the client opened a new account at this bank, see [Adding a new account](/guides/adding-accounts). |
 | `failed` | The connection cannot be used, and re-entering credentials will not fix it on its own: the bank is unavailable, the bank is refusing automated access, or the aggregator reported a failure. | Show a re-link CTA. **Reauthorize in place** to keep your ids, or re-initiate. A later retry often succeeds with no user action at all. |
-| `disconnected` | The user revoked access, or the link needs to be rebuilt. | Show a re-link CTA. **Reauthorize in place** to keep your ids, or re-initiate. |
+| `disconnected` | The connection no longer refreshes: the source stopped aggregating it (for example MX reports the member disconnected or closed), you deleted it with `DELETE /v3/connections/{id}`, or, for Finicity and portal connections, LedgerSync's own refresh of it failed. | Show a re-link CTA. **Reauthorize in place** to keep your ids, or re-initiate. |
 
 <Note>
   **`requires_action` vs `failed` is the "can the user fix this?" split.** Branch on it rather than
@@ -48,6 +50,19 @@ A connection has five statuses:
   integrators (and end clients) chasing credentials during a bank outage. Those now correctly report
   `failed`. If you branch on this field, expect a one-time shift of a small number of statement-only
   connections from `requires_action` to `failed`.
+</Note>
+
+<Note>
+  **GET and the webhooks report the same status.** An MX connection's `status` comes from MX's own member
+  status, the same one the `connection.*` webhooks report, and `last_error` says why. For example, MX
+  `PREVENTED` (too many failed sign-ins) and `DENIED` read `requires_action` with `last_error.code`
+  `credentials_invalid`; MX `DISCONNECTED` and `CLOSED` read `disconnected`; a healthy or still-syncing
+  member reads `active`. Before 2026-09-23 the read endpoint reported any unhealthy MX connection as
+  `disconnected`. Expect those MX connections to read their real status now.
+
+  One MX pairing is deliberate: an MX account the bank **locked** reads `requires_action` with `last_error.code`
+  `account_locked_by_institution` and `is_user_actionable: false`. The user has to act, but at the bank,
+  not in the widget. (A Finicity-locked account reads `failed` with the same code.)
 </Note>
 
 ## From initiate to active
@@ -176,8 +191,8 @@ On a `requires_action` connection the `action` is always `widget_url` — first-
 
 Both statuses mean the same thing to your UI: **the user needs to re-link.** You have two ways to do it, and they differ in one thing that matters — whether your stored ids survive.
 
-- `failed` — bad credentials, or the aggregator reported a failure. Common after a password change at the bank.
-- `disconnected` — the user revoked access on their side, or the link otherwise needs rebuilding.
+- `failed`: the bank or the aggregator failed in a way the user cannot fix by re-entering credentials (bank site down, the bank blocking automated access, an aggregator error). A later refresh often recovers it on its own, and a recovery sends `connection.active`. A changed password at the bank is **not** `failed`: it reads `requires_action` with `last_error.code` `credentials_invalid`.
+- `disconnected`: the source stopped aggregating the connection (MX reports the member disconnected or closed), you deleted it, or, for Finicity and portal connections, LedgerSync's own refresh of it failed. A connection you delete sends `connection.disconnected`. The last case sends no `connection.*` event of its own today, so re-read the connection when a refresh fails.
 
 ### Reauthorize an existing connection (recommended for repair)
 
@@ -308,7 +323,7 @@ Treat `other` as unknown, not as an asset. Don't fold it into a net-worth total 
 
 ### Credit-card terms
 
-A credit card or line of credit can carry a **`liabilities`** object with the terms the bank publishes:
+A liability account (credit card, line of credit, loan or mortgage) can carry a **`liabilities`** object with the terms the bank publishes:
 
 ```json
 {
@@ -326,16 +341,24 @@ A credit card or line of credit can carry a **`liabilities`** object with the te
 }
 ```
 
-**The object is absent unless we know something.** It is null for every account that is not a card or line of credit, and null for cards at banks that publish no terms. Its presence is the signal, so check for the object before reading fields inside it. Individual fields are independently nullable for the same reason: an absent field means the bank did not report it, never that the value is zero.
+**The object is absent unless we know something.** It is never present on a checking, savings or investment account, even when the bank reports a figure there, and it is null on a liability account whose bank publishes no terms. Check for the object before reading fields inside it. Individual fields are independently nullable for the same reason: an absent field means the bank did not report it, never that the value is zero.
 
-Coverage differs by source:
+<Warning>
+**Identify cards by `type: credit_card`, not by whether `liabilities` is present.** Loans, mortgages and lines of credit carry the object too, usually with just a `minimum_payment` and a `payment_due_date`. Before 2026-09-23 the object could also appear on checking, savings and investment accounts; it no longer does.
+</Warning>
+
+Coverage differs by source, and within a source by bank. Measured in September 2026 on credit cards whose connection was working, as the share of cards where each field is present:
 
 | Source | What it reports |
 | --- | --- |
-| Finicity | All five fields, where the bank publishes them |
-| MX | Everything except the statement balance, which MX does not track |
+| Finicity | All five fields, where the bank publishes them. Minimum payment 91%, due date 91%, statement balance 90%, available credit 77%, credit limit 76%. |
+| MX | All five fields, where the bank publishes them. Minimum payment 66%, due date 64%, available credit 64%, credit limit 61%. The statement balance is reported since 2026-09-23 and is not measured yet. |
 | Portal connections (FDE) | None, so `liabilities` is always null |
 | Uploaded statements | None, so `liabilities` is always null |
+
+The bank matters more than the source. Through MX, Chase, Bank of America, Wells Fargo, U.S. Bank and Citi report the terms on nearly every card, while American Express reports the statement balance and, on very few cards, anything else. Through Finicity, Capital One reports no credit limit and no available credit.
+
+Terms are refreshed whenever the account's balance is, including on LedgerSync's scheduled daily refresh.
 
 **`statement_balance` follows the same sign rule as `current_balance`:** what the client owes is negative, so the two agree on the same account.
 

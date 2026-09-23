@@ -61,9 +61,9 @@ There are exactly eight real events, plus a `webhook.test` event you can fire on
 | Event | Fires when |
 | --- | --- |
 | `connection.requires_action` | Something the **user** can fix: waiting on them in the widget (sign-in, MFA, account pick), or their credentials need re-entering, or the bank locked the account. |
-| `connection.active` | The user finished linking. Data is flowing. Carries the **canonical** connection id. |
+| `connection.active` | The user finished linking, or a connection recovered from `requires_action` or `failed`. Data is flowing. Carries the **canonical** connection id. |
 | `connection.failed` | Something the user **cannot** fix: the bank is unavailable, the bank is refusing automated access, or the aggregator reported a failure. See [`requires_action` vs `failed`](/guides/connection-lifecycle#the-status-flow) before prompting for credentials. |
-| `connection.disconnected` | The user revoked access, or the connection needs a re-link. |
+| `connection.disconnected` | The source stopped aggregating the connection (for example MX reports the member disconnected or closed), or you deleted it with `DELETE /v3/connections/{id}`. Re-link with reauthorize, or re-initiate. |
 | `connection.capability_changed` | A single capability on an active connection flipped working ↔ not-working. |
 | `account.refresh.completed` | A background data refresh for an account finished successfully. |
 | `account.refresh.failed` | A background data refresh for an account failed. |
@@ -73,6 +73,14 @@ There are exactly eight real events, plus a `webhook.test` event you can fire on
 <Tip>
 See [Connection lifecycle](/guides/connection-lifecycle) for how `initiated → requires_action → active` (and the failure paths) fit together as a state machine.
 </Tip>
+
+<Note>
+**Connection events are not only for changes you start.** A status change LedgerSync detects on its own sends the matching `connection.*` event: the bank asking for new credentials, an outage, a recovery. That includes changes found by the scheduled daily refresh, so a connection that recovers after `connection.failed` sends `connection.active`. The status in each event is the one `GET /v3/connections/{id}` returns for the same state. One exception today: a Finicity MFA challenge on an existing connection reads `requires_action` on `GET` without sending an event.
+</Note>
+
+<Note>
+**`client_id` on connection events.** `data.connection.client_id` names the client that owns the connection, as the `client_id` you use with the API. It is present whenever LedgerSync can resolve the owner at the time of the event. When it cannot, the key is **omitted**, never `null`, so check for the key.
+</Note>
 
 <Note>
 There is no `connection.initiated` **event**. The `initiated` connection *status* exists in the state machine, but the first webhook every new link produces is `connection.requires_action`. Subscriptions listing an unknown event type are rejected with `validation_failed`.

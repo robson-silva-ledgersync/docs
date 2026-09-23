@@ -130,7 +130,7 @@ the password is `go` unless noted.
 | OTP text MFA | `customer3` | `go` | OTP challenge · answer `999999` | Submit a wrong code to test the failure path. |
 | Image MFA | `tfa_image` | `go` | image challenge · answer `go` | Exercises the image-MFA UI path. |
 | Captcha | `tfa_captcha` | `go` | captcha · answer any non-empty | Any non-empty value passes. |
-| Invalid credentials | `customer1` | `bad` | n/a | `connection.failed`, `last_error = invalid_credentials`. |
+| Invalid credentials | `customer1` | `bad` | n/a | `connection.requires_action`, `last_error.code = credentials_invalid`. |
 | Locked institution | `locked` | `go` | n/a | `connection.failed`, `last_error = institution_locked`. |
 
 ### FinBank Profiles A–H — account-shape coverage
@@ -192,6 +192,20 @@ the dial** that picks the scenario. Ids come back source-tagged: `con_MX_<id>`
 | Disabled user | `mxuser` | `DISABLED` | 401 locked-account variant. `connection_status = DENIED`. |
 | Server error | `mxuser` | `SERVER_ERROR` | 500 institution-side error. `connection_status = FAILED`. |
 | Service unavailable | `mxuser` | `UNAVAILABLE` | 503 service unavailable. `connection_status = FAILED`. |
+
+<Note>
+What v3 reports for each MX `connection_status` above: `DENIED` reads `requires_action` with `last_error.code` `credentials_invalid`; `LOCKED` reads `requires_action` with `account_locked_by_institution` and `is_user_actionable: false` (the user acts at the bank, not in the widget); `FAILED` reads `failed` with `institution_unavailable`. `GET /v3/connections/{id}` and the `connection.*` webhooks report the same status.
+</Note>
+
+### Card terms and masks in sandbox
+
+The sandbox banks publish very little credit data, so an empty `liabilities` on a sandbox card is expected, not a bug:
+
+- **FinBank credit cards carry no card terms.** Use the FinBank **line of credit** to see a populated object: it carries `available_credit`, `statement_balance`, `minimum_payment` and `payment_due_date` (no `credit_limit`). The FinBank auto loan and mortgage carry a `minimum_payment` only.
+- **The MX Bank credit card** carries `available_credit` (3000) and a fixed `payment_due_date` of 2021-05-07; it reports no `credit_limit` or `minimum_payment`. The MX Bank loan and mortgage carry a fixed 2021-05-12 due date. A due date in the past is the bank's last published cycle, not an overdue payment.
+- **Checking, savings and investment accounts never carry `liabilities`**, even though MX Bank reports a due date on them.
+
+`mask` is the last 4 digits of the account number on every source: FinBank reports `7777` for the credit card, `6666` for the line of credit, `1111` for checking and `2222` for savings; MX Bank accounts report the last 4 of their masked account numbers.
 
 <Warning>
 **MX OAuth constraint:** only one OAuth member is allowed per user for
@@ -260,8 +274,8 @@ webhook, HMAC-signed exactly like production.
 | --- | --- | --- |
 | `connection.requires_action` | As soon as the widget URL is ready — the first event of every new link. | Signals the user must act; the URL is **not** in this payload. Take it from the initiate operation's `result.connection.action.widget_url`. (`POST /v3/connections/{connection_id}/reauthorize` is for a connection you already hold a canonical id for, so it is not an option on a first link.) |
 | `connection.active` | User finishes the widget with valid credentials. | Finicity `customer1` / `go` or MX `mxuser` / `correct`. Accounts now visible via `GET /v3/accounts`. |
-| `connection.failed` | Credentials rejected, MFA failed, or upstream pipeline error. | Finicity `customer1` / `bad` or MX `mxuser` / `UNAUTHORIZED`. `last_error` carries a stable code. |
-| `connection.disconnected` | End-user revokes access or LedgerSync tears down the link. | `DELETE /v3/connections/{id}`, or Finicity `locked` / `go`. |
+| `connection.failed` | The bank or the aggregator failed in a way the user cannot fix: institution-side outage, the bank refusing automated access, or an upstream pipeline error. A Finicity-locked account is `failed` too. Rejected credentials (Finicity `customer1` / `bad`, MX `mxuser` / `UNAUTHORIZED`) and an MX-locked account are `requires_action`, not `failed`. | Finicity `locked` / `go`, or MX `mxuser` / `UNAVAILABLE` or `SERVER_ERROR`. `last_error` carries a stable code. |
+| `connection.disconnected` | The source stopped aggregating the connection, or you deleted it. | `DELETE /v3/connections/{id}`. |
 
 These are the connection-state events you'll drive in sandbox. The full catalog
 (`connection.capability_changed`, `account.refresh.completed`,
@@ -292,10 +306,10 @@ than 5 minutes old. See [Webhooks](/guides/webhooks) for the full recipe.
 
 Deliberately trigger each failure mode to harden your handler:
 
-- **Invalid credentials → `connection.failed`** — initiate FinBank, sign in `customer1` / `bad`. Watch `last_error = invalid_credentials` land. (Or link **FinBank Decertified** for a decertification `last_error`.)
+- **Invalid credentials → `connection.requires_action`** — initiate FinBank, sign in `customer1` / `bad`. Watch `last_error.code = credentials_invalid` land. (Or link **FinBank Decertified** for a decertification `last_error`.)
 - **MFA wrong answer → `connection.failed`** — initiate Finicity, sign in `customer3` / `go`, submit any OTP other than `999999`.
-- **MX locked user** — initiate MX, sign in `mxuser` / `LOCKED`. `connection_status = LOCKED`, `connection.failed` fires.
-- **Upstream 503 → `connection.failed`** — initiate MX, sign in `mxuser` / `UNAVAILABLE`. Simulates an institution-side 503; `last_error` indicates retryable.
+- **MX locked user** — initiate MX, sign in `mxuser` / `LOCKED`. `connection_status = LOCKED`; the connection reads `requires_action` with `last_error.code = account_locked_by_institution` and `is_user_actionable: false`.
+- **Upstream 503 → `connection.failed`** — initiate MX, sign in `mxuser` / `UNAVAILABLE`. Simulates an institution-side 503; `last_error.code = institution_unavailable`, retryable.
 - **`requires_action` that lingers** — start a connection and don't finish the widget. It stays `requires_action` (no auto timeout-to-failed today) until the user re-opens the still-valid `widget_url` or you re-initiate.
 - **Refresh round-trip** — link `customer1` / `go`, `POST /v3/connections/{id}/refresh`, re-read `GET /v3/accounts/{id}/transactions` for the diff.
 - **Disconnect** — `DELETE /v3/connections/{id}`. `connection.disconnected` fires; further reads return 404.

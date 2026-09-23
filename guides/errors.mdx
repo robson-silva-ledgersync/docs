@@ -166,19 +166,19 @@ on `type`**. They group cleanly by the action they require:
 
 | Code | When it fires |
 | --- | --- |
-| `credentials_invalid` | Bank rejected the login (changed password, re-enrolled creds). `FIN-103/185/948`, `MX-DENIED`. |
-| `mfa_required` | Bank is challenging for a second factor. `FIN-187`, MX `CHALLENGED/MFA_REQUIRED`, FDE `USER_ACTION`. |
-| `mfa_expired` | User didn't answer the MFA challenge in time. MX `EXPIRED/MFA_EXPIRED`. |
-| `reauthorization_required` | Saved session invalid; bank wants re-consent. MX `CREDENTIALS_UPDATE_REQUIRED` / `USER_INTERACTION_REQUIRED`. |
-| `agreement_required` | Bank needs a new agreement/consent accepted. `FIN-38006`, `MX-AGREEMENT_REQUIRED`. |
+| `credentials_invalid` | Bank rejected the login (changed password, re-enrolled creds, too many failed sign-in attempts). `FIN-103/185/948`, `MX-DENIED/PREVENTED`. |
+| `mfa_required` | Bank is challenging for a second factor, or the last MFA answer was wrong. `FIN-187`, MX `CHALLENGED/REJECTED`, FDE `USER_ACTION`. |
+| `mfa_expired` | User didn't answer the MFA challenge in time. MX `EXPIRED`. |
+| `reauthorization_required` | Saved session invalid; bank wants re-consent, or the user has to act on the bank's site first. MX `IMPAIRED/IMPORTED/IMPEDED/DISABLED`, and MX `DISCONNECTED/CLOSED` on a `disconnected` connection. |
+| `agreement_required` | Bank needs a new agreement/consent accepted. `FIN-38006`. |
 
 **Don't re-auth, retry with backoff (credentials are fine):**
 
 | Code | When it fires |
 | --- | --- |
-| `institution_unavailable` | Bank is down/impaired/transient. Finicity `931/946/990-998`, MX `SITE_DOWN/IMPAIRED`, FDE `INSTITUTION_DOWN`. Show "your bank is having issues," retry minutes-to-hours later. |
+| `institution_unavailable` | Bank is down/impaired/transient. Finicity `931/946/990-998`, MX `DEGRADED/FAILED`, FDE `INSTITUTION_DOWN`. Show "your bank is having issues," retry minutes-to-hours later. |
 | `source_rate_limited` | Aggregator/bank throttled back-to-back pulls. `FIN-947`. Back off; don't tighten your loop. |
-| `source_internal_error` | Aggregator returned a generic internal failure. Untranslated `FIN-*`, `*-INTERNAL`, `MX-UNKNOWN`. Small retry budget (2–3), then escalate. |
+| `source_internal_error` | Aggregator returned a generic internal failure. Untranslated `FIN-*`, `*-INTERNAL`, `MX-UNKNOWN/DISCONTINUED` and any MX status LedgerSync does not recognize. Small retry budget (2–3), then escalate. |
 
 **Don't retry, the capability isn't there:**
 
@@ -191,7 +191,7 @@ on `type`**. They group cleanly by the action they require:
 
 | Code | When it fires |
 | --- | --- |
-| `account_locked_by_institution` | Bank locked the account (too many attempts / fraud hold). `FIN-109`, `MX-LOCKED`. Tell the user to unlock with their bank; re-auth won't help. |
+| `account_locked_by_institution` | Bank locked the account (too many attempts / fraud hold). `FIN-109`, `MX-LOCKED`. Tell the user to unlock with their bank; re-auth won't help. On an MX connection the status reads `requires_action` with `is_user_actionable: false`. |
 
 ## A handling pattern
 
