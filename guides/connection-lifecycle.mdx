@@ -62,7 +62,7 @@ A connection has five statuses:
 
   One MX pairing is deliberate: an MX account the bank **locked** reads `requires_action` with `last_error.code`
   `account_locked_by_institution` and `is_user_actionable: false`. The user has to act, but at the bank,
-  not in the widget. (A Finicity-locked account reads `failed` with the same code.)
+  not in the widget. (A locked Finicity account on an existing connection reads `failed` with the same code; the sandbox `locked` login does not simulate one.)
 </Note>
 
 ## From initiate to active
@@ -77,7 +77,7 @@ You never poll the connection directly during setup. You read the **operation** 
     curl -X POST https://api-sandbox.ledgersyncappv2.com/v3/clients/cli_01HXYZ.../connections \
       -H "Authorization: Bearer sk_test_..." \
       -H "Content-Type: application/json" \
-      -d '{"institution_id":"ins_0a01a5430925d0b2"}'
+      -d '{"institution_id":"ins_3c97c5da90335a04"}'
     ```
 
     ```json 202 Accepted

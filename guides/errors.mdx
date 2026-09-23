@@ -206,7 +206,7 @@ import requests
 resp = requests.post(
     "https://api-sandbox.ledgersyncappv2.com/v3/clients/cli_01HXYZ/connections",
     headers={"Authorization": "Bearer sk_test_..."},
-    json={"institution_id": "ins_0a01a5430925d0b2"},
+    json={"institution_id": "ins_3c97c5da90335a04"},
 )
 
 trace_id = resp.headers.get("X-LS-Trace-Id")
@@ -242,7 +242,7 @@ const resp = await fetch(
       Authorization: "Bearer sk_test_...",
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ institution_id: "ins_0a01a5430925d0b2" }),
+    body: JSON.stringify({ institution_id: "ins_3c97c5da90335a04" }),
   }
 );
 

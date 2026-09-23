@@ -28,12 +28,12 @@ resolves the source from the catalog row, you don't pass a `source` field.
 
 <CardGroup cols={3}>
   <Card title="FinBank (Finicity)" icon="building-columns">
-    `ins_0a01a5430925d0b2`
+    `ins_3c97c5da90335a04`
 
     Finicity's sandbox bank. Widget renders on `connect2.finicity.com` (Finicity institutionId 8906).
   </Card>
   <Card title="MX Bank (MX)" icon="building-columns">
-    `ins_eaee71edf17fdacd`
+    `ins_73df5077e90a1b63`
 
     MX's sandbox bank (`mxbank`). Hands off to MX Connect's sandbox on `int-widgets.moneydesktop.com`. Unlimited test aggregations.
   </Card>
@@ -47,10 +47,10 @@ resolves the source from the catalog row, you don't pass a `source` field.
 <Tip>
 **Prove your integration in 6 calls:** (1) mint an `sk_test_` key, (2) register a
 webhook endpoint, (3) `POST /v3/clients` to create a test end-user, (4) `POST
-/v3/clients/{id}/connections` with `institution_id=ins_0a01a5430925d0b2`, open
+/v3/clients/{id}/connections` with `institution_id=ins_3c97c5da90335a04`, open
 the widget, sign in `customer1` / `go`, (5) confirm `connection.active` lands,
 then `GET /v3/accounts` (Checking 1111 + Savings 2222), (6) repeat step 4 with
-`ins_eaee71edf17fdacd` and `mxuser` / `correct` to prove the MX path.
+`ins_73df5077e90a1b63` and `mxuser` / `correct` to prove the MX path.
 </Tip>
 
 ## The 60-second smoke test (FinBank)
@@ -68,7 +68,7 @@ fastest way to prove your integration works end-to-end.
       -H "Authorization: Bearer sk_test_..."
     ```
 
-    Grab the `id` (`ins_0a01a5430925d0b2`) from the row whose name is `FinBank`.
+    Grab the `id` (`ins_3c97c5da90335a04`) from the row whose name is `FinBank`.
   </Step>
 
   <Step title="Initiate the connection">
@@ -78,7 +78,7 @@ fastest way to prove your integration works end-to-end.
     curl -X POST "https://api-sandbox.ledgersyncappv2.com/v3/clients/cli_.../connections" \
       -H "Authorization: Bearer sk_test_..." \
       -H "Content-Type: application/json" \
-      -d '{"institution_id":"ins_0a01a5430925d0b2"}'
+      -d '{"institution_id":"ins_3c97c5da90335a04"}'
     ```
 
     You get `202 Accepted` with an `operation_id`. Poll it until `status` is `succeeded`, then read `result.connection.action.widget_url`.
@@ -118,7 +118,7 @@ If you saw `connection.active`, a canonical `con_FINICITY_...` id, and non-empty
 ## Finicity — FinBank credentials
 
 Public sandbox logins published by Mastercard Open Banking. Sign in on the
-widget URL for `ins_0a01a5430925d0b2`. The **username picks the scenario**;
+widget URL for `ins_3c97c5da90335a04`. The **username picks the scenario**;
 the password is `go` unless noted.
 
 | Scenario | Username | Password | MFA | Expected result |
@@ -127,11 +127,11 @@ the password is `go` unless noted.
 | Happy path (legacy demo) | `demo` | `go` | none | Checking + Savings, small synthetic history. |
 | Wider shape | `customer2` | `go` | none | Checking + Savings + Credit Card — multi-type serialization. |
 | Text MFA | `tfa_text` | `go` | text prompt · answer `go` | Drives `connection.requires_action` → `connection.active`. |
-| OTP text MFA | `customer3` | `go` | OTP challenge · answer `999999` | Submit a wrong code to test the failure path. |
+| OTP text MFA | `customer3` | `go` | OTP challenge · answer `999999` | Meant to test the failure path with a wrong code. As of September 2026 no challenge appears: the login links directly, so the wrong-code path cannot be reproduced. |
 | Image MFA | `tfa_image` | `go` | image challenge · answer `go` | Exercises the image-MFA UI path. |
 | Captcha | `tfa_captcha` | `go` | captcha · answer any non-empty | Any non-empty value passes. |
-| Invalid credentials | `customer1` | `bad` | n/a | `connection.requires_action`, `last_error.code = credentials_invalid`. |
-| Locked institution | `locked` | `go` | n/a | `connection.failed`, `last_error = institution_locked`. |
+| Invalid credentials | `customer1` | `bad` | n/a | The widget rejects the sign-in and keeps the user on the form (as of September 2026 it shows "Technical issue (130)"). No connection is created and no webhook fires. |
+| Locked institution | `locked` | `go` | n/a | Links normally in the current sandbox: the connection goes `active` with no error, so no lock is simulated. |
 
 ### FinBank Profiles A–H — account-shape coverage
 
@@ -167,14 +167,14 @@ test. Search for each by name and initiate exactly as above.
 | **FinBank C** | Captcha-flavoured variant. Pair with the `tfa_captcha` username to drive the captcha-MFA path in the widget. |
 | **FinBank P** | Personal-banking variant. Use it to keep a consumer-shaped connection isolated from your business test connections. |
 | **FinBank OAuth** | OAuth sign-in flow. The widget redirects to a Finicity-hosted bank sign-in instead of taking credentials inline. The catalog row has `oauth_supported = true`. |
-| **FinBank Decertified** | Decertified-institution failure path. Drives `connection.failed` with a decertification-style `last_error` so you can verify your re-link CTA renders. |
+| **FinBank Decertified** | Decertified-institution failure path, meant to drive `connection.failed` with a decertification-style `last_error`. As of September 2026 it links normally instead: `demo` / `go` goes `active` and sends `connection.active`. |
 | **FinBank Billable** | Billable-statements variant. Verify your code handles the statements path end-to-end, including whatever your billing/usage accounting needs to count. |
 
 ## MX sandbox bank (mxbank)
 
 MX is the alternate aggregator, it catches institutions Finicity misses, and v3
 routes to it automatically when the catalog says so. Sign in on the widget URL
-for `ins_eaee71edf17fdacd`. The username is always `mxuser`; the **password is
+for `ins_73df5077e90a1b63`. The username is always `mxuser`; the **password is
 the dial** that picks the scenario. Ids come back source-tagged: `con_MX_<id>`
 (e.g. `con_MX_1224`), `acc_MX_...`, `txn_MX_...`.
 
@@ -190,11 +190,11 @@ the dial** that picks the scenario. Ids come back source-tagged: `con_MX_<id>`
 | Invalid login | `mxuser` | `INVALID` | 401 login/password invalid. `connection_status = DENIED`. |
 | Locked user | `mxuser` | `LOCKED` | 401 user is locked. `connection_status = LOCKED`. |
 | Disabled user | `mxuser` | `DISABLED` | 401 locked-account variant. `connection_status = DENIED`. |
-| Server error | `mxuser` | `SERVER_ERROR` | 500 institution-side error. `connection_status = FAILED`. |
-| Service unavailable | `mxuser` | `UNAVAILABLE` | 503 service unavailable. `connection_status = FAILED`. |
+| Server error | `mxuser` | `SERVER_ERROR` | 500 institution-side error. `connection_status = FAILED`. As of September 2026 the widget shows "Unable to connect" and no connection is created. |
+| Service unavailable | `mxuser` | `UNAVAILABLE` | 503 service unavailable. `connection_status = FAILED`. As of September 2026 the widget stays on "Loading" and no connection is created. |
 
 <Note>
-What v3 reports for each MX `connection_status` above: `DENIED` reads `requires_action` with `last_error.code` `credentials_invalid`; `LOCKED` reads `requires_action` with `account_locked_by_institution` and `is_user_actionable: false` (the user acts at the bank, not in the widget); `FAILED` reads `failed` with `institution_unavailable`. `GET /v3/connections/{id}` and the `connection.*` webhooks report the same status.
+What v3 reports for each MX `connection_status` above: `DENIED` reads `requires_action` with `last_error.code` `credentials_invalid`; `LOCKED` reads `requires_action` with `account_locked_by_institution` and `is_user_actionable: false` (the user acts at the bank, not in the widget); `FAILED` maps to `failed` with `institution_unavailable`, but neither `SERVER_ERROR` nor `UNAVAILABLE` creates a connection in the current sandbox, so that case cannot be seen here. These are the statuses `GET /v3/connections/{id}` reports. In a first-link test on `LOCKED` (September 2026) the connection was created in that status but no webhook announced it, so list the client's connections to find it.
 </Note>
 
 ### Card terms and masks in sandbox
@@ -274,7 +274,7 @@ webhook, HMAC-signed exactly like production.
 | --- | --- | --- |
 | `connection.requires_action` | As soon as the widget URL is ready — the first event of every new link. | Signals the user must act; the URL is **not** in this payload. Take it from the initiate operation's `result.connection.action.widget_url`. (`POST /v3/connections/{connection_id}/reauthorize` is for a connection you already hold a canonical id for, so it is not an option on a first link.) |
 | `connection.active` | User finishes the widget with valid credentials. | Finicity `customer1` / `go` or MX `mxuser` / `correct`. Accounts now visible via `GET /v3/accounts`. |
-| `connection.failed` | The bank or the aggregator failed in a way the user cannot fix: institution-side outage, the bank refusing automated access, or an upstream pipeline error. A Finicity-locked account is `failed` too. Rejected credentials (Finicity `customer1` / `bad`, MX `mxuser` / `UNAUTHORIZED`) and an MX-locked account are `requires_action`, not `failed`. | Finicity `locked` / `go`, or MX `mxuser` / `UNAVAILABLE` or `SERVER_ERROR`. `last_error` carries a stable code. |
+| `connection.failed` | The bank or the aggregator failed in a way the user cannot fix: institution-side outage, the bank refusing automated access, or an upstream pipeline error. A locked Finicity account on an existing connection is `failed` too (the sandbox `locked` login does not simulate one). Rejected credentials and an MX-locked account are `requires_action`, not `failed`. | None of the sandbox logins tested in September 2026 produce it: MX `mxuser` / `SERVER_ERROR` and `UNAVAILABLE` end in the widget without creating a connection, and FinBank `locked` and FinBank Decertified link normally. It fires on a real bank or aggregator failure on an existing connection. `last_error` carries a stable code. |
 | `connection.disconnected` | The source stopped aggregating the connection, or you deleted it. | `DELETE /v3/connections/{id}`. |
 
 These are the connection-state events you'll drive in sandbox. The full catalog
@@ -306,10 +306,10 @@ than 5 minutes old. See [Webhooks](/guides/webhooks) for the full recipe.
 
 Deliberately trigger each failure mode to harden your handler:
 
-- **Invalid credentials → `connection.requires_action`** — initiate FinBank, sign in `customer1` / `bad`. Watch `last_error.code = credentials_invalid` land. (Or link **FinBank Decertified** for a decertification `last_error`.)
-- **MFA wrong answer → `connection.failed`** — initiate Finicity, sign in `customer3` / `go`, submit any OTP other than `999999`.
-- **MX locked user** — initiate MX, sign in `mxuser` / `LOCKED`. `connection_status = LOCKED`; the connection reads `requires_action` with `last_error.code = account_locked_by_institution` and `is_user_actionable: false`.
-- **Upstream 503 → `connection.failed`** — initiate MX, sign in `mxuser` / `UNAVAILABLE`. Simulates an institution-side 503; `last_error.code = institution_unavailable`, retryable.
+- **Invalid credentials** — initiate FinBank, sign in `customer1` / `bad`. The widget rejects the sign-in and keeps the user on the form. No connection is created and no webhook fires, so there is nothing to handle until the user signs in successfully. (FinBank Decertified, once used for a decertification `last_error`, links normally as of September 2026.)
+- **MFA wrong answer** — initiate Finicity, sign in `customer3` / `go`, submit any OTP other than `999999`. As of September 2026 no MFA challenge appears for this login, so this path cannot be reproduced.
+- **MX locked user** — initiate MX, sign in `mxuser` / `LOCKED`. `connection_status = LOCKED`; the connection is created and reads `requires_action` with `last_error.code = account_locked_by_institution` and `is_user_actionable: false`. No webhook announces it: the only event is the initiate `connection.requires_action` under the placeholder id, so list the client's connections to find the `con_MX_...` id.
+- **Upstream 503** — initiate MX, sign in `mxuser` / `UNAVAILABLE`. Meant to simulate an institution-side 503 (`institution_unavailable`, retryable), but as of September 2026 the MX widget stays on "Loading" and no connection is created.
 - **`requires_action` that lingers** — start a connection and don't finish the widget. It stays `requires_action` (no auto timeout-to-failed today) until the user re-opens the still-valid `widget_url` or you re-initiate.
 - **Refresh round-trip** — link `customer1` / `go`, `POST /v3/connections/{id}/refresh`, re-read `GET /v3/accounts/{id}/transactions` for the diff.
 - **Disconnect** — `DELETE /v3/connections/{id}`. `connection.disconnected` fires; further reads return 404.
