@@ -2171,9 +2171,11 @@ paths:
         (`ins_sandbox_001` / `ins_sandbox_002`) for synthetic flows.
 
         NOTE: real sandbox bank routing uses the standard
-        `/v3/institutions` catalog; `ins_0a01a5430925d0b2`
-        (FinBank M, Finicity sandbox) and `ins_eaee71edf17fdacd`
-        (MX Bank, MX sandbox) live there. This endpoint exists for
+        `/v3/institutions` catalog; `ins_3c97c5da90335a04`
+        (FinBank, Finicity sandbox) and `ins_73df5077e90a1b63`
+        (MX Bank, MX sandbox) live there. Look them up with
+        `GET /v3/institutions?q=FinBank` or `?q=MX Bank` rather than
+        hardcoding the ids. This endpoint exists for
         backward-compat with early sandbox readers.
 
         Drive the widget end-to-end with the public test bank
