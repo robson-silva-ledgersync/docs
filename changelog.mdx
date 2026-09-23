@@ -32,6 +32,11 @@ description: "New features, improvements, and fixes to the LedgerSync v3 API. Ne
     connection that recovers on its own after `connection.failed` sends
     `connection.active`. One exception remains: a Finicity MFA challenge on an
     existing connection reads `requires_action` on `GET` without an event.
+  - **A new MX connection is named by a webhook.** When a first MX link connects,
+    or the bank rejects it, a `connection.*` event now carries the canonical
+    `con_MX_...` id. Before, only the initiate `connection.requires_action` under
+    the placeholder id fired, so an MX link that connected without an MFA step,
+    or failed outright, had to be found by listing the client's connections.
 
   `disconnected` no longer means "the user revoked access": it means the source
   stopped aggregating the connection, you deleted it, or (for Finicity and portal
