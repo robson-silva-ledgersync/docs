@@ -484,6 +484,8 @@ paths:
         Call this with your normal API key. Optionally pass a `redirect_url`
         (which must be on your environment's allowlist) to send the member
         back to your app after they finish connecting.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: false
         content:
