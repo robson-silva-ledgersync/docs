@@ -1,183 +1,229 @@
 ---
 title: "Use LedgerSync in Claude and ChatGPT"
-description: "Add the LedgerSync connector to Claude or ChatGPT, then ask it in plain words to find clients, send bank-connection links, read balances, transactions and statements, and refresh connections."
+description: "Ask Claude or ChatGPT about your clients' banks, in plain words."
 ---
 
-The LedgerSync connector lets Claude and ChatGPT work with your LedgerSync account directly. You ask in
-plain words, and the AI finds the client, reads their bank data, or sends them a secure link to connect a
-bank. You do not write code or handle API keys.
+Chat with Claude or ChatGPT about your clients' bank accounts. It finds the answer in LedgerSync.
 
-## What you can ask
+```mermaid
+graph LR
+  A[1. Copy the<br/>address] --> B[2. Add it to<br/>Claude or ChatGPT]
+  B --> C[3. Sign in to<br/>LedgerSync]
+  C --> D[4. Ask a<br/>question]
+```
 
-<CardGroup cols={2}>
-  <Card title="Find a client" icon="magnifying-glass">
-    "Find my client Acme Holdings and show their bank connections."
-  </Card>
-  <Card title="See what needs fixing" icon="triangle-exclamation">
-    "Which of my clients' bank connections need attention?"
-  </Card>
-  <Card title="Connect a bank" icon="link">
-    "Send Acme a link to connect their bank."
-  </Card>
-  <Card title="Read the numbers" icon="table">
-    "Show the balances on Acme's accounts, and last month's transactions on the checking account."
-  </Card>
-  <Card title="Get a statement" icon="file-pdf">
-    "Get me Acme's September statement for the checking account."
-  </Card>
-  <Card title="Refresh" icon="rotate">
-    "Refresh Acme's bank connection and tell me when it finishes."
-  </Card>
-</CardGroup>
+## 1. Copy this address
 
-The AI chooses from these tools. The ones marked **Changes something** are flagged to the AI app as
-making changes, so it normally asks you to confirm before running them. The rest only read.
-
-| Tool | What it does | Changes something |
-| --- | --- | --- |
-| `ledgersync_get_account_status` | Whether the connection is ready, sandbox or live, full or read-only, and how many of your account's refreshes are left today | No |
-| `ledgersync_find_clients` | Finds clients by name or email | No |
-| `ledgersync_create_client` | Adds a client (it checks for an existing one with the same name or email first) | Yes |
-| `ledgersync_create_connect_link` | Creates a secure page where the account holder picks their bank and signs in | Yes |
-| `ledgersync_search_institutions` | Checks whether a bank is supported, and whether it gives transactions and statements | No |
-| `ledgersync_list_connections` | Lists one client's bank connections, their status and when each last refreshed | No |
-| `ledgersync_get_connection` | Checks one bank connection | No |
-| `ledgersync_list_connections_needing_attention` | Lists the connections that are not working, across all your clients, the ones that need the account holder first | No |
-| `ledgersync_list_accounts` | Lists a client's bank accounts with balances | No |
-| `ledgersync_list_transactions` | Lists an account's transactions (the last 30 days unless you ask for other dates) | No |
-| `ledgersync_list_statements` | Lists an account's statements | No |
-| `ledgersync_get_statement_download_link` | Creates a link to download one statement PDF | No |
-| `ledgersync_refresh_connection` | Asks the bank for the latest balances and transactions | Yes |
-| `ledgersync_get_operation_status` | Reports whether a refresh has finished | No |
-| `ledgersync_get_fix_link` | Creates a secure page where the account holder signs in to their bank again to fix a broken connection | Yes |
-
-## Before you start
-
-- **A LedgerSync developer account approved for the environment you connect to.** Apply at
-  [portal.ledgersyncappv2.com](https://portal.ledgersyncappv2.com). Live access also needs the payment
-  step completed.
-- **Already a LedgerSync app customer? Do not apply or pay.** Email
-  [support@ledgersync.com](mailto:support@ledgersync.com) and we link your existing account.
-- **Only the account owner can connect.** If your firm already uses LedgerSync, ask the owner to add the
-  connector rather than applying yourself.
-
-## Add the connector
-
-Use the live address for your real clients' banks:
+Click the copy icon on the right of the box.
 
 ```text
 https://api.ledgersyncappv2.com/mcp
 ```
 
-To try it first with test banks, add the sandbox address as a separate connector:
-
-```text
-https://api-sandbox.ledgersyncappv2.com/mcp
-```
-
-When you add it, a LedgerSync sign-in page opens. Sign in with the same account you use for the
-LedgerSync developer portal, and allow access.
+## 2. Add it to your AI
 
 <Tabs>
   <Tab title="Claude">
     <Steps>
-      <Step title="Open Connectors">
-        In Claude, go to **Customize > Connectors**.
+      <Step title="Click Customize, then Connectors">
+        <Frame>
+          <img src="/images/ai-connector/claude-1-customize-connectors.png" alt="Claude menu with Customize and the Connectors tab marked" />
+        </Frame>
       </Step>
-      <Step title="Add a custom connector">
-        Click **+**, then **Add custom connector**. Paste a connector address above and click **Add**.
-        Leave the advanced OAuth settings empty.
+      <Step title="Click Add, then Add custom connector">
+        <Frame>
+          <img src="/images/ai-connector/claude-2-add-custom-connector.png" alt="The Add button and the Add custom connector option marked" />
+        </Frame>
       </Step>
-      <Step title="Sign in">
-        Connect it, sign in to LedgerSync, and allow access.
+      <Step title="Type LedgerSync, paste the address, click Continue">
+        <Frame>
+          <img src="/images/ai-connector/claude-3-name-and-address.png" alt="The name LedgerSync and the address typed in, with Continue marked" />
+        </Frame>
+      </Step>
+      <Step title="Click Add">
+        Do not change anything on this screen.
+
+        <Frame>
+          <img src="/images/ai-connector/claude-4-add.png" alt="The second screen with the Add button marked" />
+        </Frame>
+      </Step>
+      <Step title="Click Connect">
+        <Frame>
+          <img src="/images/ai-connector/claude-5-connect.png" alt="LedgerSync connector page with the Connect button marked" />
+        </Frame>
+      </Step>
+      <Step title="Optional: let Claude read without asking each time">
+        Next to **Read-only tools**, pick **Always allow**. Claude still asks before it changes anything.
+
+        <Frame>
+          <img src="/images/ai-connector/claude-6-always-allow-reading.png" alt="Read-only tools menu with Always allow marked" />
+        </Frame>
       </Step>
     </Steps>
-
-    On Team and Enterprise plans, an Owner first adds it for the organization: **Organization settings >
-    Connectors**, click **Add**, hover over **Custom**, select **Web**, paste the address and click
-    **Add**. Members then connect it from **Customize > Connectors**. The Free plan allows one custom
-    connector.
-
-    Once added, the connector also works in Claude Desktop and the Claude mobile apps, and Claude Code
-    picks it up when you sign in to Claude Code with the same Claude account.
   </Tab>
   <Tab title="ChatGPT">
     <Steps>
-      <Step title="Open Plugins">
-        In ChatGPT on the web, open **Plugins** in the left menu.
+      <Step title="Open chatgpt.com and click Plugins, then Add">
+        <Frame>
+          <img src="/images/ai-connector/chatgpt-plugins-add.png" alt="ChatGPT Plugins page with the Add button marked" />
+        </Frame>
       </Step>
-      <Step title="Create an MCP app">
-        Click **Add**, then **Create MCP App**. Give it a name (for example "LedgerSync") and a short
-        description, and paste a connector address above. If it asks how to sign in, choose OAuth, and
-        leave any client ID or secret empty.
+      <Step title="Click Create MCP App">
+        <Frame>
+          <img src="/images/ai-connector/chatgpt-create-mcp-app.png" alt="The Add menu with Create MCP App marked" />
+        </Frame>
       </Step>
-      <Step title="Sign in">
-        Create it, sign in to LedgerSync, and allow access.
+      <Step title="Type LedgerSync, paste the address, click Create">
+        If it asks how to sign in, pick **OAuth**.
       </Step>
     </Steps>
-
-    Custom MCP apps are available on paid ChatGPT plans, and a Business, Enterprise or Education workspace
-    can turn them off. If **Create MCP App** is missing, ask your workspace admin. ChatGPT asks you to
-    confirm each tool that changes something.
   </Tab>
 </Tabs>
 
+## 3. Sign in to LedgerSync
+
+Use the same email you use for LedgerSync.
+
+<Frame>
+  <img src="/images/ai-connector/ledgersync-sign-in.png" alt="LedgerSync sign-in page" />
+</Frame>
+
+Then click **Allow access**. You only see this the first time.
+
+<Frame>
+  <img src="/images/ai-connector/ledgersync-allow-access.png" alt="LedgerSync page asking to let Claude access your account, with Allow access marked" />
+</Frame>
+
+## 4. Ask
+
+Open a **new chat** and ask, for example:
+
+<CardGroup cols={2}>
+  <Card title="Find a client" icon="magnifying-glass">
+    "Find my client Acme."
+  </Card>
+  <Card title="Balances" icon="wallet">
+    "Show Acme's bank balances."
+  </Card>
+  <Card title="Transactions" icon="list">
+    "Show last month's transactions for Acme's checking account."
+  </Card>
+  <Card title="Statements" icon="file-pdf">
+    "Get Acme's September bank statement."
+  </Card>
+  <Card title="Problems" icon="triangle-exclamation">
+    "Which of my clients' banks are not working?"
+  </Card>
+  <Card title="Connect a bank" icon="link">
+    "Send Acme a link to connect their bank."
+  </Card>
+</CardGroup>
+
+<Note>
+  **Nobody types a bank password in the chat.** When a bank needs a password, the AI gives you a link to a
+  LedgerSync page. The password goes there.
+</Note>
+
 <Tip>
-  Start a new chat after adding the connector, and after LedgerSync adds new tools. Your AI app loads the
-  tool list when the connector is added, so if a tool you expect is missing, remove the connector and add
-  it again.
+  Before the AI changes something, it asks you first. Say yes if it looks right.
 </Tip>
 
-## Keeping your clients' banks safe
+## Something wrong?
 
-- **Nobody types bank passwords into the chat.** To connect or fix a bank, the AI gives you a link to a
-  LedgerSync page, and the account holder signs in to their bank there. Connect links expire after 72
-  hours.
-- **Statement download links expire after 10 minutes and work once.** The link is used up when it is
-  opened, so if the download fails, ask the AI for a new link.
-- **The connector can only do what the table above lists.** It cannot see or change API keys, webhooks
-  or account settings.
-- **AI apps other than Claude and ChatGPT stay blocked.** Ask
-  [support@ledgersync.com](mailto:support@ledgersync.com) if you need one.
-- **To disconnect,** remove the connector from the AI app (in Claude, **Customize > Connectors**, then
-  **Remove**). Adding it again signs you in fresh.
+| The AI says | Do this |
+| --- | --- |
+| You have no LedgerSync account, or it is under review | Sign up at [portal.ledgersyncappv2.com](https://portal.ledgersyncappv2.com), or wait for our email. |
+| Finish the payment step | Finish it in the LedgerSync portal. |
+| This app was disconnected | Remove LedgerSync from the AI and add it again. |
+| Wait, or try again later | Wait a few minutes. Some limits reset the next day. |
+| It cannot find the client | Ask "Find my client ..." first, then ask again. |
+| It does not know LedgerSync | Start a new chat. |
 
-## Refreshes and other limits
+**Already a LedgerSync customer?** Do not sign up again and do not pay. Email
+[support@ledgersync.com](mailto:support@ledgersync.com).
 
-LedgerSync already refreshes every working connection about once a day, so most questions need no
-refresh. When you do ask for one:
+Still stuck? Email [support@ledgersync.com](mailto:support@ledgersync.com).
 
-- **It takes a few minutes.** The AI starts the refresh and checks on it; ask it to check again if it is
-  still running. See [Keeping data fresh](/guides/data-freshness).
-- **A connection that refreshed in the last 30 minutes is skipped** unless you say you want a new pull
-  anyway.
-- **Each connected AI app can start 20 refreshes a day on sandbox and 50 on live.** These also count
-  against your account's daily refresh budget, which API keys share: 100 on sandbox, 500 on live.
-  `ledgersync_get_account_status` shows how many of your account's refreshes are left today.
-- **Other limits per connected AI app:** 50 new clients a day, 30 connect links an hour, and 120 tool
-  calls a minute on sandbox (60 on live). When a limit is reached, the AI is told when it can try again.
-- **Long lists of connections, accounts, transactions and statements come back in pages.** The AI asks
-  for the next page when it needs more.
+## Turn it off
 
-## When something goes wrong
+In the LedgerSync portal, open **Connected apps** and click **Disconnect**. Or remove LedgerSync from the AI.
 
-Every error the connector returns carries a `code`, the same codes as the API's (see
-[Errors](/guides/errors)). Access errors and rate-limit errors also carry a `next_step` sentence, which
-the AI reads out to you.
+## For developers
 
-| Code | What it means | What to do |
-| --- | --- | --- |
-| `access_not_active` | This sign-in has no active LedgerSync developer account yet: it never applied, or its first application is still under review. | Apply at [portal.ledgersyncappv2.com](https://portal.ledgersyncappv2.com), or wait for the review. Existing LedgerSync customers: email support, do not apply or pay. |
-| `access_request_not_approved` | Your application for this environment is still being reviewed, or needs more information. | Check its status in the portal. |
-| `billing_not_configured` | Live access is approved, but the payment step was not completed. | Complete the payment step in the portal. Existing LedgerSync customers: email support instead. |
-| `connector_app_pending_approval` | This AI app is not approved for LedgerSync. | Email support. |
-| `connector_access_revoked` | This AI app was disconnected from your LedgerSync account. | Remove the connector from the AI app and add it again. |
-| `insufficient_scope` | This connection is read-only, or lacks permission for what you asked. | Ask for something the connection may do, or email support. |
-| `rate_limit_exceeded` | A limit on this page was reached. | Try again when the AI says you can, or tomorrow for a daily limit. |
-| `not_found` | No client, connection, account or statement matches, or it belongs to another account. | Ask the AI to find the client first, then try again. |
+<AccordionGroup>
+  <Accordion title="Try it with test banks (sandbox)">
+    Add this address as a second connector, then connect **FinBank**, **MX Bank** or **Ledgersync Bank** with
+    the test sign-ins in [Testing in sandbox](/guides/testing).
 
-## Try it in the sandbox
+    ```text
+    https://api-sandbox.ledgersyncappv2.com/mcp
+    ```
+  </Accordion>
 
-The sandbox connector connects to test banks, so you can try every step without real bank data. Add the
-sandbox address above as its own connector, ask the AI for a connect link, open it, and sign in to **FinBank**, **MX Bank** or **Ledgersync Bank** with the test
-credentials in [Testing in sandbox](/guides/testing).
+  <Accordion title="Who can connect">
+    - A LedgerSync developer account approved for that environment. Live also needs the payment step.
+    - Existing LedgerSync app customers are linked by support, not charged again.
+    - Only the account owner can connect. Teammates should ask the owner.
+    - ChatGPT needs a paid plan (Plus or higher) and the web version. A Business, Enterprise or Education
+      workspace can turn custom apps off; ask your workspace admin if **Create MCP App** is missing.
+    - On Claude Team and Enterprise, an Owner first adds it under **Organization settings > Connectors**. The
+      Claude Free plan allows one custom connector. Once added, it also works in Claude Desktop, the Claude
+      mobile apps, and Claude Code signed in with the same account.
+    - AI apps other than Claude and ChatGPT are blocked. Ask support if you need one.
+  </Accordion>
+
+  <Accordion title="What the AI can do (tools)">
+    | Tool | What it does | Changes something |
+    | --- | --- | --- |
+    | `ledgersync_get_account_status` | Whether the connection is ready, sandbox or live, full or read-only, and how many of your account's refreshes are left today | No |
+    | `ledgersync_find_clients` | Finds clients by name or email | No |
+    | `ledgersync_create_client` | Adds a client (it checks for an existing one with the same name or email first) | Yes |
+    | `ledgersync_create_connect_link` | Creates a secure page where the account holder picks their bank and signs in | Yes |
+    | `ledgersync_search_institutions` | Checks whether a bank is supported, and whether it gives transactions and statements | No |
+    | `ledgersync_list_connections` | Lists one client's bank connections, their status and when each last refreshed | No |
+    | `ledgersync_get_connection` | Checks one bank connection | No |
+    | `ledgersync_list_connections_needing_attention` | Lists the connections that are not working, across all your clients, the ones that need the account holder first | No |
+    | `ledgersync_list_accounts` | Lists a client's bank accounts with balances | No |
+    | `ledgersync_list_transactions` | Lists an account's transactions (the last 30 days unless you ask for other dates) | No |
+    | `ledgersync_list_statements` | Lists an account's statements | No |
+    | `ledgersync_get_statement_download_link` | Creates a link to download one statement PDF | No |
+    | `ledgersync_refresh_connection` | Asks the bank for the latest balances and transactions | Yes |
+    | `ledgersync_get_operation_status` | Reports whether a refresh has finished | No |
+    | `ledgersync_get_fix_link` | Creates a secure page where the account holder signs in to their bank again to fix a broken connection | Yes |
+  </Accordion>
+
+  <Accordion title="Security">
+    - Bank sign-ins only happen on LedgerSync pages. Connect links expire after 72 hours.
+    - Statement download links expire after 10 minutes and work once; if a download fails, ask for a new link.
+    - The connector cannot see or change API keys, webhooks or account settings.
+    - Disconnecting in the portal's **Connected apps** page cuts the app off at once; adding it again signs in
+      fresh.
+  </Accordion>
+
+  <Accordion title="Refreshes and limits">
+    - LedgerSync refreshes every working connection about once a day. A refresh you ask for takes a few
+      minutes; see [Keeping data fresh](/guides/data-freshness).
+    - A connection refreshed in the last 30 minutes is skipped unless you ask for a new pull anyway.
+    - Each connected AI app can start 20 refreshes a day on sandbox and 50 on live. They also count against
+      your account's daily refresh budget, shared with API keys: 100 on sandbox, 500 on live.
+    - Per connected AI app: 50 new clients a day, 30 connect links an hour, and 120 tool calls a minute on
+      sandbox (60 on live).
+    - Long lists of connections, accounts, transactions and statements come back in pages.
+  </Accordion>
+
+  <Accordion title="Error codes">
+    Every error carries a `code`, the same as the API's (see [Errors](/guides/errors)). Access and rate-limit
+    errors also carry a `next_step` sentence the AI reads out.
+
+    | Code | What it means | What to do |
+    | --- | --- | --- |
+    | `access_not_active` | This sign-in has no active LedgerSync developer account yet: it never applied, or its first application is still under review. | Apply at [portal.ledgersyncappv2.com](https://portal.ledgersyncappv2.com), or wait for the review. Existing LedgerSync customers: email support, do not apply or pay. |
+    | `access_request_not_approved` | Your application for this environment is still being reviewed, or needs more information. | Check its status in the portal. |
+    | `billing_not_configured` | Live access is approved, but the payment step was not completed. | Complete the payment step in the portal. Existing LedgerSync customers: email support instead. |
+    | `connector_app_pending_approval` | This AI app is not approved for LedgerSync. | Email support. |
+    | `connector_access_revoked` | This AI app was disconnected from your LedgerSync account. | Remove the connector from the AI app and add it again. |
+    | `insufficient_scope` | This connection is read-only, or lacks permission for what you asked. | Ask for something the connection may do, or email support. |
+    | `rate_limit_exceeded` | A limit was reached. | Try again when the AI says you can, or tomorrow for a daily limit. |
+    | `not_found` | No client, connection, account or statement matches, or it belongs to another account. | Ask the AI to find the client first, then try again. |
+  </Accordion>
+</AccordionGroup>
