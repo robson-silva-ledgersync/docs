@@ -1,0 +1,163 @@
+---
+title: "Use LedgerSync in Claude"
+description: "Add the LedgerSync connector to Claude, then ask it in plain words to find clients, send bank-connection links, read balances, transactions and statements, and refresh connections."
+---
+
+The LedgerSync connector lets Claude work with your LedgerSync account directly. You ask in plain words,
+and Claude finds the client, reads their bank data, or sends them a secure link to connect a bank. You do
+not write code or handle API keys.
+
+<Warning>
+  **Pilot.** The connector is in a limited pilot and is switched on only for pilot accounts, on the
+  sandbox. The live connector is not available yet. To join the pilot, email
+  [support@ledgersync.com](mailto:support@ledgersync.com).
+</Warning>
+
+<Note>
+  **ChatGPT support is coming.** The connector works with Claude today. We will add ChatGPT to this page
+  once it is tested.
+</Note>
+
+## What you can ask
+
+<CardGroup cols={2}>
+  <Card title="Find a client" icon="magnifying-glass">
+    "Find my client Acme Holdings and show their bank connections."
+  </Card>
+  <Card title="See what needs fixing" icon="triangle-exclamation">
+    "Which of my clients' bank connections need attention?"
+  </Card>
+  <Card title="Connect a bank" icon="link">
+    "Send Acme a link to connect their bank."
+  </Card>
+  <Card title="Read the numbers" icon="table">
+    "Show the balances on Acme's accounts, and last month's transactions on the checking account."
+  </Card>
+  <Card title="Get a statement" icon="file-pdf">
+    "Get me Acme's September statement for the checking account."
+  </Card>
+  <Card title="Refresh" icon="rotate">
+    "Refresh Acme's bank connection and tell me when it finishes."
+  </Card>
+</CardGroup>
+
+Claude chooses from these tools. The ones marked **Changes something** are flagged to Claude as making
+changes, so it normally asks you to confirm before running them. The rest only read.
+
+| Tool | What it does | Changes something |
+| --- | --- | --- |
+| `ledgersync_get_account_status` | Whether the connection is ready, sandbox or live, full or read-only, and how many of your account's refreshes are left today | No |
+| `ledgersync_find_clients` | Finds clients by name or email | No |
+| `ledgersync_create_client` | Adds a client (it checks for an existing one with the same name or email first) | Yes |
+| `ledgersync_create_connect_link` | Creates a secure page where the account holder picks their bank and signs in | Yes |
+| `ledgersync_search_institutions` | Checks whether a bank is supported, and whether it gives transactions and statements | No |
+| `ledgersync_list_connections` | Lists one client's bank connections, their status and when each last refreshed | No |
+| `ledgersync_get_connection` | Checks one bank connection | No |
+| `ledgersync_list_connections_needing_attention` | Lists the connections that are not working, across all your clients, the ones that need the account holder first | No |
+| `ledgersync_list_accounts` | Lists a client's bank accounts with balances | No |
+| `ledgersync_list_transactions` | Lists an account's transactions (the last 30 days unless you ask for other dates) | No |
+| `ledgersync_list_statements` | Lists an account's statements | No |
+| `ledgersync_get_statement_download_link` | Creates a link to download one statement PDF | No |
+| `ledgersync_refresh_connection` | Asks the bank for the latest balances and transactions | Yes |
+| `ledgersync_get_operation_status` | Reports whether a refresh has finished | No |
+| `ledgersync_get_fix_link` | Creates a secure page where the account holder signs in to their bank again to fix a broken connection | Yes |
+
+## Before you start
+
+- **A LedgerSync developer account approved for the environment you connect to.** Apply at
+  [portal.ledgersyncappv2.com](https://portal.ledgersyncappv2.com). Live access also needs the payment
+  step completed.
+- **Already a LedgerSync app customer? Do not apply or pay.** Email
+  [support@ledgersync.com](mailto:support@ledgersync.com) and we link your existing account.
+- **Only the account owner can connect.** If your firm already uses LedgerSync, ask the owner to add the
+  connector rather than applying yourself.
+- **Your account is in the pilot.** See the note at the top of this page.
+
+## Add the connector
+
+The sandbox connector address is:
+
+```text
+https://api-sandbox.ledgersyncappv2.com/mcp
+```
+
+<Steps>
+  <Step title="Open Connectors">
+    In Claude, go to **Customize > Connectors**.
+  </Step>
+  <Step title="Add a custom connector">
+    Click **+**, then **Add custom connector**. Paste the connector address above and click **Add**. Leave
+    the advanced OAuth settings empty.
+  </Step>
+  <Step title="Sign in">
+    Connect it. A LedgerSync sign-in page opens: sign in with the same account you use for the LedgerSync
+    developer portal, and allow access.
+  </Step>
+</Steps>
+
+On Team and Enterprise plans, an Owner first adds it for the organization: **Organization settings >
+Connectors**, click **Add**, hover over **Custom**, select **Web**, paste the address and click **Add**.
+Members then connect it from **Customize > Connectors**. The Free plan allows one custom connector.
+
+Once added, the connector also works in Claude Desktop and the Claude mobile apps, and Claude Code picks
+it up when you sign in to Claude Code with the same Claude account.
+
+<Tip>
+  Start a new chat after adding the connector, and after LedgerSync adds new tools. Claude loads the tool
+  list when the connector is added, so if a tool you expect is missing, remove the connector and add it
+  again.
+</Tip>
+
+## Keeping your clients' banks safe
+
+- **Nobody types bank passwords into the chat.** To connect or fix a bank, Claude gives you a link to a
+  LedgerSync page, and the account holder signs in to their bank there. Connect links expire after 72
+  hours.
+- **Statement download links expire after 10 minutes and work once.** The link is used up when it is
+  opened, so if the download fails, ask Claude for a new link.
+- **The connector can only do what the table above lists.** It cannot see or change API keys, webhooks
+  or account settings.
+- **AI apps other than Claude stay blocked.** Ask [support@ledgersync.com](mailto:support@ledgersync.com)
+  if you need one.
+- **To disconnect,** remove the connector in Claude: **Customize > Connectors**, then **Remove**. Adding
+  it again signs you in fresh.
+
+## Refreshes and other limits
+
+LedgerSync already refreshes every working connection about once a day, so most questions need no
+refresh. When you do ask for one:
+
+- **It takes a few minutes.** Claude starts the refresh and checks on it; ask it to check again if it is
+  still running. See [Keeping data fresh](/guides/data-freshness).
+- **A connection that refreshed in the last 30 minutes is skipped** unless you say you want a new pull
+  anyway.
+- **Each connected AI app can start 20 refreshes a day on sandbox and 50 on live.** These also count
+  against your account's daily refresh budget, which API keys share: 100 on sandbox, 500 on live.
+  `ledgersync_get_account_status` shows how many of your account's refreshes are left today.
+- **Other limits per connected AI app:** 50 new clients a day, 30 connect links an hour, and 120 tool
+  calls a minute on sandbox (60 on live). When a limit is reached, Claude is told when it can try again.
+- **Long lists of connections, accounts, transactions and statements come back in pages.** Claude asks
+  for the next page when it needs more.
+
+## When something goes wrong
+
+Every error the connector returns carries a `code`, the same codes as the API's (see
+[Errors](/guides/errors)). Access errors and rate-limit errors also carry a `next_step` sentence, which
+Claude reads out to you.
+
+| Code | What it means | What to do |
+| --- | --- | --- |
+| `access_not_active` | This sign-in has no active LedgerSync developer account yet (never applied, or the first application is still under review), or the account is not in the pilot. | Apply at [portal.ledgersyncappv2.com](https://portal.ledgersyncappv2.com), or wait for the review, or email support to join the pilot. Existing LedgerSync customers: email support, do not apply or pay. |
+| `access_request_not_approved` | Your application for this environment is still being reviewed, or needs more information. | Check its status in the portal. |
+| `billing_not_configured` | Live access is approved, but the payment step was not completed. | Complete the payment step in the portal. Existing LedgerSync customers: email support instead. |
+| `connector_app_pending_approval` | This AI app is not approved for LedgerSync. | Email support. |
+| `connector_access_revoked` | This AI app was disconnected from your LedgerSync account. | Remove the connector from Claude and add it again. |
+| `insufficient_scope` | This connection is read-only, or lacks permission for what you asked. | Ask for something the connection may do, or email support. |
+| `rate_limit_exceeded` | A limit on this page was reached. | Try again when Claude says you can, or tomorrow for a daily limit. |
+| `not_found` | No client, connection, account or statement matches, or it belongs to another account. | Ask Claude to find the client first, then try again. |
+
+## Try it in the sandbox
+
+Sandbox connects to test banks, so you can try every step without real bank data. Ask Claude for a
+connect link, open it, and sign in to **FinBank**, **MX Bank** or **Ledgersync Bank** with the test
+credentials in [Testing in sandbox](/guides/testing).

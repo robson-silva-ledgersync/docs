@@ -81,6 +81,15 @@ and each `error.doc_url` deep-links to one entry.
 | `insufficient_scope` | 403 | Key authenticated but lacks the scope for this operation. | Grant the scope named in `message`, or mint a key with it. |
 | `access_request_not_approved` | 403 | Minting a key for an env whose access request isn't `APPROVED`. | Finish/resubmit the access request for that env in the portal. |
 | `billing_not_configured` | 403 | Live request with no billing subscription linked. | Add a payment method in the portal (Activate Live → Payment). |
+| `access_not_active` | 403 | AI connector only. The signed-in user has no active LedgerSync developer account yet (never applied, or the first application is still under review), or the account is not in the connector pilot. | Apply in the portal or wait for the review, or email support to join the pilot. An existing LedgerSync app customer should email support instead of applying or paying. |
+| `connector_app_pending_approval` | 403 | AI connector only. The AI app is not approved for LedgerSync. Claude is approved automatically; other apps are blocked. | Email support. |
+| `connector_access_revoked` | 403 | AI connector only. The AI app was disconnected from this account. | Remove the connector from the AI app and add it again. |
+
+The [AI connector](/guides/use-with-claude-and-chatgpt) also answers with
+`access_request_not_approved` when the user already has a developer account and their application for
+that environment is under review, and with `billing_not_configured` when live access was approved but
+the payment step was not completed. Its errors reach the AI app as a tool error carrying the same
+`code`; access and rate-limit errors also carry a `next_step` sentence the AI reads out to the user.
 
 ### Request problems
 

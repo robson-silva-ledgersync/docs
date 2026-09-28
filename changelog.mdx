@@ -3,6 +3,55 @@ title: "Changelog"
 description: "New features, improvements, and fixes to the LedgerSync v3 API. Newest first."
 ---
 
+<Update label="2026-09-28" tags={["Connections", "Webhooks"]}>
+  ## Refreshes of MX and FDE connections now finish
+
+  `POST /v3/connections/{id}/refresh` on an MX or FDE connection now ends the way it
+  does on Finicity: the operation turns `succeeded` or `failed` once every account on
+  the connection has reported, and `account.refresh.completed` or
+  `account.refresh.failed` fires for each account. The one exception is an FDE refresh
+  refused straight away (below), which fails the operation without a webhook.
+
+  - **MX and FDE refresh operations reach a real verdict.** They used to record no
+    accounts to wait on, so every one ended `failed` with `refresh_timed_out` after 90
+    minutes, whatever happened at the bank.
+  - **MX refresh webhooks are sent for client connections.** `account.refresh.completed`
+    and `account.refresh.failed` were never sent for an MX connection that belongs to a
+    client, which is every MX connection made through the API. They are now.
+  - **An MX refresh that finds nothing new still finishes.** MX sends LedgerSync no
+    notice when a sync brings no new or changed transactions, so LedgerSync now asks MX
+    once the sync is over and reports it. Expect the verdict about three minutes after
+    the call.
+  - **An FDE refresh the bank answers with a security question fails at once** with
+    `mfa_required`, instead of waiting out the timeout. Send the user a fix link from
+    [`POST /v3/connections/{id}/reauthorize`](/guides/connection-lifecycle#handling-failed-and-disconnected).
+    Any other refusal fails at once with `source_internal_error`, with the FDE status
+    in `source_diagnostic_code` (for example `FDE-UPDATED_ERROR`). No webhook fires for
+    either; read the operation.
+  - **FDE connections report `last_refreshed_at`.** It was always `null` on FDE
+    connections. Their `created_at` and `updated_at`, which follow it, fill in too.
+  - **Sandbox refresh operations finish too.** On sandbox they never matched their
+    results and always timed out.
+  - **An earlier sync can no longer answer your refresh.** A sync result that reached
+    LedgerSync before your call, but was still being processed, could close your
+    refresh with that older data. Only a result that arrives after your call answers it
+    now.
+
+  **Correction to the 2026-08-25 entry.** It said MX and FDE connections "already
+  reported completion correctly". They did not: their refresh operations always ended
+  `refresh_timed_out`, as described above.
+
+  See [Keeping data fresh](/guides/data-freshness#what-the-operation-tells-you).
+</Update>
+
+<Update label="2026-09-25" tags={["Statements"]}>
+  ## Statement downloads work again
+
+  From 2026-09-24 until the fix on 2026-09-25, `GET /v3/statements/{id}/download`
+  answered `500` instead of the PDF. It returns the file again. If a scheduled download
+  failed in that window, run it again.
+</Update>
+
 <Update label="2026-09-23" tags={["Connections", "Webhooks"]}>
   ## Connection status and webhooks now agree
 

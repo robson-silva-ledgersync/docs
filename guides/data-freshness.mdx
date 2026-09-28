@@ -102,11 +102,22 @@ matters for how you read the verdict:
   per account.
 - **`failed` with `refresh_timed_out`** - nothing reported in time. The refresh may
   still have run; check `last_refreshed_at`.
+- **`failed` straight away, FDE only** - the bank answered the refresh with a security
+  question (`mfa_required`: send the user a fix link from
+  `POST /connections/{id}/reauthorize`), or refused it (`source_internal_error`, with
+  the FDE status in `source_diagnostic_code`). No run will report, so no webhook fires
+  and nothing more arrives: read the operation.
 
 Expect a couple of minutes end to end, not seconds: the bank aggregation alone
 typically runs about a minute, the per-account transaction pull follows it, and the
 event carrying the result adds its own hop. The `estimated_seconds` on the `202` is
 a best-effort floor, not a deadline.
+
+An MX refresh that finds nothing new takes about three minutes to report: MX sends no
+notice for a sync that brought no new or changed transactions, so LedgerSync confirms with MX
+that the sync is over, allowing a short grace period for a late notice, before it
+reports the refresh: `succeeded` when the connection is healthy, `failed` when MX shows
+an error.
 
 See the [connection refresh error codes](/guides/errors#connection-refresh) for the
 full list.
