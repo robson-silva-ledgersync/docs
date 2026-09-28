@@ -7,12 +7,6 @@ The LedgerSync connector lets Claude and ChatGPT work with your LedgerSync accou
 plain words, and the AI finds the client, reads their bank data, or sends them a secure link to connect a
 bank. You do not write code or handle API keys.
 
-<Warning>
-  **Pilot.** The connector is in a limited pilot and is switched on only for pilot accounts, on the
-  sandbox. The live connector is not available yet. To join the pilot, email
-  [support@ledgersync.com](mailto:support@ledgersync.com).
-</Warning>
-
 ## What you can ask
 
 <CardGroup cols={2}>
@@ -66,11 +60,16 @@ making changes, so it normally asks you to confirm before running them. The rest
   [support@ledgersync.com](mailto:support@ledgersync.com) and we link your existing account.
 - **Only the account owner can connect.** If your firm already uses LedgerSync, ask the owner to add the
   connector rather than applying yourself.
-- **Your account is in the pilot.** See the note at the top of this page.
 
 ## Add the connector
 
-The sandbox connector address is:
+Use the live address for your real clients' banks:
+
+```text
+https://api.ledgersyncappv2.com/mcp
+```
+
+To try it first with test banks, add the sandbox address as a separate connector:
 
 ```text
 https://api-sandbox.ledgersyncappv2.com/mcp
@@ -86,7 +85,7 @@ LedgerSync developer portal, and allow access.
         In Claude, go to **Customize > Connectors**.
       </Step>
       <Step title="Add a custom connector">
-        Click **+**, then **Add custom connector**. Paste the connector address above and click **Add**.
+        Click **+**, then **Add custom connector**. Paste a connector address above and click **Add**.
         Leave the advanced OAuth settings empty.
       </Step>
       <Step title="Sign in">
@@ -109,7 +108,7 @@ LedgerSync developer portal, and allow access.
       </Step>
       <Step title="Create an MCP app">
         Click **Add**, then **Create MCP App**. Give it a name (for example "LedgerSync") and a short
-        description, and paste the connector address above. If it asks how to sign in, choose OAuth, and
+        description, and paste a connector address above. If it asks how to sign in, choose OAuth, and
         leave any client ID or secret empty.
       </Step>
       <Step title="Sign in">
@@ -168,7 +167,7 @@ the AI reads out to you.
 
 | Code | What it means | What to do |
 | --- | --- | --- |
-| `access_not_active` | This sign-in has no active LedgerSync developer account yet (never applied, or the first application is still under review), or the account is not in the pilot. | Apply at [portal.ledgersyncappv2.com](https://portal.ledgersyncappv2.com), or wait for the review, or email support to join the pilot. Existing LedgerSync customers: email support, do not apply or pay. |
+| `access_not_active` | This sign-in has no active LedgerSync developer account yet: it never applied, or its first application is still under review. | Apply at [portal.ledgersyncappv2.com](https://portal.ledgersyncappv2.com), or wait for the review. Existing LedgerSync customers: email support, do not apply or pay. |
 | `access_request_not_approved` | Your application for this environment is still being reviewed, or needs more information. | Check its status in the portal. |
 | `billing_not_configured` | Live access is approved, but the payment step was not completed. | Complete the payment step in the portal. Existing LedgerSync customers: email support instead. |
 | `connector_app_pending_approval` | This AI app is not approved for LedgerSync. | Email support. |
@@ -179,6 +178,6 @@ the AI reads out to you.
 
 ## Try it in the sandbox
 
-Sandbox connects to test banks, so you can try every step without real bank data. Ask the AI for a
-connect link, open it, and sign in to **FinBank**, **MX Bank** or **Ledgersync Bank** with the test
+The sandbox connector connects to test banks, so you can try every step without real bank data. Add the
+sandbox address above as its own connector, ask the AI for a connect link, open it, and sign in to **FinBank**, **MX Bank** or **Ledgersync Bank** with the test
 credentials in [Testing in sandbox](/guides/testing).

@@ -3,6 +3,22 @@ title: "Changelog"
 description: "New features, improvements, and fixes to the LedgerSync v3 API. Newest first."
 ---
 
+<Update label="2026-09-28" tags={["AI connector"]}>
+  ## Use LedgerSync in Claude and ChatGPT
+
+  Add the LedgerSync connector to Claude or ChatGPT and ask in plain words: find a client, send them a
+  secure link to connect a bank, read balances, transactions and statements, see which connections need
+  attention, and refresh a connection. Bank sign-ins stay on LedgerSync's own pages, never in the chat.
+
+  - **Live:** `https://api.ledgersyncappv2.com/mcp`. **Sandbox:** `https://api-sandbox.ledgersyncappv2.com/mcp`.
+  - Sign in with your developer portal account. Live needs the same approval and payment as live API keys;
+    existing LedgerSync app customers are linked, not charged again.
+  - The portal's new **Connected apps** page lists the AI apps connected to your account and disconnects
+    one at once.
+
+  See [Use LedgerSync in Claude and ChatGPT](/guides/use-with-claude-and-chatgpt).
+</Update>
+
 <Update label="2026-09-28" tags={["Connections", "Webhooks"]}>
   ## Refreshes of MX and FDE connections now finish
 

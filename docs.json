@@ -23,6 +23,7 @@
             "pages": [
               "introduction",
               "guides/build-with-ai",
+              "guides/use-with-claude-and-chatgpt",
               "guides/quickstart",
               "guides/connect-a-bank",
               "authentication"
