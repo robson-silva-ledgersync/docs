@@ -1,22 +1,17 @@
 ---
-title: "Use LedgerSync in Claude"
-description: "Add the LedgerSync connector to Claude, then ask it in plain words to find clients, send bank-connection links, read balances, transactions and statements, and refresh connections."
+title: "Use LedgerSync in Claude and ChatGPT"
+description: "Add the LedgerSync connector to Claude or ChatGPT, then ask it in plain words to find clients, send bank-connection links, read balances, transactions and statements, and refresh connections."
 ---
 
-The LedgerSync connector lets Claude work with your LedgerSync account directly. You ask in plain words,
-and Claude finds the client, reads their bank data, or sends them a secure link to connect a bank. You do
-not write code or handle API keys.
+The LedgerSync connector lets Claude and ChatGPT work with your LedgerSync account directly. You ask in
+plain words, and the AI finds the client, reads their bank data, or sends them a secure link to connect a
+bank. You do not write code or handle API keys.
 
 <Warning>
   **Pilot.** The connector is in a limited pilot and is switched on only for pilot accounts, on the
   sandbox. The live connector is not available yet. To join the pilot, email
   [support@ledgersync.com](mailto:support@ledgersync.com).
 </Warning>
-
-<Note>
-  **ChatGPT support is coming.** The connector works with Claude today. We will add ChatGPT to this page
-  once it is tested.
-</Note>
 
 ## What you can ask
 
@@ -41,8 +36,8 @@ not write code or handle API keys.
   </Card>
 </CardGroup>
 
-Claude chooses from these tools. The ones marked **Changes something** are flagged to Claude as making
-changes, so it normally asks you to confirm before running them. The rest only read.
+The AI chooses from these tools. The ones marked **Changes something** are flagged to the AI app as
+making changes, so it normally asks you to confirm before running them. The rest only read.
 
 | Tool | What it does | Changes something |
 | --- | --- | --- |
@@ -81,53 +76,79 @@ The sandbox connector address is:
 https://api-sandbox.ledgersyncappv2.com/mcp
 ```
 
-<Steps>
-  <Step title="Open Connectors">
-    In Claude, go to **Customize > Connectors**.
-  </Step>
-  <Step title="Add a custom connector">
-    Click **+**, then **Add custom connector**. Paste the connector address above and click **Add**. Leave
-    the advanced OAuth settings empty.
-  </Step>
-  <Step title="Sign in">
-    Connect it. A LedgerSync sign-in page opens: sign in with the same account you use for the LedgerSync
-    developer portal, and allow access.
-  </Step>
-</Steps>
+When you add it, a LedgerSync sign-in page opens. Sign in with the same account you use for the
+LedgerSync developer portal, and allow access.
 
-On Team and Enterprise plans, an Owner first adds it for the organization: **Organization settings >
-Connectors**, click **Add**, hover over **Custom**, select **Web**, paste the address and click **Add**.
-Members then connect it from **Customize > Connectors**. The Free plan allows one custom connector.
+<Tabs>
+  <Tab title="Claude">
+    <Steps>
+      <Step title="Open Connectors">
+        In Claude, go to **Customize > Connectors**.
+      </Step>
+      <Step title="Add a custom connector">
+        Click **+**, then **Add custom connector**. Paste the connector address above and click **Add**.
+        Leave the advanced OAuth settings empty.
+      </Step>
+      <Step title="Sign in">
+        Connect it, sign in to LedgerSync, and allow access.
+      </Step>
+    </Steps>
 
-Once added, the connector also works in Claude Desktop and the Claude mobile apps, and Claude Code picks
-it up when you sign in to Claude Code with the same Claude account.
+    On Team and Enterprise plans, an Owner first adds it for the organization: **Organization settings >
+    Connectors**, click **Add**, hover over **Custom**, select **Web**, paste the address and click
+    **Add**. Members then connect it from **Customize > Connectors**. The Free plan allows one custom
+    connector.
+
+    Once added, the connector also works in Claude Desktop and the Claude mobile apps, and Claude Code
+    picks it up when you sign in to Claude Code with the same Claude account.
+  </Tab>
+  <Tab title="ChatGPT">
+    <Steps>
+      <Step title="Open Plugins">
+        In ChatGPT on the web, open **Plugins** in the left menu.
+      </Step>
+      <Step title="Create an MCP app">
+        Click **Add**, then **Create MCP App**. Give it a name (for example "LedgerSync") and a short
+        description, and paste the connector address above. If it asks how to sign in, choose OAuth, and
+        leave any client ID or secret empty.
+      </Step>
+      <Step title="Sign in">
+        Create it, sign in to LedgerSync, and allow access.
+      </Step>
+    </Steps>
+
+    Custom MCP apps are available on paid ChatGPT plans, and a Business, Enterprise or Education workspace
+    can turn them off. If **Create MCP App** is missing, ask your workspace admin. ChatGPT asks you to
+    confirm each tool that changes something.
+  </Tab>
+</Tabs>
 
 <Tip>
-  Start a new chat after adding the connector, and after LedgerSync adds new tools. Claude loads the tool
-  list when the connector is added, so if a tool you expect is missing, remove the connector and add it
-  again.
+  Start a new chat after adding the connector, and after LedgerSync adds new tools. Your AI app loads the
+  tool list when the connector is added, so if a tool you expect is missing, remove the connector and add
+  it again.
 </Tip>
 
 ## Keeping your clients' banks safe
 
-- **Nobody types bank passwords into the chat.** To connect or fix a bank, Claude gives you a link to a
+- **Nobody types bank passwords into the chat.** To connect or fix a bank, the AI gives you a link to a
   LedgerSync page, and the account holder signs in to their bank there. Connect links expire after 72
   hours.
 - **Statement download links expire after 10 minutes and work once.** The link is used up when it is
-  opened, so if the download fails, ask Claude for a new link.
+  opened, so if the download fails, ask the AI for a new link.
 - **The connector can only do what the table above lists.** It cannot see or change API keys, webhooks
   or account settings.
-- **AI apps other than Claude stay blocked.** Ask [support@ledgersync.com](mailto:support@ledgersync.com)
-  if you need one.
-- **To disconnect,** remove the connector in Claude: **Customize > Connectors**, then **Remove**. Adding
-  it again signs you in fresh.
+- **AI apps other than Claude and ChatGPT stay blocked.** Ask
+  [support@ledgersync.com](mailto:support@ledgersync.com) if you need one.
+- **To disconnect,** remove the connector from the AI app (in Claude, **Customize > Connectors**, then
+  **Remove**). Adding it again signs you in fresh.
 
 ## Refreshes and other limits
 
 LedgerSync already refreshes every working connection about once a day, so most questions need no
 refresh. When you do ask for one:
 
-- **It takes a few minutes.** Claude starts the refresh and checks on it; ask it to check again if it is
+- **It takes a few minutes.** The AI starts the refresh and checks on it; ask it to check again if it is
   still running. See [Keeping data fresh](/guides/data-freshness).
 - **A connection that refreshed in the last 30 minutes is skipped** unless you say you want a new pull
   anyway.
@@ -135,15 +156,15 @@ refresh. When you do ask for one:
   against your account's daily refresh budget, which API keys share: 100 on sandbox, 500 on live.
   `ledgersync_get_account_status` shows how many of your account's refreshes are left today.
 - **Other limits per connected AI app:** 50 new clients a day, 30 connect links an hour, and 120 tool
-  calls a minute on sandbox (60 on live). When a limit is reached, Claude is told when it can try again.
-- **Long lists of connections, accounts, transactions and statements come back in pages.** Claude asks
+  calls a minute on sandbox (60 on live). When a limit is reached, the AI is told when it can try again.
+- **Long lists of connections, accounts, transactions and statements come back in pages.** The AI asks
   for the next page when it needs more.
 
 ## When something goes wrong
 
 Every error the connector returns carries a `code`, the same codes as the API's (see
 [Errors](/guides/errors)). Access errors and rate-limit errors also carry a `next_step` sentence, which
-Claude reads out to you.
+the AI reads out to you.
 
 | Code | What it means | What to do |
 | --- | --- | --- |
@@ -151,13 +172,13 @@ Claude reads out to you.
 | `access_request_not_approved` | Your application for this environment is still being reviewed, or needs more information. | Check its status in the portal. |
 | `billing_not_configured` | Live access is approved, but the payment step was not completed. | Complete the payment step in the portal. Existing LedgerSync customers: email support instead. |
 | `connector_app_pending_approval` | This AI app is not approved for LedgerSync. | Email support. |
-| `connector_access_revoked` | This AI app was disconnected from your LedgerSync account. | Remove the connector from Claude and add it again. |
+| `connector_access_revoked` | This AI app was disconnected from your LedgerSync account. | Remove the connector from the AI app and add it again. |
 | `insufficient_scope` | This connection is read-only, or lacks permission for what you asked. | Ask for something the connection may do, or email support. |
-| `rate_limit_exceeded` | A limit on this page was reached. | Try again when Claude says you can, or tomorrow for a daily limit. |
-| `not_found` | No client, connection, account or statement matches, or it belongs to another account. | Ask Claude to find the client first, then try again. |
+| `rate_limit_exceeded` | A limit on this page was reached. | Try again when the AI says you can, or tomorrow for a daily limit. |
+| `not_found` | No client, connection, account or statement matches, or it belongs to another account. | Ask the AI to find the client first, then try again. |
 
 ## Try it in the sandbox
 
-Sandbox connects to test banks, so you can try every step without real bank data. Ask Claude for a
+Sandbox connects to test banks, so you can try every step without real bank data. Ask the AI for a
 connect link, open it, and sign in to **FinBank**, **MX Bank** or **Ledgersync Bank** with the test
 credentials in [Testing in sandbox](/guides/testing).
