@@ -5,14 +5,114 @@ description: "Ask Claude or ChatGPT about your clients' banks, in plain words."
 
 Chat with Claude or ChatGPT about your clients' bank accounts. It finds the answer in LedgerSync.
 
+<Note>
+  You need Claude, or ChatGPT Plus or higher on chatgpt.com. Does your firm use Claude Team or Enterprise,
+  or ChatGPT Business? Ask your admin to allow LedgerSync first.
+</Note>
+
 ```mermaid
 graph LR
-  A[1. Copy the<br/>address] --> B[2. Add it to<br/>Claude or ChatGPT]
-  B --> C[3. Sign in to<br/>LedgerSync]
-  C --> D[4. Ask a<br/>question]
+  A[1. Get your<br/>LedgerSync account] --> B[2. Copy the<br/>address]
+  B --> C[3. Add it to<br/>Claude or ChatGPT]
+  C --> D[4. Sign in to<br/>LedgerSync]
+  D --> E[5. Ask a<br/>question]
 ```
 
-## 1. Copy this address
+## 1. Get your LedgerSync account
+
+Pick the one that fits you.
+
+**Does your firm already use the LedgerSync app?** Do not sign up as new and do not pay. Use the second tab.
+
+**Already signed up here, or already use the LedgerSync developer portal?** Skip to
+[2. Copy this address](#2-copy-this-address).
+
+<Note>
+  One person per firm does this. Someone at your firm already did it? Do not sign up again. Ask them.
+</Note>
+
+<Tabs>
+  <Tab title="New to LedgerSync">
+    <Steps>
+      <Step title="Open the sign-up page">
+        Open [portal.ledgersyncappv2.com/start/ai/new](https://portal.ledgersyncappv2.com/start/ai/new).
+      </Step>
+      <Step title="Type your name and work email">
+        Then click **Continue**. Or click **Continue with Google**.
+
+        <Frame>
+          <img src="/images/ai-connector/new-1-sign-up.png" alt="LedgerSync sign-up page with the Continue button marked" />
+        </Frame>
+      </Step>
+      <Step title="Type the code we email you">
+        Used **Continue with Google**? Skip this.
+      </Step>
+      <Step title="Type your firm's name">
+        The page says **Step 1 of 2**. Type your firm's name.
+
+        Tick **I agree**.
+
+        Wait until the Cloudflare box says **Success!** If it shows a box to tick, tick it.
+
+        Click **Continue to add your card**.
+
+        <Frame>
+          <img src="/images/ai-connector/new-2-firm-name.png" alt="The firm name box, the I agree box and the Continue to add your card button marked, with the Cloudflare box showing Success!" />
+        </Frame>
+      </Step>
+      <Step title="Add your card">
+        The page says **Step 2 of 2**. Type your card on the page and finish.
+
+        Your first charge is one month after you add your card. Your card is kept by Zoho, our billing
+        partner. We never see the full number.
+
+        Then you see **Thanks! We are checking your firm.**
+      </Step>
+      <Step title="We check your firm">
+        We check every firm by hand, within 2 business days, and we email you. If we cannot approve your
+        firm, your card will not be charged.
+      </Step>
+      <Step title="Add LedgerSync to your AI now">
+        You do not need to wait. Go down to [2. Copy this address](#2-copy-this-address). Do parts 2, 3 and 4.
+
+        When our "You're approved" email comes, do part 5. LedgerSync starts working by itself.
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="My firm already uses the LedgerSync app">
+    <Steps>
+      <Step title="Open the connect page">
+        Open [portal.ledgersyncappv2.com/start/link](https://portal.ledgersyncappv2.com/start/link).
+
+        You see a **Sign in** page. Your LedgerSync app username does not work here. Click **Sign up** at the
+        bottom and use your work email.
+
+        Made a sign-in here before? Just sign in.
+      </Step>
+      <Step title="Click Email support">
+        <Frame>
+          <img src="/images/ai-connector/existing-1-connect-page.png" alt="The Connect your LedgerSync account page with the Email support button marked" />
+        </Frame>
+
+        Your email opens with a message ready. Fill in your firm's name and your LedgerSync app username.
+        Click **Send**. Never send your password.
+
+        Nothing opened? Write to [support@ledgersync.com](mailto:support@ledgersync.com). Tell us the email
+        shown on the page, your firm's name and your app username.
+      </Step>
+      <Step title="We connect your account">
+        We reply to your email when it is done. There is no new plan and no extra charge.
+      </Step>
+      <Step title="Add LedgerSync to your AI">
+        After our reply, go down to [2. Copy this address](#2-copy-this-address). Do parts 2 to 5.
+
+        In part 4, sign in with the email shown on the connect page. Not your app username.
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
+
+## 2. Copy this address
 
 Click the copy icon on the right of the box.
 
@@ -20,7 +120,7 @@ Click the copy icon on the right of the box.
 https://api.ledgersyncappv2.com/mcp
 ```
 
-## 2. Add it to your AI
+## 3. Add it to your AI
 
 <Tabs>
   <Tab title="Claude">
@@ -73,16 +173,22 @@ https://api.ledgersyncappv2.com/mcp
           <img src="/images/ai-connector/chatgpt-create-mcp-app.png" alt="The Add menu with Create MCP App marked" />
         </Frame>
       </Step>
-      <Step title="Type LedgerSync, paste the address, click Create">
-        If it asks how to sign in, pick **OAuth**.
+      <Step title="Type LedgerSync as the name">
+        Then paste the address from step 2 in the address box.
+      </Step>
+      <Step title="Click Create">
+        If it asks how to sign in, pick **OAuth**. Then go to step 4 below.
       </Step>
     </Steps>
   </Tab>
 </Tabs>
 
-## 3. Sign in to LedgerSync
+## 4. Sign in to LedgerSync
 
-Use the same email you use for LedgerSync.
+Sign in with the same email as in step 1.
+
+Used **Continue with Google** in step 1? Click it again here. If not, type your email and click **Continue
+with email**. Developers: use your developer portal sign-in.
 
 <Frame>
   <img src="/images/ai-connector/ledgersync-sign-in.png" alt="LedgerSync sign-in page" />
@@ -94,11 +200,37 @@ Then click **Allow access**. You only see this the first time.
   <img src="/images/ai-connector/ledgersync-allow-access.png" alt="LedgerSync page asking to let Claude access your account, with Allow access marked" />
 </Frame>
 
-## 4. Ask
+## 5. Ask
 
-Open a **new chat** and ask, for example:
+Open a **new chat** and ask.
+
+### New account? Start here
+
+A new LedgerSync account has no clients yet. Add your first one:
+
+<Steps>
+  <Step title="Add a client and get a bank link">
+    Ask: "Add my client Acme and give me a link to connect their bank."
+  </Step>
+  <Step title="Send the link to your client">
+    Send the link to your client by email or text. They pick their bank and sign in on a LedgerSync page.
+    The link works for 3 days.
+  </Step>
+  <Step title="Ask about their bank">
+    When your client is done, ask: "Show Acme's bank balances."
+  </Step>
+</Steps>
+
+<Tip>
+  Already use the LedgerSync app? Your clients are already here. Go straight to the examples below.
+</Tip>
+
+### More things to ask
 
 <CardGroup cols={2}>
+  <Card title="Is a bank supported?" icon="building-columns">
+    "Does LedgerSync work with First National Bank?"
+  </Card>
   <Card title="Find a client" icon="magnifying-glass">
     "Find my client Acme."
   </Card>
@@ -132,21 +264,33 @@ Open a **new chat** and ask, for example:
 
 | The AI says | Do this |
 | --- | --- |
-| You have no LedgerSync account, or it is under review | Sign up at [portal.ledgersyncappv2.com](https://portal.ledgersyncappv2.com), or wait for our email. |
-| Finish the payment step | Finish it in the LedgerSync portal. |
+| LedgerSync is not set up for this sign-in yet | Did someone else at your firm set it up? Ask them. Each firm connects with one sign-in. If not, do step 1 above. Already did it? Then you used a different email in step 4. Remove LedgerSync from the AI. Add it again, and sign in with the email from step 1. |
+| Your sign-up is not finished | Add your card at [portal.ledgersyncappv2.com/start/ai](https://portal.ledgersyncappv2.com/start/ai). |
+| Your card is not on file yet | Email [support@ledgersync.com](mailto:support@ledgersync.com). |
+| We are checking your sign-up | Nothing to do. It starts working as soon as we approve you, and we email you. |
+| We need one more answer from you | Open [portal.ledgersyncappv2.com](https://portal.ledgersyncappv2.com), sign in, and answer on the first page. |
+| We could not approve your sign-up, or it closed | Email support. If you signed up for Claude and ChatGPT, your card will not be charged. |
+| Access was turned off | Email support. |
+| This sign-in has no LedgerSync access yet, or you have no LedgerSync account, or it is under review | Do step 1 above, or wait for our email. |
+| Complete the payment step | Developers: finish it in the portal. Your firm already uses the LedgerSync app? Do not pay. Email support. |
 | This app was disconnected | Remove LedgerSync from the AI and add it again. |
+| This AI app is not supported yet | Use Claude or ChatGPT. |
 | Wait, or try again later | Wait a few minutes. Some limits reset the next day. |
 | It cannot find the client | Ask "Find my client ..." first, then ask again. |
 | It does not know LedgerSync | Start a new chat. |
 
-**Already a LedgerSync customer?** Do not sign up again and do not pay. Email
-[support@ledgersync.com](mailto:support@ledgersync.com).
+**To remove LedgerSync from the AI:** in Claude, open **Customize**, then **Connectors**, click
+**LedgerSync**, open its menu and click **Remove**. In ChatGPT, remove it from **Plugins**, where you added it.
+
+**Does your firm already use the LedgerSync app?** Do not sign up as new and do not pay. Use the **My firm
+already uses the LedgerSync app** tab in step 1.
 
 Still stuck? Email [support@ledgersync.com](mailto:support@ledgersync.com).
 
 ## Turn it off
 
-In the LedgerSync portal, open **Connected apps** and click **Disconnect**. Or remove LedgerSync from the AI.
+Open [portal.ledgersyncappv2.com](https://portal.ledgersyncappv2.com), click **Connected apps**, then click
+**Disconnect**. Or remove LedgerSync from the AI.
 
 ## For developers
 
@@ -162,6 +306,10 @@ In the LedgerSync portal, open **Connected apps** and click **Disconnect**. Or r
 
   <Accordion title="Who can connect">
     - A LedgerSync developer account approved for that environment. Live also needs the payment step.
+    - New firms that only use Claude or ChatGPT sign up at
+      [portal.ledgersyncappv2.com/start/ai/new](https://portal.ledgersyncappv2.com/start/ai/new): firm name,
+      then a card on the API plan, then one review. No sandbox step. Developers building on
+      the API keep the usual path: a sandbox request, then the Live application and payment.
     - Existing LedgerSync app customers are linked by support, not charged again.
     - Only the account owner can connect. Teammates should ask the owner.
     - ChatGPT needs a paid plan (Plus or higher) and the web version. A Business, Enterprise or Education
@@ -169,7 +317,8 @@ In the LedgerSync portal, open **Connected apps** and click **Disconnect**. Or r
     - On Claude Team and Enterprise, an Owner first adds it under **Organization settings > Connectors**. The
       Claude Free plan allows one custom connector. Once added, it also works in Claude Desktop, the Claude
       mobile apps, and Claude Code signed in with the same account.
-    - AI apps other than Claude and ChatGPT are blocked. Ask support if you need one.
+    - AI apps other than Claude and ChatGPT are not supported yet (they are blocked). Ask support if you need
+      one.
   </Accordion>
 
   <Accordion title="What the AI can do (tools)">
@@ -217,10 +366,10 @@ In the LedgerSync portal, open **Connected apps** and click **Disconnect**. Or r
 
     | Code | What it means | What to do |
     | --- | --- | --- |
-    | `access_not_active` | This sign-in has no active LedgerSync developer account yet: it never applied, or its first application is still under review. | Apply at [portal.ledgersyncappv2.com](https://portal.ledgersyncappv2.com), or wait for the review. Existing LedgerSync customers: email support, do not apply or pay. |
-    | `access_request_not_approved` | Your application for this environment is still being reviewed, or needs more information. | Check its status in the portal. |
-    | `billing_not_configured` | Live access is approved, but the payment step was not completed. | Complete the payment step in the portal. Existing LedgerSync customers: email support instead. |
-    | `connector_app_pending_approval` | This AI app is not approved for LedgerSync. | Email support. |
+    | `access_not_active` | This sign-in has no working LedgerSync account yet: it is not set up, the sign-up is not finished, it is being checked, we need an answer, it was not approved, it closed, or it was turned off. This includes a first application still under review. | Follow the step the AI reads out, or wait for the review. Developers apply at [portal.ledgersyncappv2.com](https://portal.ledgersyncappv2.com). New firms sign up at [portal.ledgersyncappv2.com/start/ai/new](https://portal.ledgersyncappv2.com/start/ai/new); existing LedgerSync customers use [portal.ledgersyncappv2.com/start/link](https://portal.ledgersyncappv2.com/start/link) and do not pay. |
+    | `access_request_not_approved` | This sign-in has a LedgerSync account, but not for this environment yet: its application is still being reviewed, needs more information, or has not finished the payment step. Or its access for this environment was turned off. | Follow the step the AI reads out: wait for the review, answer the question in the portal, or finish the payment step. If access was turned off, email support. |
+    | `billing_not_configured` | Live access is approved, but no card is on file (the payment step was not completed). | Developers: complete the payment step in the portal. New firms and existing LedgerSync customers: email support. |
+    | `connector_app_pending_approval` | This AI app is not supported yet. Only Claude and ChatGPT are. | Use Claude or ChatGPT, or email support. |
     | `connector_access_revoked` | This AI app was disconnected from your LedgerSync account. | Remove the connector from the AI app and add it again. |
     | `insufficient_scope` | This connection is read-only, or lacks permission for what you asked. | Ask for something the connection may do, or email support. |
     | `rate_limit_exceeded` | A limit was reached. | Try again when the AI says you can, or tomorrow for a daily limit. |

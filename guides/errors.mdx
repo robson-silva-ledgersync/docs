@@ -81,14 +81,16 @@ and each `error.doc_url` deep-links to one entry.
 | `insufficient_scope` | 403 | Key authenticated but lacks the scope for this operation. | Grant the scope named in `message`, or mint a key with it. |
 | `access_request_not_approved` | 403 | Minting a key for an env whose access request isn't `APPROVED`. | Finish/resubmit the access request for that env in the portal. |
 | `billing_not_configured` | 403 | Live request with no billing subscription linked. | Add a payment method in the portal (Activate Live → Payment). |
-| `access_not_active` | 403 | AI connector only. The signed-in user has no active LedgerSync developer account yet (never applied, or the first application is still under review), or the connector is not switched on for the account. | Apply in the portal or wait for the review; otherwise email support. An existing LedgerSync app customer should email support instead of applying or paying. |
-| `connector_app_pending_approval` | 403 | AI connector only. The AI app is not approved for LedgerSync. Claude and ChatGPT are approved automatically; other apps are blocked. | Email support. |
+| `access_not_active` | 403 | AI connector only. The signed-in user has no working LedgerSync account yet: never applied, the sign-up is not finished, the first application is still under review or waiting for an answer, or it was not approved, closed or turned off; or the connector is not switched on for the account. | Follow the `next_step` the AI reads out. Developers apply in the portal or wait for the review. New firms that only use Claude or ChatGPT sign up at `https://portal.ledgersyncappv2.com/start/ai/new`; an existing LedgerSync app customer uses `https://portal.ledgersyncappv2.com/start/link` instead of applying or paying; otherwise email support. |
+| `connector_app_pending_approval` | 403 | AI connector only. The AI app is not supported yet. Claude and ChatGPT are approved automatically; other apps are blocked. | Use Claude or ChatGPT, or email support. |
 | `connector_access_revoked` | 403 | AI connector only. The AI app was disconnected from this account. | Remove the connector from the AI app and add it again. |
 
 The [AI connector](/guides/use-with-claude-and-chatgpt) also answers with
-`access_request_not_approved` when the user already has a developer account and their application for
-that environment is under review, and with `billing_not_configured` when live access was approved but
-the payment step was not completed. Its errors reach the AI app as a tool error carrying the same
+`access_request_not_approved` when the user already has a LedgerSync account and their application for
+that environment is under review, needs more information or has not finished its payment step, or when
+their access for that environment was turned off (a first application still under review answers
+`access_not_active`), and with `billing_not_configured` when live access was approved but no card is on
+file (the payment step was not completed). Its errors reach the AI app as a tool error carrying the same
 `code`; access and rate-limit errors also carry a `next_step` sentence the AI reads out to the user.
 
 ### Request problems
