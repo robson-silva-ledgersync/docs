@@ -3455,6 +3455,13 @@ components:
           $ref: '#/components/schemas/ConnectionDebug'
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+        requires_desktop_app:
+          type: boolean
+          description: |
+            FDE connections only; omitted for other sources. `true` when
+            this bank refreshes only through the LedgerSync desktop app,
+            which must be open and connected on the firm's computer for a
+            refresh to run.
 
     ConnectionWithAction:
       allOf:
@@ -3600,6 +3607,12 @@ components:
           format: uri
         capabilities:
           $ref: '#/components/schemas/InstitutionCapabilities'
+        requires_desktop_app:
+          type: boolean
+          description: |
+            `true` when LedgerSync reaches this bank through FDE and refreshes
+            it only through the LedgerSync desktop app, which must be open
+            and connected on the firm's computer. Omitted when unknown.
 
     InstitutionCapabilities:
       type: object
