@@ -22,7 +22,8 @@ graph LR
 
 Pick the one that fits you.
 
-**Does your firm already use the LedgerSync app?** Do not sign up as new and do not pay. Use the second tab.
+**Does your firm already use the LedgerSync app?** Do not sign up as new and do not pay. Click **My firm
+already uses the LedgerSync app** below.
 
 **Already signed up here, or already use the LedgerSync developer portal?** Skip to
 [2. Copy this address](#2-copy-this-address).
@@ -43,6 +44,8 @@ Pick the one that fits you.
         <Frame>
           <img src="/images/ai-connector/new-1-sign-up.png" alt="LedgerSync sign-up page with the Continue button marked" />
         </Frame>
+
+        Write down the email you use. You need it in part 4.
       </Step>
       <Step title="Type the code we email you">
         Used **Continue with Google**? Skip this.
@@ -84,10 +87,13 @@ Pick the one that fits you.
       <Step title="Open the connect page">
         Open [portal.ledgersyncappv2.com/start/link](https://portal.ledgersyncappv2.com/start/link).
 
-        You see a **Sign in** page. Your LedgerSync app username does not work here. Click **Sign up** at the
-        bottom and use your work email.
+        You see a **Sign in** page. This website needs its own sign-in, and your LedgerSync app username does
+        not work here. Click **Sign up** at the bottom and use your work email. This does not create another
+        paid plan.
 
         Made a sign-in here before? Just sign in.
+
+        Write down the email you use. You need it in part 4.
       </Step>
       <Step title="Click Email support">
         <Frame>
@@ -120,15 +126,25 @@ Click the copy icon on the right of the box.
 https://api.ledgersyncappv2.com/mcp
 ```
 
+To paste it in part 3: click the address box, then press **Ctrl+V** (Windows) or **Command+V** (Mac).
+
 ## 3. Add it to your AI
 
 <Tabs>
   <Tab title="Claude">
     <Steps>
       <Step title="Click Customize, then Connectors">
+        Open [claude.ai](https://claude.ai). No menu on the left? Click the sidebar button at the top left.
+
         <Frame>
           <img src="/images/ai-connector/claude-1-customize-connectors.png" alt="Claude menu with Customize and the Connectors tab marked" />
         </Frame>
+
+        Click **Yours**. Is LedgerSync already there?
+
+        - It says **Connected**: go to [5. Ask](#5-ask).
+        - It shows **Connect**: click it and go to [4. Sign in to LedgerSync](#4-sign-in-to-ledgersync).
+        - It is not there: do the next step.
       </Step>
       <Step title="Click Add, then Add custom connector">
         <Frame>
@@ -139,6 +155,9 @@ https://api.ledgersyncappv2.com/mcp
         <Frame>
           <img src="/images/ai-connector/claude-3-name-and-address.png" alt="The name LedgerSync and the address typed in, with Continue marked" />
         </Frame>
+
+        Claude says **A connector with this URL already exists**? LedgerSync is already added. Go back to
+        **Yours** in the step above.
       </Step>
       <Step title="Click Add">
         Do not change anything on this screen.
@@ -151,13 +170,8 @@ https://api.ledgersyncappv2.com/mcp
         <Frame>
           <img src="/images/ai-connector/claude-5-connect.png" alt="LedgerSync connector page with the Connect button marked" />
         </Frame>
-      </Step>
-      <Step title="Optional: let Claude read without asking each time">
-        Next to **Read-only tools**, pick **Always allow**. Claude still asks before it changes anything.
 
-        <Frame>
-          <img src="/images/ai-connector/claude-6-always-allow-reading.png" alt="Read-only tools menu with Always allow marked" />
-        </Frame>
+        The LedgerSync sign-in page opens. Go to [4. Sign in to LedgerSync](#4-sign-in-to-ledgersync).
       </Step>
     </Steps>
   </Tab>
@@ -173,11 +187,18 @@ https://api.ledgersyncappv2.com/mcp
           <img src="/images/ai-connector/chatgpt-create-mcp-app.png" alt="The Add menu with Create MCP App marked" />
         </Frame>
       </Step>
-      <Step title="Type LedgerSync as the name">
-        Then paste the address from step 2 in the address box.
-      </Step>
-      <Step title="Click Create">
-        If it asks how to sign in, pick **OAuth**. Then go to step 4 below.
+      <Step title="Fill in the New Plugin form">
+        1. In **Name**, type **LedgerSync**.
+        2. Keep **Server URL**. Paste the address from part 2 in the box below it.
+        3. Keep **OAuth** under **Authentication**.
+        4. Tick the box **I understand and want to continue**.
+        5. Click **Create**.
+
+        <Frame>
+          <img src="/images/ai-connector/chatgpt-new-plugin.png" alt="ChatGPT New Plugin form with LedgerSync, the address and OAuth filled in, and the I understand and want to continue box and the Create button marked" />
+        </Frame>
+
+        Then go to [4. Sign in to LedgerSync](#4-sign-in-to-ledgersync).
       </Step>
     </Steps>
   </Tab>
@@ -188,7 +209,7 @@ https://api.ledgersyncappv2.com/mcp
 Sign in with the same email as in step 1.
 
 Used **Continue with Google** in step 1? Click it again here. If not, type your email and click **Continue
-with email**. Developers: use your developer portal sign-in.
+with email**. Got a code by email? Type it on the page. Developers: use your developer portal sign-in.
 
 <Frame>
   <img src="/images/ai-connector/ledgersync-sign-in.png" alt="LedgerSync sign-in page" />
@@ -200,13 +221,28 @@ Then click **Allow access**. You only see this the first time.
   <img src="/images/ai-connector/ledgersync-allow-access.png" alt="LedgerSync page asking to let Claude access your account, with Allow access marked" />
 </Frame>
 
+<Accordion title="Optional, Claude only: let Claude read without asking each time">
+  In **Customize**, then **Connectors**, click **LedgerSync**. Next to **Read-only tools**, pick **Always
+  allow**. Claude still asks before it changes anything.
+
+  <Frame>
+    <img src="/images/ai-connector/claude-6-always-allow-reading.png" alt="Read-only tools menu with Always allow marked" />
+  </Frame>
+</Accordion>
+
 ## 5. Ask
 
-Open a **new chat** and ask.
+Open a new chat: in Claude click **New**, in ChatGPT click **New chat**.
+
+Ask first: "Use LedgerSync to check whether my account is ready."
+
+- It says LedgerSync is ready: ask anything below.
+- It says we are checking your sign-up: wait for our "You're approved" email.
+- Anything else: see [Something wrong?](#something-wrong) below.
 
 ### New account? Start here
 
-A new LedgerSync account has no clients yet. Add your first one:
+A new LedgerSync account has no clients yet. Add your first one. Acme is an example: use your client's name.
 
 <Steps>
   <Step title="Add a client and get a bank link">
@@ -267,7 +303,7 @@ A new LedgerSync account has no clients yet. Add your first one:
 
 | The AI says | Do this |
 | --- | --- |
-| LedgerSync is not set up for this sign-in yet | Did someone else at your firm set it up? Ask them. Each firm connects with one sign-in. If not, do step 1 above. Already did it? Then you used a different email in step 4. Remove LedgerSync from the AI. Add it again, and sign in with the email from step 1. |
+| LedgerSync is not set up for this sign-in yet | Did someone else at your firm set it up? Ask them. Each firm connects with one sign-in. If not, do step 1 above. Already did it? Check that you used the same email in step 4 as in step 1. If not, remove LedgerSync from the AI, add it again, and sign in with the email from step 1. |
 | Your sign-up is not finished | Add your card at [portal.ledgersyncappv2.com/start/ai](https://portal.ledgersyncappv2.com/start/ai). |
 | Your card is not on file yet | Email [support@ledgersync.com](mailto:support@ledgersync.com). |
 | We are checking your sign-up | Nothing to do. It starts working as soon as we approve you, and we email you. |
@@ -288,7 +324,8 @@ A new LedgerSync account has no clients yet. Add your first one:
 **Does your firm already use the LedgerSync app?** Do not sign up as new and do not pay. Use the **My firm
 already uses the LedgerSync app** tab in step 1.
 
-Still stuck? Email [support@ledgersync.com](mailto:support@ledgersync.com).
+Still stuck? Email [support@ledgersync.com](mailto:support@ledgersync.com). Tell us which step stopped you
+and what the screen says. Never send passwords or card numbers.
 
 ## Turn it off
 
