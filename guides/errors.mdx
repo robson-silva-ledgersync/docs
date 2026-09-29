@@ -91,7 +91,8 @@ that environment is under review, needs more information or has not finished its
 their access for that environment was turned off (a first application still under review answers
 `access_not_active`), and with `billing_not_configured` when live access was approved but no card is on
 file (the payment step was not completed). Its errors reach the AI app as a tool error carrying the same
-`code`; access and rate-limit errors also carry a `next_step` sentence the AI reads out to the user.
+`code`; access and rate-limit errors also carry a `next_step` sentence the AI reads out to the user. So do
+the [desktop app linking](#desktop-app-linking-ai-connector-only) errors.
 
 ### Request problems
 
@@ -203,6 +204,31 @@ on `type`**. They group cleanly by the action they require:
 | Code | When it fires |
 | --- | --- |
 | `account_locked_by_institution` | Bank locked the account (too many attempts / fraud hold). `FIN-109`, `MX-LOCKED`. Tell the user to unlock with their bank; re-auth won't help. On an MX connection the status reads `requires_action` with `is_user_actionable: false`. |
+
+**The firm's LedgerSync desktop app is needed (FDE banks only, the bank was not called):**
+
+Some banks LedgerSync reaches through FDE need the LedgerSync desktop app on the firm's computer for
+refreshes. Those institutions and connections carry `requires_desktop_app: true`. Both codes below are
+`CONNECTION_ERROR` with `is_user_actionable: true`. A refresh stopped by either one fails at once and does
+not count against the daily refresh budget.
+
+| Code | When it fires |
+| --- | --- |
+| `desktop_app_required` | The bank needs the desktop app for refreshes, and the app is not connected right now. `FDE-LSDA_UNAVAILABLE`. A refresh fails at once, and the connection reads `requires_action` with this code. The account holder has nothing to re-enter: the firm opens the desktop app on the computer it is set up on, then refreshes again. |
+| `desktop_app_route_choice` | The refresh is waiting for someone to choose whether LedgerSync reaches the bank through the desktop app. `FDE-FORM_PROXY_SELECTION`. Arrives inside the refresh operation's `error`. Send the account holder the connection's fix link from [`POST /v3/connections/{id}/reauthorize`](/guides/connection-lifecycle#handling-failed-and-disconnected); they choose on that LedgerSync page, then refresh again. |
+
+### Desktop app linking (AI connector only)
+
+These come only from the [AI connector](/guides/use-with-claude-and-chatgpt)'s `ledgersync_pair_desktop_app`
+tool, which links the LedgerSync desktop app with the code the app shows. Each one reaches the AI app as a
+tool error with a `next_step` the AI reads out. None of them repeats the code.
+
+| Code | HTTP | When it fires | What to do |
+| --- | --- | --- | --- |
+| `pairing_code_invalid` | 400 | The code is not 7 letters or digits, or it is unknown, expired or already used. | Get a new code in the desktop app (**Settings**, **Connect with: AI chat**) and try again with it. |
+| `desktop_app_session_closed` | 409 | The code is real, but the desktop app that showed it is not open anymore. | Open the desktop app, get a new code and try again. |
+| `desktop_service_unavailable` | 502 | The desktop app service failed, timed out or could not be reached. Nothing the user did is wrong. | Try again in a few minutes. If it keeps failing, email support. |
+| `pairing_rate_limited` | 429 | Too many tries to link the desktop app for this account: 10 an hour and 20 a day (UTC), counted whether the code works or not. The message says how many minutes to wait. | Wait that long, then try again with a new code. |
 
 ## A handling pattern
 

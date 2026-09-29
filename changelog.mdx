@@ -3,6 +3,47 @@ title: "Changelog"
 description: "New features, improvements, and fixes to the LedgerSync v3 API. Newest first."
 ---
 
+<Update label="2026-09-29" tags={["AI connector", "Institutions", "Connections"]}>
+  ## See which banks need the LedgerSync desktop app, and link it from Claude and ChatGPT
+
+  A few banks that LedgerSync reaches through FDE need the LedgerSync desktop app for refreshes. The app
+  runs on a computer at the firm. The API and the AI connector now say which ones, and the connector can
+  link the app.
+
+  **New field `requires_desktop_app`.** It is optional, so it is additive for existing clients.
+
+  - On institutions (`GET /v3/institutions` and `GET /v3/institutions/{id}`): `true` when LedgerSync
+    reaches the bank through FDE and needs the desktop app to refresh it. Omitted when unknown.
+  - On connections (`GET /v3/connections/{id}` and `GET /v3/clients/{client_id}/connections`): on FDE
+    connections only, omitted for other sources. When `true`, the desktop app must be open and connected on
+    the firm's computer for a refresh to run.
+
+  **Two new AI connector tools, on the live connector only:**
+
+  - `ledgersync_get_desktop_app_status` says whether the desktop app is linked and connected right now,
+    with the Windows and Mac download links and the setup steps.
+  - `ledgersync_pair_desktop_app` links the app with the 7-character code it shows. It replaces any
+    computer linked before, so the AI asks the user to confirm first. Each account gets 10 tries an hour
+    and 20 a day.
+  - Bank search results and connections in the connector mark the banks that need the app.
+  - New codes for linking: `pairing_code_invalid`, `desktop_app_session_closed`,
+    `desktop_service_unavailable` and `pairing_rate_limited`.
+
+  **Refreshes stopped by the desktop app say so.**
+
+  - A refresh FDE stops because the bank needs the desktop app and the app is not connected fails at once
+    with `desktop_app_required`, and the connection reads `requires_action` with the same code. A refresh
+    stopped while waiting for the choice of whether to use the desktop app fails with
+    `desktop_app_route_choice`. Neither reached the bank, so neither counts against the daily refresh
+    budget.
+  - When FDE asks at the start of a refresh whether to use the desktop app, a working FDE connection no
+    longer shows `requires_action` with `mfa_required` for that moment. It stays `active`, and no webhook
+    fires for the question.
+
+  See [Errors](/guides/errors) and
+  [Banks that need the LedgerSync desktop app](/guides/use-with-claude-and-chatgpt#banks-that-need-the-ledgersync-desktop-app).
+</Update>
+
 <Update label="2026-09-29" tags={["AI connector"]}>
   ## New firms can sign up for Claude and ChatGPT in a few minutes
 
