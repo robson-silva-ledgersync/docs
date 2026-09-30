@@ -1280,12 +1280,20 @@ paths:
         institution data. Stale matches (rows added/removed upstream
         since the last reconciliation) may appear; the catalog
         converges within 24h.
+
+        Only institutions LedgerSync can currently get data from are
+        returned: at least one of `transactions`, `statements` or
+        `check_images` is `true`. An institution with none of them (for
+        example one its provider has taken offline) is left out until a
+        provider supports it again. `GET /institutions/{id}` still
+        resolves every catalog id.
       parameters:
         - in: query
           name: q
           description: |
             Optional name search (case-insensitive substring). Omit to
-            return the full catalog (paginated in a later phase).
+            return every institution search returns (see above), not the
+            whole catalog (paginated in a later phase).
           schema: { type: string }
       responses:
         '200':
