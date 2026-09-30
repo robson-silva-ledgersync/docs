@@ -125,6 +125,16 @@ If you already have onboarding UI, skip the hosted page. Call
 the same widget hand-off for credentials and the same `connection.active`
 webhook, you just own the search box.
 
+<Note>
+  Search only returns institutions LedgerSync can currently get data from: at
+  least one of `transactions`, `statements` or `check_images` is `true`. An
+  institution with none of them (for example a bank its provider has taken
+  offline) is left out of search, the hosted page's bank search and the AI
+  connector's bank search. It comes back on its own once the nightly catalog
+  refresh sees a provider support it again. `GET /institutions/{id}` still
+  resolves every `ins_...` id.
+</Note>
+
 ## Redirect flow
 
 When a member finishes on the aggregator widget (FINICITY / MX), the browser

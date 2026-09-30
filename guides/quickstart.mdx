@@ -182,7 +182,7 @@ Two things to internalize now, because they save debugging later:
 </Step>
 
 <Step title="Discover the institution">
-  Search the catalog to get the `institution_id` you'll connect to. Each row carries a `capabilities` block so you know upfront what a bank supports.
+  Search the catalog to get the `institution_id` you'll connect to. Each row carries a `capabilities` block so you know upfront what a bank supports. Institutions that offer no transactions, statements or check images are left out of search.
 
   ```bash
   curl "$LS_BASE/institutions?q=FinBank" \
