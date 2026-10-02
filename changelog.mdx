@@ -3,6 +3,25 @@ title: "Changelog"
 description: "New features, improvements, and fixes to the LedgerSync v3 API. Newest first."
 ---
 
+<Update label="2026-10-01" tags={["AI connector"]}>
+  ## Sign in to the AI connector with your LedgerSync app login
+
+  When you connect LedgerSync in Claude or ChatGPT, the LedgerSync sign-in page now opens.
+
+  - Firms that use the LedgerSync app sign in with their normal LedgerSync username or email and password,
+    plus their two-step code if they use one. No developer portal account and no email to support.
+  - New firms create their LedgerSync account on that page: **Create account**, the sign-up form, then the
+    order page. Our team reviews each new firm once. Until then the connector answers the new code
+    `firm_under_review` when asked to connect a bank. Clients can be added.
+  - Only the firm owner can connect for now.
+  - Approved developer accounts type their developer portal email on the LedgerSync page, which sends them
+    to the developer portal sign-in. An application still waiting for its first approval cannot connect yet.
+  - Connections made before this change keep working.
+  - The portal's AI sign-up page (`/start/ai`) now sends new firms to the LedgerSync app sign-up.
+
+  See [Use LedgerSync in Claude or ChatGPT](/ai/start-here).
+</Update>
+
 <Update label="2026-09-29" tags={["AI connector", "Institutions", "Connections"]}>
   ## See which banks need the LedgerSync desktop app, and link it from Claude and ChatGPT
 
@@ -41,7 +60,7 @@ description: "New features, improvements, and fixes to the LedgerSync v3 API. Ne
     fires for the question.
 
   See [Errors](/guides/errors) and
-  [Banks that need the LedgerSync desktop app](/guides/use-with-claude-and-chatgpt#banks-that-need-the-ledgersync-desktop-app).
+  [Banks that need the LedgerSync desktop app](/ai/desktop-app).
 </Update>
 
 <Update label="2026-09-29" tags={["AI connector"]}>
@@ -61,7 +80,7 @@ description: "New features, improvements, and fixes to the LedgerSync v3 API. Ne
   - Developers building on the API keep the usual path: a sandbox request, then the Live application and
     payment.
 
-  See [Use LedgerSync in Claude and ChatGPT](/guides/use-with-claude-and-chatgpt).
+  See [New to LedgerSync: sign up](/ai/new-to-ledgersync).
 </Update>
 
 <Update label="2026-09-28" tags={["AI connector"]}>
@@ -77,7 +96,7 @@ description: "New features, improvements, and fixes to the LedgerSync v3 API. Ne
   - The portal's new **Connected apps** page lists the AI apps connected to your account and disconnects
     one at once.
 
-  See [Use LedgerSync in Claude and ChatGPT](/guides/use-with-claude-and-chatgpt).
+  See [Use LedgerSync in Claude or ChatGPT](/ai/start-here).
 </Update>
 
 <Update label="2026-09-28" tags={["Connections", "Webhooks"]}>

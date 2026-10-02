@@ -23,10 +23,22 @@
             "pages": [
               "introduction",
               "guides/build-with-ai",
-              "guides/use-with-claude-and-chatgpt",
               "guides/quickstart",
               "guides/connect-a-bank",
               "authentication"
+            ]
+          },
+          {
+            "group": "AI connector",
+            "pages": [
+              "ai/start-here",
+              "ai/new-to-ledgersync",
+              "ai/existing-customers",
+              "ai/setup-claude",
+              "ai/setup-chatgpt",
+              "ai/troubleshooting",
+              "ai/desktop-app",
+              "ai/developers"
             ]
           },
           {
@@ -93,7 +105,8 @@
     { "source": "/errors", "destination": "/guides/errors", "permanent": true },
     { "source": "/testing", "destination": "/guides/testing", "permanent": true },
     { "source": "/going-live", "destination": "/guides/going-live", "permanent": true },
-    { "source": "/pagination", "destination": "/guides/pagination", "permanent": true }
+    { "source": "/pagination", "destination": "/guides/pagination", "permanent": true },
+    { "source": "/guides/use-with-claude-and-chatgpt", "destination": "/ai/start-here", "permanent": true }
   ],
   "footer": {
     "socials": {

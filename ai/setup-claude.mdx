@@ -1,0 +1,151 @@
+---
+title: "Set up in Claude"
+description: "Add LedgerSync to Claude, sign in, and ask your first question."
+---
+
+import AiAsk from "/snippets/ai-ask.mdx";
+
+New to LedgerSync? You create your account when you sign in, in the steps below.
+
+Use [claude.ai](https://claude.ai) on a computer.
+
+<Note>
+  **Claude Free plan?** It allows only one added connector. Already added another one? Remove it first.
+</Note>
+
+<Note>
+  **Claude Team or Enterprise?** Your firm's Claude Owner adds LedgerSync first: **Organization settings**,
+  then **Connectors**, then **Add**, then **Custom**, then **Web**. After that you do not add anything: open
+  **Connectors**, find **LedgerSync**, click **Connect**, and go to [step 4](#sign-in).
+</Note>
+
+<Steps>
+  <Step title="Check whether LedgerSync is already there" id="check">
+    Open [claude.ai](https://claude.ai). Click **Customize**, then **Connectors**. No menu on the left? Click
+    the sidebar button at the top left.
+
+    <Frame>
+      <img src="/images/ai-connector/claude-1-customize-connectors.png" alt="Claude menu with Customize and the Connectors tab marked" />
+    </Frame>
+
+    Click **Yours**. Is LedgerSync already there?
+
+    - It says **Connected**: go to [step 5](#always-allow).
+    - It says **Connect** or **Reconnect**: click it and go to [step 4](#sign-in).
+    - It is not there: do the next step.
+  </Step>
+  <Step title="Click the Add to Claude button" id="add">
+    <Card title="Add to Claude" icon="plus" href="https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=LedgerSync&connectorUrl=https%3A%2F%2Fapi.ledgersyncappv2.com%2Fmcp">
+      Opens Claude with LedgerSync already filled in.
+    </Card>
+
+    Claude opens the **Add custom connector** box. The name **LedgerSync** and the address are already
+    filled in.
+
+    Claude also shows a red box: **This connector was suggested by an external link. Verify the name and
+    URL are from a developer you trust before adding.** That is expected. Check that the address is
+    `https://api.ledgersyncappv2.com/mcp`. Then click **Continue**.
+
+    Your box shows **Add** instead of **Continue**? Do not change anything. Click **Add** and go to
+    [step 4](#sign-in).
+
+    <Accordion title="The button did not work? Add it by hand">
+      Copy this address. Click the copy icon on the right of the box.
+
+      ```text
+      https://api.ledgersyncappv2.com/mcp
+      ```
+
+      In **Connectors**, click **Add**, then **Add custom connector**.
+
+      <Frame>
+        <img src="/images/ai-connector/claude-2-add-custom-connector.png" alt="The Add button and the Add custom connector option marked" />
+      </Frame>
+
+      Type **LedgerSync** in the name box. Click the address box, then press **Ctrl+V** (Windows) or
+      **Command+V** (Mac). Click **Continue**.
+
+      <Frame>
+        <img src="/images/ai-connector/claude-3-name-and-address.png" alt="The name LedgerSync and the address typed in, with Continue marked" />
+      </Frame>
+
+      Then do the next step.
+    </Accordion>
+
+    Claude says this address is already added? Look under **Yours** in [step 1](#check). Not there? Reload
+    the page, or sign out of Claude and back in. Then try again.
+  </Step>
+  <Step title="Click Add" id="click-add">
+    Do not change anything on this screen. Click **Add**.
+
+    <Frame>
+      <img src="/images/ai-connector/claude-4-add.png" alt="The second screen with the Add button marked" />
+    </Frame>
+  </Step>
+  <Step title="Click Connect and sign in to LedgerSync" id="sign-in">
+    Click **Connect** (skip this if you already clicked it).
+
+    <Frame>
+      <img src="/images/ai-connector/claude-5-connect.png" alt="LedgerSync connector page with the Connect button marked" />
+    </Frame>
+
+    The LedgerSync sign-in page opens. Type your email or your LedgerSync username. Click **Next**.
+    Already signed in to LedgerSync in this browser? You go straight to the **Allow** page.
+
+    <Frame>
+      <img src="/images/ai-connector/connect-1-email.png" alt="The Sign in to LedgerSync page with the Next button marked" />
+    </Frame>
+
+    - **Your firm uses LedgerSync:** type your LedgerSync password. Click **Sign in**. You use two-step
+      sign-in? Type your code and click **Verify**. See **Create your LedgerSync account** instead? Do not
+      click it. Click **Change** and type your LedgerSync username.
+    - **New to LedgerSync:** the page says **Create your LedgerSync account**. Click **Create account** and
+      follow [New to LedgerSync](/ai/new-to-ledgersync). It ends on the **Allow** page below.
+    - **Approved developer accounts:** type your developer portal email. LedgerSync sends you to the developer
+      portal sign-in. An application still waiting for its first approval cannot connect yet.
+
+    Then click **Allow**.
+
+    <Frame>
+      <img src="/images/ai-connector/connect-5-allow.png" alt="The Connect your AI assistant page with the Allow button marked" />
+    </Frame>
+
+    Claude asks to access your account. Click **Allow access**. You only see this the first time.
+
+    <Frame>
+      <img src="/images/ai-connector/ledgersync-allow-access.png" alt="LedgerSync page asking to let Claude access your account, with Allow access marked" />
+    </Frame>
+  </Step>
+  <Step title="Let Claude read without asking each time" id="always-allow">
+    In **Customize**, then **Connectors**, click **LedgerSync**. Next to **Read-only tools**, pick **Always
+    allow**.
+
+    <Frame>
+      <img src="/images/ai-connector/claude-6-always-allow-reading.png" alt="Read-only tools menu with Always allow marked" />
+    </Frame>
+
+    Claude keeps asking before it changes anything, unless you click **Always allow** on one of those
+    questions. For changes, click **Allow once**.
+  </Step>
+  <Step title="Test it in a new chat" id="test">
+    Click **New**. Ask:
+
+    ```text
+    Use LedgerSync to check whether my account is ready.
+    ```
+
+    Claude does not use LedgerSync? Click **+** in the message box, then **Connectors**, and turn
+    **LedgerSync** on.
+
+    LedgerSync now also works in the Claude desktop and phone apps.
+  </Step>
+</Steps>
+
+## Now ask
+
+<AiAsk />
+
+To remove LedgerSync from Claude, see [Troubleshooting](/ai/troubleshooting#remove-or-turn-off-ledgersync).
+
+Stuck? Email [support@ledgersync.com](mailto:support@ledgersync.com) with the step and what the screen says.
+Never send passwords or card numbers.
