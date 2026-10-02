@@ -5,34 +5,27 @@ description: "Ask Claude or ChatGPT about your clients' bank accounts, in plain 
 mode: "frame"
 ---
 
-import { AiPage, AiProgress, AiChoice, AiNote, AiStuck } from "/snippets/ai-ui.jsx";
+import { AiPage, AiChoice, AiNote, AiStuck } from "/snippets/ai-ui.jsx";
 
-<AiPage title="Use LedgerSync in Claude or ChatGPT" subtitle="Ask Claude or ChatGPT about your clients' bank accounts in plain words. It finds the answer in LedgerSync. Setup takes about 5 minutes.">
+<AiPage title="Use LedgerSync in Claude or ChatGPT" subtitle="Ask Claude or ChatGPT about your clients' bank accounts in plain words. It finds the answer in LedgerSync. Setup takes about 5 minutes." stage={1}>
 
-<AiProgress current={1} />
+<AiNote tone="green">
 
-## Which one are you?
+**Sign in with your normal LedgerSync login.** Only your firm's LedgerSync owner can connect it, for now. Someone
+else at your firm set it up? Ask them. Please don't create a second account.
 
-<div className="lsai-grid-3">
-  <AiChoice title="I'm new to LedgerSync" href="/ai/new-to-ledgersync" cta="Get started →">
-    My firm doesn't use LedgerSync yet.
-  </AiChoice>
-  <AiChoice title="My firm already uses LedgerSync" href="/ai/existing-customers" cta="Show me how →">
-    We already use the LedgerSync app. No new plan, no extra charge.
-  </AiChoice>
-  <AiChoice title="Someone at my firm set this up" href="mailto:support@ledgersync.com?subject=Who%20is%20our%20LedgerSync%20owner%3F" cta="Who is our owner?" outline>
-    Only your firm's LedgerSync owner can connect it. Ask them. Please don't sign up again.
-  </AiChoice>
-</div>
+</AiNote>
+
+Your firm has no LedgerSync account yet? Sign up at [ledgersyncappv2.com/sign-up](https://ledgersyncappv2.com/sign-up) first, then come back here.
 
 ## Which AI do you use?
 
 <div className="lsai-grid-2">
-  <AiChoice title="Claude" href="/ai/setup-claude" link="Set up in Claude →">
-    Works on any Claude plan. On Claude Team or Enterprise, your admin allows LedgerSync first.
+  <AiChoice title="Claude" href="/ai/setup-claude" cta="Set up in Claude →">
+    Works on any Claude plan. On Claude Team or Enterprise, your firm's Claude Owner adds LedgerSync first.
   </AiChoice>
-  <AiChoice title="ChatGPT" href="/ai/setup-chatgpt" link="Set up in ChatGPT →">
-    Needs ChatGPT Plus or higher, on chatgpt.com in a web browser. On ChatGPT Business, ask your admin first.
+  <AiChoice title="ChatGPT" href="/ai/setup-chatgpt" cta="Set up in ChatGPT →">
+    Needs ChatGPT Plus or higher, on chatgpt.com in a web browser. On ChatGPT Business, Enterprise or Edu, your workspace admin adds LedgerSync first.
   </AiChoice>
 </div>
 

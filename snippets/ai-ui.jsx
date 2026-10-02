@@ -2,57 +2,171 @@
 // proposal. Styles live in /ai-connector.css; every class starts with lsai- so nothing else on the site changes.
 // Mintlify compiles each exported component on its own, so no component here may use another one.
 
-export const AiPage = ({ title, subtitle, video, poster, children }) => (
-  <div className="lsai-page">
-    <div className="lsai-head">
-      <div className="lsai-head-text">
-        <h1 className="lsai-title">{title}</h1>
-        {subtitle && <p className="lsai-subtitle">{subtitle}</p>}
-      </div>
-      {video && (
-        <details className="lsai-video">
-          <summary className="lsai-video-button">
-            <span className="lsai-video-play" aria-hidden="true">▶</span>
-            <span className="lsai-video-label"><strong>Watch it first</strong><span>Short setup video</span></span>
-          </summary>
-          <video className="lsai-video-player" controls preload="metadata" poster={poster} src={video} />
-        </details>
-      )}
-    </div>
-    {children}
-  </div>
-);
-
-export const AiProgress = ({ current }) => {
+// The head (title, Watch it first, progress bar) stays at the top while the page scrolls, on pages that show
+// the progress bar (stage), where the screen is big enough (CSS decides). Once pinned it gets shorter (no
+// subtitle) and grows its bottom margin by the same amount, so the page never jumps (scroll anchoring is paused
+// while it switches). The progress bar follows the
+// step on screen: steps and the test box carry data-stage. The video opens over the page, outside the pinned head,
+// so it can cover Mintlify's own header.
+export const AiPage = ({ title, subtitle, video, poster, stage, children }) => {
+  const [playing, setPlaying] = useState(false);
+  const [current, setCurrent] = useState(stage);
+  const pageRef = useRef(null);
+  const markRef = useRef(null);
+  const topRef = useRef(null);
+  const watchRef = useRef(null);
+  const closeRef = useRef(null);
+  useEffect(() => {
+    if (!stage || !topRef.current || !pageRef.current) return undefined;
+    const page = pageRef.current;
+    const top = topRef.current;
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      const css = getComputedStyle(top);
+      const stuck = css.position === "sticky" && markRef.current.getBoundingClientRect().top < (parseFloat(css.top) || 0);
+      if (stuck !== top.classList.contains("lsai-top-stuck")) {
+        const root = document.documentElement;
+        root.style.overflowAnchor = "none";
+        requestAnimationFrame(() => requestAnimationFrame(() => { root.style.overflowAnchor = ""; }));
+        if (stuck) {
+          // Grow the margin first, so the page is never shorter for a moment (a short page would clamp the scroll).
+          const before = top.offsetHeight;
+          const margin = parseFloat(css.marginBottom) || 0;
+          top.style.marginBottom = margin + before + "px";
+          top.classList.add("lsai-top-stuck");
+          top.style.marginBottom = margin + before - top.offsetHeight + "px";
+        } else {
+          top.classList.remove("lsai-top-stuck");
+          top.style.marginBottom = "";
+        }
+      }
+      // A step counts once its top passes a line just under the head; at the very bottom of the page the last
+      // step counts too, because it can't scroll up that far.
+      const atEnd = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 8;
+      const line = atEnd ? Infinity : top.getBoundingClientRect().bottom + 120;
+      if (stuck) {
+        const height = top.offsetHeight + "px";
+        if (document.documentElement.style.getPropertyValue("--lsai-pinned-h") !== height) {
+          document.documentElement.style.setProperty("--lsai-pinned-h", height);
+        }
+      }
+      let next = stage;
+      page.querySelectorAll("[data-stage]").forEach((el) => {
+        if (el.getBoundingClientRect().top < line) next = Number(el.getAttribute("data-stage"));
+      });
+      setCurrent(next);
+    };
+    const schedule = () => { if (!frame) frame = requestAnimationFrame(update); };
+    const reset = () => {
+      top.classList.remove("lsai-top-stuck");
+      top.style.marginBottom = "";
+      schedule();
+    };
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(schedule);
+    if (observer) {
+      observer.observe(top, { box: "border-box" });
+      observer.observe(page);
+    }
+    window.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", reset);
+    update();
+    return () => {
+      document.documentElement.style.removeProperty("--lsai-pinned-h");
+      if (observer) observer.disconnect();
+      window.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", reset);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, [stage, title]);
+  useEffect(() => {
+    if (!playing) return undefined;
+    const root = document.documentElement;
+    const overflow = root.style.overflow;
+    root.style.overflow = "hidden";
+    if (closeRef.current) closeRef.current.focus({ preventScroll: true });
+    return () => {
+      root.style.overflow = overflow;
+      if (watchRef.current) watchRef.current.focus({ preventScroll: true });
+    };
+  }, [playing]);
   const stages = ["Get ready", "Add it to your AI", "Sign in", "Click Allow", "Ask a question"];
   return (
-    <div className="lsai-progress-wrap">
-      <ol className="lsai-progress" aria-label="Setup progress">
-        {stages.map((label, i) => {
-          const n = i + 1;
-          const state = n < current ? "lsai-done" : n === current ? "lsai-current" : "lsai-todo";
-          return (
-            <li key={label} className={"lsai-progress-item " + state} aria-current={n === current ? "step" : undefined}>
-              <span className="lsai-progress-bar" />
-              <span className="lsai-progress-label">
-                {label}
-              </span>
-            </li>
-          );
-        })}
-      </ol>
-      <div className="lsai-progress-now">{stages[current - 1]}</div>
+    <div ref={pageRef} className={stage ? "lsai-page lsai-page-pinned" : "lsai-page"}>
+      <div ref={markRef} className="lsai-top-mark" aria-hidden="true" />
+      <div ref={topRef} className="lsai-top">
+        <div className="lsai-head">
+          <div className="lsai-head-text">
+            <h1 className="lsai-title">{title}</h1>
+            {subtitle && <p className="lsai-subtitle">{subtitle}</p>}
+          </div>
+          {video && (
+            <button ref={watchRef} type="button" className="lsai-video-button" onClick={() => setPlaying(true)}>
+              <span className="lsai-video-play" aria-hidden="true">▶</span>
+              <span className="lsai-video-label"><strong>Watch it first</strong><span>Short setup video</span></span>
+            </button>
+          )}
+        </div>
+        {stage && (
+          <div className="lsai-progress-wrap">
+            <ol className="lsai-progress" aria-label="Setup progress">
+              {stages.map((label, i) => {
+                const n = i + 1;
+                const state = n < current ? "lsai-done" : n === current ? "lsai-current" : "lsai-todo";
+                return (
+                  <li key={label} className={"lsai-progress-item " + state} aria-current={n === current ? "step" : undefined}>
+                    <span className="lsai-progress-bar" />
+                    <span className="lsai-progress-label">{label}</span>
+                  </li>
+                );
+              })}
+            </ol>
+            <div className="lsai-progress-now">{stages[current - 1]}</div>
+          </div>
+        )}
+      </div>
+      {playing && (
+        <div className="lsai-lightbox lsai-video-box" role="dialog" aria-modal="true" aria-label={title + ": setup video"} tabIndex={-1}
+             onClick={(e) => { if (e.target === e.currentTarget) setPlaying(false); }}
+             onKeyDown={(e) => {
+               if (e.key === "Escape") setPlaying(false);
+               if (e.key === "Tab") {
+                 e.preventDefault();
+                 const close = e.currentTarget.querySelector("button");
+                 (document.activeElement === close ? e.currentTarget.querySelector("video") : close).focus({ preventScroll: true });
+               }
+             }}>
+          <button ref={closeRef} type="button" className="lsai-lightbox-close" onClick={() => setPlaying(false)}>Close</button>
+          <video className="lsai-video-player" controls autoPlay playsInline tabIndex={0} poster={poster} src={video} />
+          <span className="lsai-lightbox-note">Click Close when you are done</span>
+        </div>
+      )}
+      {children}
     </div>
   );
 };
 
 // One step: number, "Step X of N", title, text, and one or more full-window pictures on the right.
-// A picture opens large on the same page; a click anywhere closes it.
-export const AiStep = ({ id, n, total, label, title, img, caption, imgs, children }) => {
+// A picture opens large on the same page; a click anywhere closes it (not the second click of a double-click,
+// which would close it right after it opens).
+export const AiStep = ({ id, n, total, label, title, img, caption, imgs, stage, children }) => {
   const [open, setOpen] = useState(null);
+  const closeRef = useRef(null);
+  const openerRef = useRef(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const root = document.documentElement;
+    const overflow = root.style.overflow;
+    root.style.overflow = "hidden";
+    if (closeRef.current) closeRef.current.focus({ preventScroll: true });
+    return () => {
+      root.style.overflow = overflow;
+      if (openerRef.current) openerRef.current.focus({ preventScroll: true });
+    };
+  }, [open]);
   const pictures = imgs || (img ? [{ src: img, caption }] : []);
   return (
-    <div className="lsai-step" id={id}>
+    <div className="lsai-step" id={id} data-stage={stage}>
       <div className="lsai-step-num" aria-hidden="true">{n}</div>
       <div className="lsai-step-main">
         <div className="lsai-step-label">{label || "Step " + n + " of " + total}</div>
@@ -63,7 +177,7 @@ export const AiStep = ({ id, n, total, label, title, img, caption, imgs, childre
         <div className="lsai-thumbs">
           {pictures.map((pic) => (
             <a key={pic.src} className="lsai-thumb" href={pic.src} title="Click to see it larger"
-               onClick={(e) => { e.preventDefault(); setOpen(pic); }}>
+               onClick={(e) => { e.preventDefault(); openerRef.current = e.currentTarget; setOpen(pic); }}>
               <img src={pic.src} alt="" loading="lazy" />
               <span className="lsai-thumb-caption">{pic.caption ? pic.caption + " · " : ""}click to enlarge</span>
             </a>
@@ -71,9 +185,10 @@ export const AiStep = ({ id, n, total, label, title, img, caption, imgs, childre
         </div>
       )}
       {open && (
-        <div className="lsai-lightbox" role="dialog" aria-modal="true" aria-label={open.caption || title} onClick={() => setOpen(null)}
+        <div className="lsai-lightbox" role="dialog" aria-modal="true" aria-label={open.caption || title}
+             onClick={(e) => { if (e.detail < 2) setOpen(null); }}
              onKeyDown={(e) => { if (e.key === "Escape") setOpen(null); if (e.key === "Tab") e.preventDefault(); }}>
-          <button type="button" className="lsai-lightbox-close" autoFocus onClick={() => setOpen(null)}>Close</button>
+          <button ref={closeRef} type="button" className="lsai-lightbox-close" onClick={() => setOpen(null)}>Close</button>
           <img src={open.src} alt={open.caption || title} />
           <span className="lsai-lightbox-note">{open.caption ? open.caption + " · " : ""}Click anywhere to close</span>
         </div>
@@ -108,18 +223,13 @@ export const AiButton = ({ href, children, outline, newTab }) => (
      target={newTab ? "_blank" : undefined} rel={newTab ? "noopener noreferrer" : undefined}>{children}</a>
 );
 
-export const AiChoice = ({ title, children, href, cta, link, outline }) => (
+export const AiChoice = ({ title, children, href, cta }) => (
   <div className="lsai-choice">
     <div className="lsai-choice-title">{title}</div>
     <div className="lsai-choice-text">{children}</div>
     {href && cta && (
       <div className="lsai-choice-action">
-        <a className={outline ? "lsai-btn lsai-btn-outline" : "lsai-btn"} href={href}>{cta}</a>
-      </div>
-    )}
-    {href && link && (
-      <div className="lsai-choice-action">
-        <a className="lsai-link" href={href}>{link}</a>
+        <a className="lsai-btn" href={href}>{cta}</a>
       </div>
     )}
   </div>
@@ -129,7 +239,7 @@ export const AiNote = ({ tone, children }) => (
   <div className={"lsai-note lsai-note-" + (tone || "gray")}>{children}</div>
 );
 
-export const AiTest = ({ text, children }) => {
+export const AiTest = ({ text, stage, children }) => {
   const [copied, setCopied] = useState(false);
   const copy = () => {
     if (navigator.clipboard) {
@@ -140,7 +250,7 @@ export const AiTest = ({ text, children }) => {
     }
   };
   return (
-    <div className="lsai-test">
+    <div className="lsai-test" data-stage={stage}>
       <div className="lsai-test-main">
         <div className="lsai-test-title">Last step: test it in a new chat</div>
         <div className="lsai-test-text">“{text}”</div>
@@ -154,21 +264,35 @@ export const AiTest = ({ text, children }) => {
 // A titled box. An optional picture shows under the text and opens large on the same page, like a step's.
 export const AiBox = ({ id, title, img, caption, children }) => {
   const [open, setOpen] = useState(false);
+  const closeRef = useRef(null);
+  const openerRef = useRef(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const root = document.documentElement;
+    const overflow = root.style.overflow;
+    root.style.overflow = "hidden";
+    if (closeRef.current) closeRef.current.focus({ preventScroll: true });
+    return () => {
+      root.style.overflow = overflow;
+      if (openerRef.current) openerRef.current.focus({ preventScroll: true });
+    };
+  }, [open]);
   return (
     <div className="lsai-box" id={id}>
       {title && <div className="lsai-box-title">{title}</div>}
       <div className="lsai-box-text">{children}</div>
       {img && (
         <a className="lsai-thumb lsai-box-thumb" href={img} title="Click to see it larger"
-           onClick={(e) => { e.preventDefault(); setOpen(true); }}>
+           onClick={(e) => { e.preventDefault(); openerRef.current = e.currentTarget; setOpen(true); }}>
           <img src={img} alt="" loading="lazy" />
           <span className="lsai-thumb-caption">{caption ? caption + " · " : ""}click to enlarge</span>
         </a>
       )}
       {open && (
-        <div className="lsai-lightbox" role="dialog" aria-modal="true" aria-label={caption || title} onClick={() => setOpen(false)}
+        <div className="lsai-lightbox" role="dialog" aria-modal="true" aria-label={caption || title}
+             onClick={(e) => { if (e.detail < 2) setOpen(false); }}
              onKeyDown={(e) => { if (e.key === "Escape") setOpen(false); if (e.key === "Tab") e.preventDefault(); }}>
-          <button type="button" className="lsai-lightbox-close" autoFocus onClick={() => setOpen(false)}>Close</button>
+          <button ref={closeRef} type="button" className="lsai-lightbox-close" onClick={() => setOpen(false)}>Close</button>
           <img src={img} alt={caption || title} />
           <span className="lsai-lightbox-note">{caption ? caption + " · " : ""}Click anywhere to close</span>
         </div>
@@ -176,6 +300,10 @@ export const AiBox = ({ id, title, img, caption, children }) => {
     </div>
   );
 };
+
+// The support address as a plain email link. Mintlify sends links inside components that take props, and
+// markdown links, to a new tab, which shows as an empty page for an email link; this one takes no props.
+export const AiEmail = () => <a href="mailto:support@ledgersync.com">support@ledgersync.com</a>;
 
 export const AiStuck = () => (
   <div className="lsai-stuck">
@@ -185,72 +313,3 @@ export const AiStuck = () => (
     Never send passwords or card numbers.
   </div>
 );
-
-// The screens a new firm sees when it creates its account on the sign-in page, as sub-steps of the setup page's
-// sign-in step (step={3} gives 3a to 3d); `next` is the step that follows.
-export const AiCreateAccount = ({ step, next }) => {
-  const [open, setOpen] = useState(null);
-  const subs = [
-    {
-      title: "Your work email", img: "/images/ai-connector/full/ls-1-email.png", caption: "Next circled",
-      text: [
-        <>In step {step} you typed your work email and clicked <strong>Next</strong>.</>,
-        <>It must be your work email, not a free email like Gmail, with no plus sign (+).</>,
-      ],
-    },
-    {
-      title: "Click Create account", img: "/images/ai-connector/full/ls-3-create-account.png", caption: "Create account circled",
-      text: [<>The page says <strong>Create your LedgerSync account</strong>. Click <strong>Create account</strong>.</>],
-    },
-    {
-      title: "Fill in the form", img: "/images/ai-connector/full/ls-4-sign-up-form.png", caption: "NEXT circled",
-      text: [
-        <>Your email is already there. Type your name, your cell phone and office phone (both are needed), and your firm's name.</>,
-        <>Type a password twice: 10 or more characters, with a capital letter, a small letter, a number and a symbol. Click <strong>NEXT</strong>.</>,
-      ],
-    },
-    {
-      title: "Add your card", img: null, caption: null,
-      text: [
-        <>Check your order. Type your card details. Click <strong>Subscribe</strong>. This page is from Zoho, our billing partner. Zoho keeps your card: we never see the full number.</>,
-        <>Then we check your new firm by hand. You can add clients right away. Bank connections open after our check.</>,
-        <>The page then says <strong>Creating your account</strong>, and may say <strong>Getting your account ready</strong>. Don't close it: it moves on by itself. If it says <strong>Wait 2 minutes, then click Try again</strong>, do that.</>,
-        <>When you see <strong>Allow</strong>, do step {next}.</>,
-      ],
-    },
-  ];
-  const letters = ["a", "b", "c", "d"];
-  return (
-    <div className="lsai-substeps">
-      {subs.map((sub, i) => (
-        <div className="lsai-step" key={sub.title}>
-          <div className="lsai-step-num lsai-step-num-sub" aria-hidden="true">{step}{letters[i]}</div>
-          <div className="lsai-step-main">
-            <div className="lsai-step-label">Step {step}{letters[i]}</div>
-            <div className="lsai-step-title">{sub.title}</div>
-            <div className="lsai-step-text">
-              {sub.text.map((line, j) => <p key={j}>{line}</p>)}
-            </div>
-          </div>
-          {sub.img && (
-            <div className="lsai-thumbs">
-              <a className="lsai-thumb" href={sub.img} title="Click to see it larger"
-                 onClick={(e) => { e.preventDefault(); setOpen(sub); }}>
-                <img src={sub.img} alt="" loading="lazy" />
-                <span className="lsai-thumb-caption">{sub.caption} · click to enlarge</span>
-              </a>
-            </div>
-          )}
-        </div>
-      ))}
-      {open && (
-        <div className="lsai-lightbox" role="dialog" aria-modal="true" aria-label={open.caption} onClick={() => setOpen(null)}
-             onKeyDown={(e) => { if (e.key === "Escape") setOpen(null); if (e.key === "Tab") e.preventDefault(); }}>
-          <button type="button" className="lsai-lightbox-close" autoFocus onClick={() => setOpen(null)}>Close</button>
-          <img src={open.img} alt={open.caption} />
-          <span className="lsai-lightbox-note">{open.caption} · Click anywhere to close</span>
-        </div>
-      )}
-    </div>
-  );
-};

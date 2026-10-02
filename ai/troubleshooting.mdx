@@ -4,7 +4,7 @@ description: "What the AI's LedgerSync messages mean, and what to do."
 mode: "frame"
 ---
 
-import { AiPage, AiBox, AiStuck } from "/snippets/ai-ui.jsx";
+import { AiPage, AiBox, AiEmail, AiStuck } from "/snippets/ai-ui.jsx";
 
 <AiPage title="Troubleshooting" subtitle="The AI tells you what's wrong in plain words. Find its message below.">
 
@@ -13,9 +13,9 @@ import { AiPage, AiBox, AiStuck } from "/snippets/ai-ui.jsx";
 | The AI says | Do this |
 | --- | --- |
 | **We're reviewing your new firm. You can add clients now. Bank connections open after the review.** | Nothing to fix. Add your clients now: ask "Add my client" and the client's name. Bank connections open after our review. |
-| **LedgerSync is not set up for this sign-in yet.** Or: **This LedgerSync connection is not active.** | [Connect again](#connect-again). Sign in with the username or email you use in the LedgerSync app. Your firm already uses LedgerSync? Don't create a new account. Still not working? Email support. |
+| **LedgerSync is not set up for this sign-in yet.** Or: **This LedgerSync connection is not active.** | [Connect again](#connect-again). Sign in with the username or email you use in the LedgerSync app. Don't create a second account. Still not working? Email <AiEmail />. |
 | **Your LedgerSync password was changed, so this connection was turned off.** | [Connect again](#connect-again). Sign in again, with your new password if you changed it. |
-| **For now, only the firm owner can use LedgerSync in their own Claude or ChatGPT.** | Access for teammates is coming. For now, ask your firm owner. |
+| **For now, only the firm owner can use LedgerSync in their own Claude or ChatGPT.** | Access for teammates is coming. For now, ask your firm's LedgerSync owner. |
 | It doesn't seem to know LedgerSync | Start a new chat and ask again. In Claude, click **+** in the message box, then **Connectors**, and turn **LedgerSync** on. In ChatGPT, type **@** and pick **LedgerSync**. Not in the list? Open [Plugins](https://chatgpt.com/plugins), click **Personal**, then **LedgerSync**, then **Install plugin**. |
 
 <AiBox id="connect-again" title="To connect again">
@@ -36,42 +36,36 @@ The LedgerSync sign-in page opens. Sign in, then click **Allow**.
   <Accordion title="Signing in: the LedgerSync page shows a message">
     | The page says | Do this |
     | --- | --- |
-    | **Use your work email to create a LedgerSync account.** | Type your work email, not a free email like Gmail. |
-    | **Use an email without a plus sign (+) to create a LedgerSync account.** | Type your email without the plus sign and the part after it. |
+    | **Use your work email to create a LedgerSync account.** Or: **Use an email without a plus sign (+) to create a LedgerSync account.** | No LedgerSync login uses that email. In the same box, type the email or username you use in the LedgerSync app and click **Next**. Don't create a second account. Your firm has no LedgerSync account yet? Sign up at [ledgersyncappv2.com/sign-up](https://ledgersyncappv2.com/sign-up) first. |
     | **We can't find that username. Try your email.** | Type your email instead. |
     | **More than one account uses this email. Enter your username.** | Type your LedgerSync username. |
     | **Wrong password. Try again.** | Type your password again, or click **Forgot password?**. |
     | **Too many wrong passwords. Reset your password to continue.** | Click **Reset your password**. |
     | **Too many tries. Wait 10 minutes, then try again.** Or: **Too many tries. Wait 10 minutes and try again.** | Wait 10 minutes. Then try again. |
-    | **This email belongs to a closed LedgerSync account.** | Email [support@ledgersync.com](mailto:support@ledgersync.com). |
+    | **This email belongs to a closed LedgerSync account.** | Email <AiEmail />. |
     | **This sign-in is for accounting firms.** | This page is for accounting firms. Your accountant connects LedgerSync. |
-    | **Finish creating your account** | Your account is not paid yet. Click **Finish** and pay. |
-    | **Your account is almost ready. Wait 2 minutes, then click Try again.** | Wait 2 minutes. Then click **Try again**. |
+    | **Create your LedgerSync account** (No LedgerSync account uses this email yet.) | Don't click **Create account**. Click **Change** and type the username you use in the LedgerSync app. Your firm has no LedgerSync account yet? Sign up at [ledgersyncappv2.com/sign-up](https://ledgersyncappv2.com/sign-up) first. |
+    | **Finish creating your account** | Your firm already uses LedgerSync? Don't click **Finish**. Click **Change** and type the username you use in the LedgerSync app. Need help? Email <AiEmail />. |
     | **This connect link has expired.** Or: **This connect link was already used.** | Go back to Claude or ChatGPT and [connect again](#connect-again). |
     | **Your password was changed after you signed in.** | Click **Sign out**. Then sign in again with your new password. |
     | **Sign out, then sign in again with your two-step code.** | Click **Sign out**. Then sign in again and type your two-step code. |
-    | **Getting your account ready. Wait 1 minute, then click Sign in.** | Wait 1 minute. Then click **Sign in**. |
     | **Check your email and try again.** | Check the email you typed. Then try again. |
     | **We could not finish connecting. Wait a minute, then click Allow again.** | Wait a minute. Then click **Allow** again. |
     | **Something went wrong. Try again.** Or: **Something went wrong on our side.** | Try again. Still there? Go back to Claude or ChatGPT and [connect again](#connect-again). |
     | **This account signs in with its email.** | Click **Sign out**. Go back to Claude or ChatGPT and [connect again](#connect-again). |
-    | **Your LedgerSync account setup is not finished.** Or: **Your LedgerSync account needs a quick check.** Or: **This email is already connected to LedgerSync for another firm.** Or: **We could not connect this account.** Or: **This LedgerSync account is closed.** Or: **Connecting an AI assistant is turned off for this account.** | Email [support@ledgersync.com](mailto:support@ledgersync.com). |
+    | **Your LedgerSync account setup is not finished.** Or: **Your LedgerSync account needs a quick check.** Or: **This email is already connected to LedgerSync for another firm.** Or: **We could not connect this account.** Or: **This LedgerSync account is closed.** Or: **Connecting an AI assistant is turned off for this account.** | Email <AiEmail />. |
   </Accordion>
 
-  <Accordion title="Access: locked, payment, review, turned off">
+  <Accordion title="Access: locked, payment, turned off">
     | The AI or the page says | Do this |
     | --- | --- |
-    | **Your LedgerSync login is locked.** | Click **Forgot password?** on the LedgerSync sign-in page and set a new password. Then [connect again](#connect-again). If the reset says your account is locked, email [support@ledgersync.com](mailto:support@ledgersync.com). |
-    | **Your LedgerSync account is locked because a subscription payment did not go through.** Or: **Your account is locked because a subscription payment didn't go through.** | Email [support@ledgersync.com](mailto:support@ledgersync.com) and we will help you update your card. Then try again. |
-    | **LedgerSync is not active for your firm.** | Email [support@ledgersync.com](mailto:support@ledgersync.com) and we will help. |
-    | **Connecting an AI assistant is turned off for your firm.** | Email [support@ledgersync.com](mailto:support@ledgersync.com). |
+    | **Your LedgerSync login is locked.** | Click **Forgot password?** on the LedgerSync sign-in page and set a new password. Then [connect again](#connect-again). If the reset says your account is locked, email <AiEmail />. |
+    | **Your LedgerSync account is locked because a subscription payment did not go through.** Or: **Your account is locked because a subscription payment didn't go through.** | Email <AiEmail /> and we will help you update your card. Then try again. |
+    | **LedgerSync is not active for your firm.** | Email <AiEmail /> and we will help. |
+    | **Connecting an AI assistant is turned off for your firm.** | Email <AiEmail />. |
     | **This app was disconnected from the LedgerSync account.** | [Connect again](#connect-again). |
-    | **We need one more answer from you.** (developer accounts) | We emailed you our question. Open [portal.ledgersyncappv2.com](https://portal.ledgersyncappv2.com), sign in, and answer it on the first page. |
-    | **This sign-in has no LedgerSync access yet.** Or: **There is no active LedgerSync developer account for this sign-in yet.** Or: **Your application is awaiting review.** | New firm: we're reviewing your firm, so you have nothing to do. Questions? Email [support@ledgersync.com](mailto:support@ledgersync.com). Developer accounts: do what the AI says next, wait for our email, or check your account at [portal.ledgersyncappv2.com](https://portal.ledgersyncappv2.com). |
-    | **We could not approve this LedgerSync sign-up.** Or: **This LedgerSync sign-up closed before we could review it.** | Email [support@ledgersync.com](mailto:support@ledgersync.com). |
-    | **Your LedgerSync sign-up is not finished.** Or: **Your card is not on file yet.** | Email [support@ledgersync.com](mailto:support@ledgersync.com) and we will help. |
-    | **LedgerSync access for this account was turned off.** | Email [support@ledgersync.com](mailto:support@ledgersync.com). |
-    | It asks you to complete the payment step (developer accounts) | Finish the payment step in the developer portal. |
+
+    Using a LedgerSync developer account? See [For developers](/ai/developers).
   </Accordion>
 
   <Accordion title="Limits and other errors: wait, or try again later">
@@ -123,7 +117,7 @@ The LedgerSync sign-in page opens. Sign in, then click **Allow**.
   Change your LedgerSync password. Every AI you connected with your LedgerSync app login stops working within
   a minute. To use LedgerSync in your AI again, [connect again](#connect-again) and sign in with your new password.
 
-  To stop it for good, email [support@ledgersync.com](mailto:support@ledgersync.com) and we will turn it off.
+  To stop it for good, email <AiEmail /> and we will turn it off.
 
   </AiBox>
 </div>

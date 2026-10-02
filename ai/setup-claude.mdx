@@ -4,14 +4,48 @@ description: "Add LedgerSync to Claude, sign in, and ask your first question."
 mode: "frame"
 ---
 
-import { AiPage, AiProgress, AiStep, AiCopy, AiButton, AiNote, AiTest, AiCreateAccount, AiStuck } from "/snippets/ai-ui.jsx";
+import { AiPage, AiStep, AiCopy, AiButton, AiNote, AiTest, AiStuck } from "/snippets/ai-ui.jsx";
 import AiAsk from "/snippets/ai-ask.mdx";
 
-<AiPage title="Set up in Claude" subtitle="5 steps · about 3 minutes · on claude.ai in a web browser" video="/videos/setup-claude.mp4" poster="/videos/setup-claude-poster.jpg">
+<AiPage title="Set up in Claude" subtitle="5 steps · about 3 minutes · on claude.ai in a web browser" video="/videos/setup-claude.mp4" poster="/videos/setup-claude-poster.jpg" stage={2}>
 
-<AiProgress current={2} />
+<Accordion title="On Claude Team or Enterprise? Open this first">
 
-<AiStep id="add" n={1} total={5} title="Click Add LedgerSync to Claude" img="/images/ai-connector/full/claude-1-add-box.png" caption="Name, address and Continue circled">
+Your firm's Claude **Owner** adds LedgerSync to your firm's Claude once. Then your firm's LedgerSync owner connects
+it. Skip steps 1 and 2 below. Not the Claude Owner? Send them this page.
+
+**The Claude Owner, once:**
+
+- Open [claude.ai](https://claude.ai) and check that the bottom left shows your firm's account. If it doesn't,
+  click your name or initials there and pick your firm. Then come back to this tab.
+- Click the button below. Claude opens in a new tab with **LedgerSync** and the address already filled in. A red
+  note about an external link is fine. Change nothing, and keep **Use Claude's published identity** picked if you
+  see it. Click **Continue** each time you see it, then click **Add**. Don't see **Add**? Scroll down inside
+  Claude's box. Then come back to this tab.
+
+<AiButton href="https://claude.ai/admin-settings/connectors?modal=add-custom-connector&connectorName=LedgerSync&connectorUrl=https%3A%2F%2Fapi.ledgersyncappv2.com%2Fmcp" newTab>Add LedgerSync for your firm</AiButton>
+
+**The button did not work?** Click **Copy** below first. Then open
+[claude.ai/admin-settings/connectors](https://claude.ai/admin-settings/connectors) and click **Add**, then
+**Custom**, then **Web**. Type **LedgerSync** in the name box. Click the address box and press **Ctrl+V**
+(**Command+V** on a Mac). Then click **Continue** and **Add** as above.
+
+<AiCopy label="Your LedgerSync address" text="https://api.ledgersyncappv2.com/mcp" />
+
+- Everyone in your firm's Claude now sees LedgerSync. Tell your team: for now only your firm's LedgerSync owner
+  connects it, and nobody creates a new LedgerSync account.
+
+**Then your firm's LedgerSync owner (it may be the same person):**
+
+- Check that the bottom left of Claude shows your firm's account (click your name or initials to switch).
+- Open [claude.ai/customize/connectors/yours](https://claude.ai/customize/connectors/yours). Click **LedgerSync**
+  (it may say **Custom**), then **Connect**. Not in that list? Type **LedgerSync** in
+  **Search connectors**.
+- Then do [Step 3](#sign-in), Step 4 and Step 5 below, and the test.
+
+</Accordion>
+
+<AiStep id="add" stage={2} n={1} total={5} title="Click Add LedgerSync to Claude" img="/images/ai-connector/full/claude-1-add-box.png" caption="Name, address and Continue circled">
 
 <AiButton href="https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=LedgerSync&connectorUrl=https%3A%2F%2Fapi.ledgersyncappv2.com%2Fmcp" newTab>Add LedgerSync to Claude</AiButton>
 
@@ -32,7 +66,7 @@ then **Add custom connector**. Type **LedgerSync** in the name box. Click the ad
 
 </AiStep>
 
-<AiStep id="connect" n={2} total={5} title="Click Continue, then Add, then Connect" imgs={[{ src: "/images/ai-connector/full/claude-2-add.png", caption: "Add circled" }, { src: "/images/ai-connector/full/claude-3-connect.png", caption: "Connect circled" }]}>
+<AiStep id="connect" stage={2} n={2} total={5} title="Click Continue, then Add, then Connect" imgs={[{ src: "/images/ai-connector/full/claude-2-add.png", caption: "Add circled" }, { src: "/images/ai-connector/full/claude-3-connect.png", caption: "Connect circled" }]}>
 
 Click **Continue** at the bottom right of the box.
 
@@ -52,32 +86,24 @@ On the Claude Free plan you can add only one connector. Remove the other one fir
 
 </AiStep>
 
-<AiStep id="sign-in" n={3} total={5} title="Sign in, or create your account" imgs={[{ src: "/images/ai-connector/full/ls-1-email.png", caption: "Next circled" }, { src: "/images/ai-connector/full/ls-2-password.png", caption: "Sign in circled" }]}>
+<AiStep id="sign-in" stage={3} n={3} total={5} title="Sign in with your LedgerSync login" imgs={[{ src: "/images/ai-connector/full/ls-1-email.png", caption: "Your email or username, then Next" }, { src: "/images/ai-connector/full/ls-2-password.png", caption: "Sign in circled" }]}>
 
-Type the email or username you use in the LedgerSync app. New to LedgerSync? Type your work email. Click
-**Next**.
+Type the email or username you use in the LedgerSync app. Click **Next**.
 
-Your firm already uses LedgerSync: type your password and click **Sign in**. Asked for a **Two Factor
-Authentication** code? Type the code from your Google Authenticator app and click **Verify**.
-
-New to LedgerSync: create your account with steps 3a to 3d, just below.
+Type your password and click **Sign in**. Asked for a **Two Factor Authentication** code? Type the code from
+your Google Authenticator app and click **Verify**.
 
 <AiNote tone="yellow">
 
-**Your firm already uses LedgerSync?** If the page says **Create your LedgerSync account**, click **Change** and
-type your LedgerSync username instead.
+**The page says Create your LedgerSync account?** No LedgerSync login uses that email. Click **Change** and type
+your LedgerSync username. Don't create a second account. Your firm has no LedgerSync account yet? Sign up at
+[ledgersyncappv2.com/sign-up](https://ledgersyncappv2.com/sign-up) first, then come back here.
 
 </AiNote>
 
 </AiStep>
 
-<Accordion title="New to LedgerSync? Create your account here (4 short steps)">
-
-<AiCreateAccount step={3} next={4} />
-
-</Accordion>
-
-<AiStep id="allow" n={4} total={5} title="Click Allow, then Allow access" imgs={[{ src: "/images/ai-connector/full/ls-5-allow.png", caption: "Allow circled" }, { src: "/images/ai-connector/full/claude-4-allow-access.png", caption: "Allow access circled" }]}>
+<AiStep id="allow" stage={4} n={4} total={5} title="Click Allow, then Allow access" imgs={[{ src: "/images/ai-connector/full/ls-5-allow.png", caption: "Allow circled" }, { src: "/images/ai-connector/full/claude-4-allow-access.png", caption: "Allow access circled" }]}>
 
 You see your firm's name. Click **Allow**.
 
@@ -87,7 +113,7 @@ Claude opens again and says **Connected to LedgerSync**.
 
 </AiStep>
 
-<AiStep id="always-allow" n={5} total={5} title="Stop Claude asking permission every time" img="/images/ai-connector/full/claude-5-always-allow.png" caption="Always allow circled">
+<AiStep id="always-allow" stage={4} n={5} total={5} title="Stop Claude asking permission every time" img="/images/ai-connector/full/claude-5-always-allow.png" caption="Always allow circled">
 
 Claude now shows the LedgerSync page. Next to **Read-only tools**, click **Needs approval**, then click **Always
 allow**.
@@ -99,7 +125,7 @@ click **LedgerSync**.
 
 </AiStep>
 
-<AiTest text="Use LedgerSync to check whether my account is ready.">
+<AiTest text="Use LedgerSync to check whether my account is ready." stage={5}>
 
 Click **Copy**. In Claude, start a new chat, click the message box, press **Ctrl+V** (Command+V on a Mac),
 then press **Enter**.
@@ -107,21 +133,11 @@ then press **Enter**.
 </AiTest>
 
 - Claude says your LedgerSync account is ready: you're done.
-- It says **We're reviewing your new firm**: add your clients now. Ask: "Add my client" and the client's name.
-  Bank connections open after the review.
 - Anything else: see [Troubleshooting](/ai/troubleshooting).
 
 <Accordion title="What to ask next">
 
 <AiAsk />
-
-</Accordion>
-
-<Accordion title="Claude Team or Enterprise">
-
-Your firm's Claude Owner adds LedgerSync first: **Organization settings**, then **Connectors**, then **Add**,
-then **Custom**, then **Web**. Then you open [claude.ai/customize/connectors](https://claude.ai/customize/connectors),
-click **LedgerSync**, click **Connect** and do steps 3 to 5.
 
 </Accordion>
 

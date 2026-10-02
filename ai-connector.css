@@ -17,6 +17,7 @@
   --lsai-yellow-line: #efd78f;
   --lsai-red-soft: #fdecec;
   --lsai-red-line: #f3b9b9;
+  --lsai-bg: rgb(var(--background-light, 255 255 255));
   max-width: 880px;
   margin: 0 auto;
   padding: 32px 24px 48px;
@@ -39,6 +40,7 @@
   --lsai-yellow-line: #5c4c1c;
   --lsai-red-soft: #2c1717;
   --lsai-red-line: #6a2c2c;
+  --lsai-bg: rgb(var(--background-dark, 10 13 16));
 }
 
 .lsai-title {
@@ -159,33 +161,31 @@
   min-width: 0;
 }
 
-.lsai-video {
-  flex: 0 0 auto;
-  max-width: 100%;
-}
-
-.lsai-video[open] {
-  flex: 1 1 100%;
-  order: 3;
-  margin-bottom: 16px;
-}
-
 .lsai-video-button {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 10px;
-  list-style: none;
+  width: max-content;
+  max-width: 100%;
   cursor: pointer;
   border: 1px solid var(--lsai-line);
   border-radius: 12px;
   padding: 10px 16px 10px 10px;
   background: var(--lsai-card);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
-  width: max-content;
+  font: inherit;
+  color: var(--lsai-ink);
+  text-align: left;
 }
 
-.lsai-video-button::-webkit-details-marker {
-  display: none;
+.lsai-video-button:hover {
+  border-color: var(--lsai-green);
+}
+
+.lsai-video-button:focus-visible {
+  outline: 3px solid var(--lsai-green);
+  outline-offset: 2px;
 }
 
 .lsai-video-play {
@@ -214,13 +214,22 @@
   font-size: 0.95rem;
 }
 
+/* The setup video plays over the page, in the same dark box as a large picture. */
+.lsai-lightbox.lsai-video-box {
+  cursor: default;
+}
+
+.lsai-video-box .lsai-lightbox-note {
+  pointer-events: none;
+}
+
 .lsai-video-player {
   display: block;
-  width: 100%;
-  margin-top: 10px;
-  border: 1px solid var(--lsai-line);
-  border-radius: 10px;
+  width: min(1100px, 100%);
+  max-height: calc(100vh - 120px);
+  border-radius: 8px;
   background: #000000;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
 }
 
 /* Progress bar: five stages, the current one green. */
@@ -339,20 +348,6 @@
   text-decoration: none;
   display: block;
   cursor: zoom-in;
-}
-
-.lsai-step-num-sub {
-  width: auto;
-  min-width: 32px;
-  padding: 0 6px;
-  border-radius: 16px;
-  font-size: 0.8rem;
-  background: var(--lsai-green-line);
-  color: var(--lsai-green-dark);
-}
-
-.lsai-substeps .lsai-step:last-child {
-  border-bottom: 0;
 }
 
 .lsai-lightbox {
@@ -483,10 +478,6 @@
   background: var(--lsai-green-soft);
 }
 
-.lsai-link {
-  font-weight: 600;
-}
-
 .lsai-buttons {
   display: flex;
   flex-wrap: wrap;
@@ -495,19 +486,11 @@
 }
 
 /* Choice cards (Start here) and two-up cards. */
-.lsai-grid-3,
 .lsai-grid-2 {
   display: grid;
+  grid-template-columns: repeat(2, 1fr);
   gap: 12px;
   margin: 0 0 8px;
-}
-
-.lsai-grid-3 {
-  grid-template-columns: repeat(3, 1fr);
-}
-
-.lsai-grid-2 {
-  grid-template-columns: repeat(2, 1fr);
 }
 
 .lsai-choice {
@@ -725,7 +708,6 @@
     font-size: 1.6rem;
   }
 
-  .lsai-grid-3,
   .lsai-grid-2 {
     grid-template-columns: 1fr;
   }
@@ -755,5 +737,81 @@
   .lsai-test {
     flex-direction: column;
     align-items: flex-start;
+  }
+}
+
+/* Pages with the progress bar keep their head (title, Watch it first, progress) at the top while you scroll,
+   where Mintlify's own header is sticky (1024px and wider) and the window is tall enough to spare the room.
+   Keep this block last: it must win over the .lsai-page padding and the [id] scroll margin above. */
+@media (min-width: 1024px) and (min-height: 600px) {
+  .lsai-page.lsai-page-pinned {
+    --lsai-nav-h: calc(var(--mintlify-slot-header-height, calc(4rem + var(--topbar-tabs-height, 3rem))) + var(--banner-height, 0px));
+    padding-top: 20px;
+  }
+
+  .lsai-page-pinned .lsai-top {
+    position: sticky;
+    top: var(--lsai-nav-h);
+    z-index: 20;
+    margin: 0 0 12px;
+    padding: 12px 0 11px;
+    background: var(--lsai-bg);
+    border-bottom: 1px solid var(--lsai-line);
+  }
+
+  .lsai-page-pinned .lsai-head {
+    flex-wrap: nowrap;
+  }
+
+  .lsai-page-pinned .lsai-progress {
+    margin-bottom: 0;
+  }
+
+  /* Once pinned (AiPage adds lsai-top-stuck), the head drops the subtitle and gets smaller to leave room for the steps. */
+  .lsai-page-pinned .lsai-top.lsai-top-stuck {
+    padding-top: 8px;
+  }
+
+  .lsai-page-pinned .lsai-top-stuck .lsai-subtitle {
+    display: none;
+  }
+
+  .lsai-page-pinned .lsai-top-stuck .lsai-title {
+    font-size: 1.5rem;
+    margin-bottom: 0;
+  }
+
+  .lsai-page-pinned .lsai-top-stuck .lsai-head {
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .lsai-page-pinned .lsai-top-stuck .lsai-video-button {
+    padding: 6px 12px 6px 6px;
+  }
+
+  .lsai-page-pinned .lsai-top-stuck .lsai-video-play {
+    width: 28px;
+    height: 28px;
+  }
+
+  /* The browser keeps keyboard scrolling (Space, PageDown), focused links and anchors below the pinned head. The
+     head's pinned height comes from AiPage (--lsai-pinned-h on <html>); 110px covers it before the first pin. */
+  html:has(.lsai-page-pinned) {
+    scroll-padding-top: calc(var(--mintlify-slot-header-height, calc(4rem + var(--topbar-tabs-height, 3rem))) + var(--banner-height, 0px) + var(--lsai-pinned-h, 110px) + 12px);
+  }
+
+  .lsai-page.lsai-page-pinned [id] {
+    scroll-margin-top: 0;
+  }
+
+  /* Tabbing onto the pinned Watch it first must not scroll the page: the padding above counts the head as hidden. */
+  .lsai-page-pinned .lsai-top-stuck .lsai-video-button {
+    scroll-margin-top: calc(-1 * (var(--lsai-pinned-h, 110px) + 12px));
+  }
+
+  /* The same for Mintlify's header and sidebar links when tabbing through them. */
+  html:has(.lsai-page-pinned) :is(#navbar, #sidebar) :is(a, button, input, [tabindex]) {
+    scroll-margin-top: calc(-1 * (var(--mintlify-slot-header-height, calc(4rem + var(--topbar-tabs-height, 3rem))) + var(--banner-height, 0px) + var(--lsai-pinned-h, 110px) + 12px));
   }
 }
