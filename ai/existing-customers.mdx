@@ -5,52 +5,35 @@ description: "Connect your firm's LedgerSync account to Claude or ChatGPT with y
 mode: "frame"
 ---
 
-import { AiPage, AiProgress, AiStep, AiButton, AiNote, AiStuck } from "/snippets/ai-ui.jsx";
+import { AiPage, AiProgress, AiChoice, AiNote, AiStuck } from "/snippets/ai-ui.jsx";
 
-<AiPage title="Your firm already uses LedgerSync" subtitle="You don't need a new plan and you won't be charged again. You sign in with your normal LedgerSync login.">
+<AiPage title="Your firm already uses LedgerSync" subtitle="You don't need a new plan and you won't be charged again.">
 
-<AiProgress current={3} />
+<AiProgress current={1} />
 
-<AiStep id="add" n={1} total={3} title="Add LedgerSync to your AI">
+<AiNote tone="green">
 
-<div className="lsai-buttons">
-  <AiButton href="/ai/setup-claude">Set up in Claude →</AiButton>
-  <AiButton href="/ai/setup-chatgpt" outline>Set up in ChatGPT →</AiButton>
-</div>
-
-When the LedgerSync sign-in page opens, do step 2.
-
-</AiStep>
-
-<AiStep id="sign-in" n={2} total={3} title="Sign in with your LedgerSync login" img="/images/ai-connector/full/ls-2-password.png" caption="Sign in circled">
-
-Type the email or username you use in the LedgerSync app. Click **Next**. Type your password. Click
-**Sign in**.
-
-You use two-step sign-in? Type your code and click **Verify**. Forgot your password? Click
-**Forgot password?**.
-
-<AiNote tone="yellow">
-
-See **Create your LedgerSync account**? Don't click it. Click **Change** and type your LedgerSync username.
+**Use your normal LedgerSync login.** When Claude or ChatGPT asks you to sign in, use the username or email and
+the password you use in the LedgerSync app. Don't create a new account.
 
 </AiNote>
 
-</AiStep>
+## Next: pick your AI
 
-<AiStep id="allow" n={3} total={3} title="Click Allow" img="/images/ai-connector/full/ls-5-allow.png" caption="Allow circled">
-
-You see your firm's name and your name. Click **Allow**. Then your AI asks to access your account: click
-**Allow access**. You only see that the first time.
+<div className="lsai-grid-2">
+  <AiChoice title="Claude" href="/ai/setup-claude" cta="Set up in Claude →">
+    5 short steps in Claude.
+  </AiChoice>
+  <AiChoice title="ChatGPT" href="/ai/setup-chatgpt" cta="Set up in ChatGPT →">
+    5 short steps in ChatGPT.
+  </AiChoice>
+</div>
 
 That's it. Your clients are already there.
 
-</AiStep>
-
 <AiNote tone="gray">
 
-**Only the firm owner, for now.** Only the firm owner can connect LedgerSync. Access for teammates is
-coming. New clients you add through the AI count on your plan, just like clients you add in the app.
+**Only the firm owner, for now.** Access for teammates is coming.
 
 </AiNote>
 

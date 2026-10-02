@@ -12,11 +12,23 @@ import { AiPage, AiBox, AiStuck } from "/snippets/ai-ui.jsx";
 
 | The AI says | Do this |
 | --- | --- |
-| **We're reviewing your new firm. You can add clients now. Bank connections open after the review.** | Nothing to fix. Add your clients now. Bank connections open after our review. |
-| **LedgerSync is not set up for this sign-in yet.** Or: **This LedgerSync connection is not active.** | [Remove LedgerSync from your AI](#remove) and add it again. On the LedgerSync page, type your email: it signs you in, or helps you create your account. Still not working? Email support. |
-| **Your LedgerSync password was changed, so this connection was turned off.** | [Remove LedgerSync from your AI](#remove) and add it again. Sign in again, with your new password if you changed it. |
+| **We're reviewing your new firm. You can add clients now. Bank connections open after the review.** | Nothing to fix. Add your clients now: ask "Add my client" and the client's name. Bank connections open after our review. |
+| **LedgerSync is not set up for this sign-in yet.** Or: **This LedgerSync connection is not active.** | [Connect again](#connect-again). Sign in with the username or email you use in the LedgerSync app. Your firm already uses LedgerSync? Don't create a new account. Still not working? Email support. |
+| **Your LedgerSync password was changed, so this connection was turned off.** | [Connect again](#connect-again). Sign in again, with your new password if you changed it. |
 | **For now, only the firm owner can use LedgerSync in their own Claude or ChatGPT.** | Access for teammates is coming. For now, ask your firm owner. |
-| It doesn't seem to know LedgerSync | Start a new chat and ask again. In Claude, click **+** in the message box, then **Connectors**, and turn **LedgerSync** on. In ChatGPT, type **@** and pick **LedgerSync**. |
+| It doesn't seem to know LedgerSync | Start a new chat and ask again. In Claude, click **+** in the message box, then **Connectors**, and turn **LedgerSync** on. In ChatGPT, type **@** and pick **LedgerSync**. Not in the list? Open [Plugins](https://chatgpt.com/plugins), click **Personal**, then **LedgerSync**, then **Install plugin**. |
+
+<AiBox id="connect-again" title="To connect again">
+
+**Claude:** open [Customize, then Connectors, then Yours](https://claude.ai/customize/connectors/yours) and click
+**LedgerSync**. Click **Disconnect** and confirm, if you see it. Then click **Connect**.
+
+**ChatGPT:** open [Settings, then Plugins](https://chatgpt.com/settings/plugins-settings) and click **LedgerSync**. Click
+**...** next to your account, then **Reconnect**.
+
+The LedgerSync sign-in page opens. Sign in, then click **Allow**.
+
+</AiBox>
 
 ## More problems
 
@@ -35,27 +47,27 @@ import { AiPage, AiBox, AiStuck } from "/snippets/ai-ui.jsx";
     | **This sign-in is for accounting firms.** | This page is for accounting firms. Your accountant connects LedgerSync. |
     | **Finish creating your account** | Your account is not paid yet. Click **Finish** and pay. |
     | **Your account is almost ready. Wait 2 minutes, then click Try again.** | Wait 2 minutes. Then click **Try again**. |
-    | **This connect link has expired.** Or: **This connect link was already used.** | Go back to Claude or ChatGPT and click **Connect** again. |
+    | **This connect link has expired.** Or: **This connect link was already used.** | Go back to Claude or ChatGPT and [connect again](#connect-again). |
     | **Your password was changed after you signed in.** | Click **Sign out**. Then sign in again with your new password. |
     | **Sign out, then sign in again with your two-step code.** | Click **Sign out**. Then sign in again and type your two-step code. |
     | **Getting your account ready. Wait 1 minute, then click Sign in.** | Wait 1 minute. Then click **Sign in**. |
     | **Check your email and try again.** | Check the email you typed. Then try again. |
     | **We could not finish connecting. Wait a minute, then click Allow again.** | Wait a minute. Then click **Allow** again. |
-    | **Something went wrong. Try again.** Or: **Something went wrong on our side.** | Try again. Still there? Go back to Claude or ChatGPT and click **Connect** again. |
-    | **This account signs in with its email.** | Click **Sign out**. Go back to Claude or ChatGPT and click **Connect** again. |
+    | **Something went wrong. Try again.** Or: **Something went wrong on our side.** | Try again. Still there? Go back to Claude or ChatGPT and [connect again](#connect-again). |
+    | **This account signs in with its email.** | Click **Sign out**. Go back to Claude or ChatGPT and [connect again](#connect-again). |
     | **Your LedgerSync account setup is not finished.** Or: **Your LedgerSync account needs a quick check.** Or: **This email is already connected to LedgerSync for another firm.** Or: **We could not connect this account.** Or: **This LedgerSync account is closed.** Or: **Connecting an AI assistant is turned off for this account.** | Email [support@ledgersync.com](mailto:support@ledgersync.com). |
   </Accordion>
 
   <Accordion title="Access: locked, payment, review, turned off">
     | The AI or the page says | Do this |
     | --- | --- |
-    | **Your LedgerSync login is locked.** | Click **Forgot password?** on the LedgerSync sign-in page and set a new password. Then remove LedgerSync from your AI and add it again. If the reset says your account is locked, email [support@ledgersync.com](mailto:support@ledgersync.com). |
-    | **Your LedgerSync account is locked because a subscription payment did not go through.** Or: **Your account is locked because a subscription payment didn't go through.** | Update the card on file in the LedgerSync app. Then try again. |
+    | **Your LedgerSync login is locked.** | Click **Forgot password?** on the LedgerSync sign-in page and set a new password. Then [connect again](#connect-again). If the reset says your account is locked, email [support@ledgersync.com](mailto:support@ledgersync.com). |
+    | **Your LedgerSync account is locked because a subscription payment did not go through.** Or: **Your account is locked because a subscription payment didn't go through.** | Email [support@ledgersync.com](mailto:support@ledgersync.com) and we will help you update your card. Then try again. |
     | **LedgerSync is not active for your firm.** | Email [support@ledgersync.com](mailto:support@ledgersync.com) and we will help. |
     | **Connecting an AI assistant is turned off for your firm.** | Email [support@ledgersync.com](mailto:support@ledgersync.com). |
-    | **This app was disconnected from the LedgerSync account.** | [Remove LedgerSync from your AI](#remove) and add it again. |
+    | **This app was disconnected from the LedgerSync account.** | [Connect again](#connect-again). |
     | **We need one more answer from you.** (developer accounts) | We emailed you our question. Open [portal.ledgersyncappv2.com](https://portal.ledgersyncappv2.com), sign in, and answer it on the first page. |
-    | **This sign-in has no LedgerSync access yet.** Or: **There is no active LedgerSync developer account for this sign-in yet.** Or: **Your application is awaiting review.** | Do what the AI says next. Still in review? Wait for our email. Otherwise check your account at [portal.ledgersyncappv2.com](https://portal.ledgersyncappv2.com) or email support. |
+    | **This sign-in has no LedgerSync access yet.** Or: **There is no active LedgerSync developer account for this sign-in yet.** Or: **Your application is awaiting review.** | New firm: we're reviewing your firm, so you have nothing to do. Questions? Email [support@ledgersync.com](mailto:support@ledgersync.com). Developer accounts: do what the AI says next, wait for our email, or check your account at [portal.ledgersyncappv2.com](https://portal.ledgersyncappv2.com). |
     | **We could not approve this LedgerSync sign-up.** Or: **This LedgerSync sign-up closed before we could review it.** | Email [support@ledgersync.com](mailto:support@ledgersync.com). |
     | **Your LedgerSync sign-up is not finished.** Or: **Your card is not on file yet.** | Email [support@ledgersync.com](mailto:support@ledgersync.com) and we will help. |
     | **LedgerSync access for this account was turned off.** | Email [support@ledgersync.com](mailto:support@ledgersync.com). |
@@ -96,29 +108,20 @@ import { AiPage, AiBox, AiStuck } from "/snippets/ai-ui.jsx";
 ## Remove or turn off LedgerSync
 
 <div className="lsai-grid-2">
-  <AiBox id="remove" title="Remove it from your AI">
+  <AiBox id="remove" title="Remove it from your AI" img="/images/ai-connector/full/claude-remove.png" caption="Remove circled (Claude)">
 
-  **Claude:** open **Customize**, then **Connectors**, and click **LedgerSync**. Open its **⋮** menu and click
-  **Remove**.
+  **Claude:** [Customize, then Connectors, then Yours](https://claude.ai/customize/connectors/yours), then **LedgerSync**, then
+  the **⋮** menu, then **Remove**. On Claude Team or Enterprise, click **Disconnect** instead.
 
-  **Claude Team or Enterprise member:** click **Disconnect** instead. To use it again, click **Connect** and
-  sign in, as in [step 4 of Set up in Claude](/ai/setup-claude#sign-in). Only your firm's Claude Owner can
-  remove it for everyone, under **Organization settings**, then **Connectors**.
-
-  **ChatGPT:** open **Settings**, then **Plugins**, and click **LedgerSync**. Open the **...** menu and click
-  **Disconnect**. To use it again, click **LedgerSync** there and click **Connect**. Then do
-  [step 4 of Set up in ChatGPT](/ai/setup-chatgpt#sign-in).
+  **ChatGPT:** [Settings, then Plugins](https://chatgpt.com/settings/plugins-settings), then **LedgerSync**,
+  then **Uninstall**. To remove it completely, also open [Plugins](https://chatgpt.com/plugins), click **Personal**,
+  then **LedgerSync**, then the **...** menu, then **Delete plugin**.
 
   </AiBox>
   <AiBox id="turn-off" title="Turn it off for your firm">
 
   Change your LedgerSync password. Every AI you connected with your LedgerSync app login stops working within
-  a minute. To use LedgerSync in your AI again, add it again and sign in with your new password.
-
-  Connected through the developer portal (a developer account, or an AI app connected before October 1,
-  2026)? Open [portal.ledgersyncappv2.com](https://portal.ledgersyncappv2.com) on a computer. See **Sandbox**
-  at the top? Pick **Live** first. Click **Connected apps**, then **Disconnect** next to each app. It loses
-  access at once.
+  a minute. To use LedgerSync in your AI again, [connect again](#connect-again) and sign in with your new password.
 
   To stop it for good, email [support@ledgersync.com](mailto:support@ledgersync.com) and we will turn it off.
 

@@ -14,15 +14,14 @@ import { AiPage, AiProgress, AiChoice, AiNote, AiStuck } from "/snippets/ai-ui.j
 ## Which one are you?
 
 <div className="lsai-grid-3">
-  <AiChoice title="I'm new to LedgerSync" href="/ai/new-to-ledgersync" cta="Start sign-up →">
-    My firm doesn't use LedgerSync yet. You create your account when you first sign in from your AI.
+  <AiChoice title="I'm new to LedgerSync" href="/ai/new-to-ledgersync" cta="Get started →">
+    My firm doesn't use LedgerSync yet.
   </AiChoice>
-  <AiChoice title="My firm already uses LedgerSync" href="/ai/existing-customers" cta="Use my login →">
-    We already use the LedgerSync app. No new plan, no extra charge. You sign in with your normal login.
+  <AiChoice title="My firm already uses LedgerSync" href="/ai/existing-customers" cta="Show me how →">
+    We already use the LedgerSync app. No new plan, no extra charge.
   </AiChoice>
-  <AiChoice title="Someone at my firm set this up">
-    For now, only the firm owner can connect LedgerSync. Access for teammates is coming. Please don't sign up
-    again.
+  <AiChoice title="Someone at my firm set this up" href="mailto:support@ledgersync.com?subject=Who%20is%20our%20LedgerSync%20owner%3F" cta="Who is our owner?" outline>
+    Only your firm's LedgerSync owner can connect it. Ask them. Please don't sign up again.
   </AiChoice>
 </div>
 
@@ -30,12 +29,10 @@ import { AiPage, AiProgress, AiChoice, AiNote, AiStuck } from "/snippets/ai-ui.j
 
 <div className="lsai-grid-2">
   <AiChoice title="Claude" href="/ai/setup-claude" link="Set up in Claude →">
-    Works on any Claude plan. The Free plan allows only one added connector. On Claude Team or Enterprise,
-    your firm's Claude Owner adds LedgerSync first.
+    Works on any Claude plan. On Claude Team or Enterprise, your admin allows LedgerSync first.
   </AiChoice>
   <AiChoice title="ChatGPT" href="/ai/setup-chatgpt" link="Set up in ChatGPT →">
-    Needs ChatGPT Plus or higher, on chatgpt.com in a web browser. On ChatGPT Business, Enterprise or Edu,
-    only your workspace admin can add it.
+    Needs ChatGPT Plus or higher, on chatgpt.com in a web browser. On ChatGPT Business, ask your admin first.
   </AiChoice>
 </div>
 
@@ -48,8 +45,8 @@ same thing.
 
 <AiNote tone="green">
 
-**Nobody types a bank password in the chat.** When a bank needs a password, the AI gives you a link to a
-LedgerSync page. That page opens your bank's secure sign-in. The password goes there.
+**Your clients' bank passwords are never typed in the chat.** When a bank needs a password, the AI gives you a
+link to a LedgerSync page.
 
 </AiNote>
 

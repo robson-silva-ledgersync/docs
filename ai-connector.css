@@ -4,6 +4,8 @@
 .lsai-page {
   --lsai-green: #1b7a52;
   --lsai-green-dark: #155f40;
+  --lsai-fill: #1b7a52;
+  --lsai-fill-hover: #155f40;
   --lsai-green-soft: #e8f5ee;
   --lsai-green-line: #c9e3d5;
   --lsai-ink: #1f2937;
@@ -106,6 +108,11 @@
   list-style: disc;
 }
 
+/* Mintlify's prose blocks (inside folds) draw their own bullet. */
+.lsai-page .prose li {
+  list-style: none;
+}
+
 .lsai-page ol:not(.lsai-progress) li {
   list-style: decimal;
 }
@@ -136,6 +143,84 @@
   padding: 8px 10px;
   border-bottom: 1px solid var(--lsai-line);
   vertical-align: top;
+}
+
+/* Page head: title on the left, "Watch it first" on the right (Maurice's setup pages). */
+.lsai-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px 20px;
+}
+
+.lsai-head-text {
+  flex: 1 1 420px;
+  min-width: 0;
+}
+
+.lsai-video {
+  flex: 0 0 auto;
+  max-width: 100%;
+}
+
+.lsai-video[open] {
+  flex: 1 1 100%;
+  order: 3;
+  margin-bottom: 16px;
+}
+
+.lsai-video-button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  list-style: none;
+  cursor: pointer;
+  border: 1px solid var(--lsai-line);
+  border-radius: 12px;
+  padding: 10px 16px 10px 10px;
+  background: var(--lsai-card);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  width: max-content;
+}
+
+.lsai-video-button::-webkit-details-marker {
+  display: none;
+}
+
+.lsai-video-play {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--lsai-fill);
+  color: #ffffff;
+  font-size: 0.85rem;
+  padding-left: 2px;
+}
+
+.lsai-video-label {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+  font-size: 0.85rem;
+  color: var(--lsai-muted);
+}
+
+.lsai-video-label strong {
+  color: var(--lsai-ink);
+  font-size: 0.95rem;
+}
+
+.lsai-video-player {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  border: 1px solid var(--lsai-line);
+  border-radius: 10px;
+  background: #000000;
 }
 
 /* Progress bar: five stages, the current one green. */
@@ -170,31 +255,12 @@
   line-height: 1.3;
 }
 
-.lsai-progress-num {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  font-size: 0.7rem;
-  font-weight: 700;
-  background: var(--lsai-line);
-  color: var(--lsai-muted);
-}
-
 .lsai-done .lsai-progress-bar {
   background: var(--lsai-green-line);
 }
 
 .lsai-done .lsai-progress-label {
   color: var(--lsai-green);
-}
-
-.lsai-done .lsai-progress-num {
-  background: var(--lsai-green-line);
-  color: var(--lsai-green-dark);
 }
 
 .lsai-current .lsai-progress-bar {
@@ -204,11 +270,6 @@
 .lsai-current .lsai-progress-label {
   color: var(--lsai-ink);
   font-weight: 700;
-}
-
-.lsai-current .lsai-progress-num {
-  background: var(--lsai-green);
-  color: #ffffff;
 }
 
 .lsai-progress-now {
@@ -233,7 +294,7 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: var(--lsai-green);
+  background: var(--lsai-fill);
   color: #ffffff;
   font-weight: 700;
   display: flex;
@@ -265,11 +326,97 @@
   margin-bottom: 0;
 }
 
-.lsai-thumb {
+.lsai-thumbs {
   flex: none;
   width: 190px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lsai-thumb {
+  width: 100%;
   text-decoration: none;
   display: block;
+  cursor: zoom-in;
+}
+
+.lsai-step-num-sub {
+  width: auto;
+  min-width: 32px;
+  padding: 0 6px;
+  border-radius: 16px;
+  font-size: 0.8rem;
+  background: var(--lsai-green-line);
+  color: var(--lsai-green-dark);
+}
+
+.lsai-substeps .lsai-step:last-child {
+  border-bottom: 0;
+}
+
+.lsai-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(15, 23, 42, 0.86);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  cursor: zoom-out;
+}
+
+.lsai-lightbox img {
+  max-width: min(1280px, 100%);
+  max-height: calc(100vh - 90px);
+  border-radius: 8px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  background: #ffffff;
+}
+
+.lsai-lightbox-note {
+  color: #ffffff;
+  font-size: 0.95rem;
+}
+
+/* Keyboard users close the large picture with this button (it takes focus) or with Escape. */
+.lsai-lightbox-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: #ffffff;
+  color: #111827;
+  border: 0;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.lsai-page td code {
+  white-space: nowrap;
+}
+
+/* Mintlify wraps each table in a scroll area with 1em margin and 1em padding above and below, which leaves a
+   big gap under the heading. Keep the table right under it. */
+.lsai-page div[class*="--page-padding:20px"] {
+  margin-top: 4px !important;
+  margin-bottom: 8px !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+/* The site-wide "Request access" button opens the developer portal; on the AI pages it is the wrong door
+   for an accountant (ai-connector.js marks AI routes with .lsai-route). */
+.lsai-route #topbar-cta-button,
+.lsai-route a[href="https://portal.ledgersyncappv2.com"].whitespace-nowrap,
+.lsai-route li:has(> a[href="https://portal.ledgersyncappv2.com"].whitespace-nowrap),
+.lsai-route li.whitespace-nowrap > a[href="https://portal.ledgersyncappv2.com"] {
+  display: none !important;
 }
 
 .lsai-thumb img {
@@ -286,6 +433,19 @@
   border-color: var(--lsai-green);
 }
 
+/* Inside a fold Mintlify styles every link as underlined text; captions stay plain grey. */
+.lsai-page a.lsai-thumb,
+.lsai-page a.lsai-thumb:hover {
+  text-decoration: none !important;
+  border-bottom: 0 !important;
+}
+
+.lsai-page a.lsai-thumb .lsai-thumb-caption {
+  color: var(--lsai-muted) !important;
+  font-weight: 400 !important;
+  text-decoration: none !important;
+}
+
 .lsai-thumb-caption {
   display: block;
   font-size: 0.75rem;
@@ -297,7 +457,7 @@
 /* Buttons and links. */
 .lsai-btn {
   display: inline-block;
-  background: var(--lsai-green);
+  background: var(--lsai-fill);
   color: #ffffff !important;
   font-weight: 600;
   font-size: 0.9rem;
@@ -310,7 +470,7 @@
 }
 
 .lsai-btn:hover {
-  background: var(--lsai-green-dark);
+  background: var(--lsai-fill-hover);
   border-color: var(--lsai-green-dark);
 }
 
@@ -446,7 +606,7 @@
 
 .lsai-copy-button {
   flex: none;
-  background: var(--lsai-green);
+  background: var(--lsai-fill);
   color: #ffffff;
   border: 0;
   border-radius: 6px;
@@ -457,7 +617,7 @@
 }
 
 .lsai-copy-button:hover {
-  background: var(--lsai-green-dark);
+  background: var(--lsai-fill-hover);
 }
 
 /* Last step box. */
@@ -486,8 +646,8 @@
 }
 
 .lsai-test-more {
-  font-size: 0.9rem;
-  color: var(--lsai-muted);
+  font-size: 1rem;
+  color: var(--lsai-ink);
   margin-top: 6px;
 }
 
@@ -515,6 +675,30 @@
 
 .lsai-box-text p:last-child {
   margin-bottom: 0;
+}
+
+/* In-page links (#connect-again, #remove) land below Mintlify's sticky header, not under it. */
+.lsai-page [id] {
+  scroll-margin-top: 128px;
+}
+
+.lsai-box-thumb {
+  max-width: 220px;
+  margin-top: 12px;
+}
+
+/* Count next to a heading ("Tools 17"). */
+.lsai-badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: var(--lsai-green-soft);
+  color: var(--lsai-green);
+  vertical-align: middle;
+  margin-left: 6px;
 }
 
 .lsai-grid-2 .lsai-box {
@@ -562,7 +746,7 @@
     flex-basis: calc(100% - 48px);
   }
 
-  .lsai-thumb {
+  .lsai-thumbs {
     width: calc(100% - 48px);
     margin-left: 48px;
     max-width: 360px;

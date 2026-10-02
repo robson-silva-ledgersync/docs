@@ -5,57 +5,19 @@ description: "Create your LedgerSync account while you set up Claude or ChatGPT.
 mode: "frame"
 ---
 
-import { AiPage, AiProgress, AiStep, AiNote, AiBox, AiStuck } from "/snippets/ai-ui.jsx";
+import { AiPage, AiProgress, AiStep, AiChoice, AiBox, AiStuck } from "/snippets/ai-ui.jsx";
 
-<AiPage title="New to LedgerSync: create your account" subtitle="The firm owner does this, once. It takes a few minutes, right inside your AI's sign-in.">
+<AiPage title="New to LedgerSync: create your account" subtitle="The firm owner does this, once. You create your account the first time you sign in from Claude or ChatGPT.">
 
-<AiProgress current={3} />
+<AiProgress current={1} />
 
-<AiNote tone="green">
+<AiStep id="ready" n={1} total={2} title="Have these ready">
 
-**Start in your AI.** Follow [Set up in Claude](/ai/setup-claude) or [Set up in ChatGPT](/ai/setup-chatgpt).
-When the LedgerSync sign-in page opens, do these 5 steps. Prices are on
-[ledgersync.com/pricing](https://ledgersync.com/pricing).
-
-</AiNote>
-
-<AiStep id="email" n={1} total={5} title="Type your work email" img="/images/ai-connector/full/ls-1-email.png" caption="Next circled">
-
-Type your work email. Click **Next**.
-
-Use your work email, not a free email like Gmail. Don't use an email with a plus sign (+).
-
-</AiStep>
-
-<AiStep id="create" n={2} total={5} title="Click Create account" img="/images/ai-connector/full/ls-3-create-account.png" caption="Create account circled">
-
-The page says **Create your LedgerSync account**. Click **Create account**.
-
-</AiStep>
-
-<AiStep id="form" n={3} total={5} title="Fill in the form" img="/images/ai-connector/full/ls-4-sign-up-form.png" caption="NEXT circled">
-
-Your email is already there. Type your name, your phones and your firm's name.
-
-Type a password twice: 10 or more characters, with a capital letter, a small letter, a number and a symbol.
-Click **NEXT**.
-
-</AiStep>
-
-<AiStep id="card" n={4} total={5} title="Add your card">
-
-Check your order. Type your card details. Click **Subscribe**.
-
-This page is from Zoho, our billing partner.
-
-</AiStep>
-
-<AiStep id="allow" n={5} total={5} title="Click Allow" img="/images/ai-connector/full/ls-5-allow.png" caption="Allow circled">
-
-The page says **Creating your account**. It may then say **Getting your account ready**. Don't close it: it
-moves on by itself. If it says **Wait 2 minutes, then click Try again**, do that.
-
-Then click **Allow**. Your AI asks to access your account: click **Allow access**.
+- Your work email. Not a free email like Gmail, and no plus sign (+).
+- Your cell phone and office phone numbers (both are needed), and your firm's name.
+- A card. Zoho, our billing partner, keeps it: we never see the full number.
+- Prices are on [ledgersync.com/pricing](https://ledgersync.com/pricing). Only check the prices there: you
+  create your account from Claude or ChatGPT, not with the Start free trial button.
 
 </AiStep>
 
@@ -64,9 +26,20 @@ Then click **Allow**. Your AI asks to access your account: click **Allow access*
 We check every new firm by hand. Until then, your AI says: **We're reviewing your new firm. You can add
 clients now. Bank connections open after the review.**
 
-You can add your clients now. Bank connections open after the review.
-
 </AiBox>
+
+<AiStep id="set-up" n={2} total={2} title="Pick your AI and follow its steps">
+
+<div className="lsai-grid-2">
+  <AiChoice title="Claude" href="/ai/setup-claude" cta="Set up in Claude →">
+    You create your account at step 3.
+  </AiChoice>
+  <AiChoice title="ChatGPT" href="/ai/setup-chatgpt" cta="Set up in ChatGPT →">
+    You create your account at step 4.
+  </AiChoice>
+</div>
+
+</AiStep>
 
 <AiStuck />
 

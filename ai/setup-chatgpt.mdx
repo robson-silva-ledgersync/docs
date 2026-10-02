@@ -4,51 +4,49 @@ description: "Add LedgerSync to ChatGPT, sign in, and ask your first question."
 mode: "frame"
 ---
 
-import { AiPage, AiProgress, AiStep, AiCopy, AiNote, AiTest, AiStuck } from "/snippets/ai-ui.jsx";
+import { AiPage, AiProgress, AiStep, AiCopy, AiButton, AiNote, AiTest, AiCreateAccount, AiStuck } from "/snippets/ai-ui.jsx";
 import AiAsk from "/snippets/ai-ask.mdx";
 
-<AiPage title="Set up in ChatGPT" subtitle="5 steps · about 3 minutes · ChatGPT Plus or higher, on chatgpt.com in a web browser (not the phone app)">
+<AiPage title="Set up in ChatGPT" subtitle="5 steps · about 3 minutes · ChatGPT Plus or higher, on chatgpt.com in a web browser (not the phone app)" video="/videos/setup-chatgpt.mp4" poster="/videos/setup-chatgpt-poster.jpg">
 
 <AiProgress current={2} />
 
-<div className="lsai-grid-2">
-  <AiCopy label="Your LedgerSync address" text="https://api.ledgersyncappv2.com/mcp" />
-  <AiNote tone="gray">
+<AiStep id="developer-mode" n={1} total={5} title="Turn on Developer mode, if you see it">
 
-  **ChatGPT Business, Enterprise or Edu?** Only your workspace admin can add LedgerSync. Ask them to add it
-  for your workspace. Then open **Settings**, then **Plugins**, click **LedgerSync**, click **Connect**, and
-  go to step 4.
+Open [chatgpt.com/settings/security](https://chatgpt.com/settings/security) (**Settings**, then **Security and
+login**) and turn on **Developer mode**. ChatGPT may show a risk warning. Turn it on anyway: LedgerSync needs it.
 
-  </AiNote>
-</div>
-
-<AiStep id="developer-mode" n={1} total={5} title="Turn on Developer mode">
-
-Open **Settings**, then **Security and login**, and turn on **Developer mode**. ChatGPT may show a risk
-warning. Turn it on anyway: LedgerSync needs it.
-
-Don't see **Developer mode** there? Go on to step 2. If **Create MCP App** is in the menu, you're set.
+Don't see **Developer mode** there? Skip this step and go on to step 2.
 
 </AiStep>
 
-<AiStep id="plugins" n={2} total={5} title="Click Plugins, then Add, then Create MCP App" img="/images/ai-connector/full/chatgpt-2-create-mcp-app.png" caption="Create MCP App circled">
+<AiStep id="plugins" n={2} total={5} title="Click Add, then Create MCP App" img="/images/ai-connector/full/chatgpt-2-create-mcp-app.png" caption="Create MCP App circled">
 
-Open [chatgpt.com/plugins](https://chatgpt.com/plugins), or click **Plugins** on the left. Click **Add**,
-then **Create MCP App**.
+<AiButton href="https://chatgpt.com/plugins" newTab>Open ChatGPT Plugins</AiButton>
+
+ChatGPT opens in a new tab. Keep it open, and come back to this tab for step 3. In ChatGPT, click **Add** at
+the top right, then **Create MCP App**.
+
+LedgerSync is already under **Settings**, then **Plugins**? Don't create it again:
+[connect again](/ai/troubleshooting#connect-again) instead. Only under **Plugins**, then **Personal**? Click it, then
+**Install plugin**.
 
 Don't see **Create MCP App**? Turn on **Developer mode** (step 1). On ChatGPT Business, Enterprise or Edu,
-ask your workspace admin.
+ask your workspace admin. Still not there? [Book a call with our team](https://ledgersync.com/book-a-demo) and
+we'll set it up with you.
 
 </AiStep>
 
-<AiStep id="form" n={3} total={5} title="Fill in the form" img="/images/ai-connector/full/chatgpt-3-form.png" caption="Warning box and Create circled">
+<AiStep id="form" n={3} total={5} title="Fill in the form" img="/images/ai-connector/full/chatgpt-3-form.png" caption="Address box, tick box and Create circled">
 
 1. In **Name**, type **LedgerSync**.
-2. Under **Connection**, keep **Server URL**. Click the box below it and paste the address: **Ctrl+V**
-   (Windows) or **Command+V** (Mac).
-3. Keep **OAuth** under **Authentication**.
+2. Click **Copy** below. Under **Connection**, click the long box that says `https://example.com/mcp` and press
+   **Ctrl+V** (Windows) or **Command+V** (Mac).
+3. Leave everything else as it is.
 4. Tick **I understand and want to continue**.
 5. Click **Create**.
+
+<AiCopy label="Your LedgerSync address" text="https://api.ledgersyncappv2.com/mcp" />
 
 <AiNote tone="yellow">
 
@@ -59,29 +57,56 @@ yet. It's safe to tick.
 
 </AiStep>
 
-<AiStep id="sign-in" n={4} total={5} title="Sign in, then click Allow" img="/images/ai-connector/full/ls-1-email.png" caption="The LedgerSync sign-in page">
+<AiStep id="sign-in" n={4} total={5} title="Sign in, or create your account" imgs={[{ src: "/images/ai-connector/full/chatgpt-4-continue.png", caption: "Continue to LedgerSync circled" }, { src: "/images/ai-connector/full/ls-1-email.png", caption: "Next circled" }, { src: "/images/ai-connector/full/ls-2-password.png", caption: "Sign in circled" }]}>
 
-The LedgerSync sign-in page opens. Sign in with your LedgerSync email or username, and your password. Click
-**Allow**. Then ChatGPT asks to access your account: click **Allow access**. You only see this the first
-time.
+ChatGPT shows **Connect LedgerSync**. Click **Continue to LedgerSync**. The LedgerSync sign-in page opens.
+
+Type the email or username you use in the LedgerSync app. New to LedgerSync? Type your work email. Click
+**Next**.
+
+Your firm already uses LedgerSync: type your password and click **Sign in**. Asked for a **Two Factor
+Authentication** code? Type the code from your Google Authenticator app and click **Verify**.
+
+New to LedgerSync: create your account with steps 4a to 4d, just below.
 
 <AiNote tone="yellow">
 
-**New to LedgerSync?** You create your account on this sign-in page. See
-[New to LedgerSync](/ai/new-to-ledgersync).
+**Your firm already uses LedgerSync?** If the page says **Create your LedgerSync account**, click **Change** and
+type your LedgerSync username instead.
 
 </AiNote>
 
 </AiStep>
 
-<AiStep id="new-chat" n={5} total={5} title="Open a new chat">
+<Accordion title="New to LedgerSync? Create your account here (4 short steps)">
 
-Click **New chat**. Type **@** and pick **LedgerSync**. ChatGPT looks things up without asking, and asks
-before it changes anything.
+<AiCreateAccount step={4} next={5} />
+
+</Accordion>
+
+<AiStep id="allow" n={5} total={5} title="Click Allow, then Allow access" imgs={[{ src: "/images/ai-connector/full/ls-5-allow.png", caption: "Allow circled" }, { src: "/images/ai-connector/full/chatgpt-5-allow-access.png", caption: "Allow access circled" }]}>
+
+You see your firm's name. Click **Allow**.
+
+Then ChatGPT asks to access your account. Click **Allow access**. You only see this the first time.
+
+ChatGPT opens its Plugins page again.
 
 </AiStep>
 
-<AiTest text="Use LedgerSync to check whether my account is ready." />
+<AiTest text="Use LedgerSync to check whether my account is ready.">
+
+Click **Copy**. In ChatGPT, start a new chat (**New chat**, or **Home** at the top left). Type **@**, then
+**Ledg**, and pick **LedgerSync**. Press **Ctrl+V** (Command+V on a Mac), then press **Enter**.
+
+</AiTest>
+
+- ChatGPT says your LedgerSync account is ready: you're done.
+- It says **We're reviewing your new firm**: add your clients now. Ask: "Add my client" and the client's name.
+  Bank connections open after the review.
+- LedgerSync is not in the list after **@**? Open [Plugins](https://chatgpt.com/plugins), click **Personal**, then
+  **LedgerSync**, then **Install plugin**. Not there either? Do steps 2 to 5 again.
+- Anything else: see [Troubleshooting](/ai/troubleshooting).
 
 <Accordion title="What to ask next">
 
@@ -89,7 +114,13 @@ before it changes anything.
 
 </Accordion>
 
-To remove LedgerSync from ChatGPT, see [Troubleshooting](/ai/troubleshooting#remove).
+<Accordion title="ChatGPT Business, Enterprise or Edu">
+
+Only your workspace admin can add LedgerSync. Ask them to add it for your workspace. Then open
+[chatgpt.com/settings/plugins-settings](https://chatgpt.com/settings/plugins-settings) (**Settings**, then
+**Plugins**), click **LedgerSync**, click **Connect**, and do steps 4 and 5.
+
+</Accordion>
 
 <AiStuck />
 
