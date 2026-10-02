@@ -1,23 +1,30 @@
 ---
 title: "For developers"
 description: "The LedgerSync AI connector for developers and admins: sandbox, access, tools, limits and error codes."
+mode: "frame"
 ---
 
-Reference for developers and admins. Accountants setting up their firm do not need this page: go to
-[Start here](/ai/start-here).
+import { AiPage, AiBox, AiCopy, AiStuck } from "/snippets/ai-ui.jsx";
 
-**Live connector address:** `https://api.ledgersyncappv2.com/mcp`
+<AiPage title="For developers" subtitle="Reference for developers and admins. Accountants setting up their firm don't need this page: go to Start here.">
 
-## Sandbox
+<div>
+  <AiBox title="Live connector">
 
-Add this address as a second connector, then connect **FinBank**, **MX Bank** or **Ledgersync Bank** with the
-test sign-ins in [Testing in sandbox](/guides/testing).
+  <AiCopy text="https://api.ledgersyncappv2.com/mcp" />
 
-```text
-https://api-sandbox.ledgersyncappv2.com/mcp
-```
+  17 tools, including the desktop app tools.
 
-The desktop app tools are on the live connector only. The sandbox connector does not offer them.
+  </AiBox>
+  <AiBox title="Sandbox">
+
+  <AiCopy text="https://api-sandbox.ledgersyncappv2.com/mcp" />
+
+  Add it as a second connector. Then connect **FinBank**, **MX Bank** or **Ledgersync Bank** with the test
+  sign-ins in [Testing in sandbox](/guides/testing). The desktop app tools are on the live connector only.
+
+  </AiBox>
+</div>
 
 ## Who can connect
 
@@ -136,5 +143,6 @@ working on such a bank also gets a `next_step` that says so.
   </Accordion>
 </AccordionGroup>
 
-Stuck? Email [support@ledgersync.com](mailto:support@ledgersync.com) with the step and what the screen says.
-Never send passwords or card numbers.
+<AiStuck />
+
+</AiPage>

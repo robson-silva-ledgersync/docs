@@ -2,60 +2,58 @@
 title: "Your firm already uses LedgerSync"
 sidebarTitle: "Firm already uses LedgerSync"
 description: "Connect your firm's LedgerSync account to Claude or ChatGPT with your normal login. No new plan."
+mode: "frame"
 ---
 
-You do not need a new plan and you are not charged again. Your LedgerSync plan covers it. New clients
-you add through the AI count on your plan, just like clients you add in the app.
+import { AiPage, AiProgress, AiStep, AiButton, AiNote, AiStuck } from "/snippets/ai-ui.jsx";
 
-**Do not create a new account and do not pay.** You sign in with the same username and password you use in
-the LedgerSync app.
+<AiPage title="Your firm already uses LedgerSync" subtitle="You don't need a new plan and you won't be charged again. You sign in with your normal LedgerSync login.">
 
-<Note>
-  For now, only the firm owner can connect LedgerSync. Access for teammates is coming.
-</Note>
+<AiProgress current={3} />
 
-## How it works
+<AiStep id="add" n={1} total={3} title="Add LedgerSync to your AI">
 
-<Steps>
-  <Step title="Add LedgerSync to your AI">
-    Follow [Set up in Claude](/ai/setup-claude) or [Set up in ChatGPT](/ai/setup-chatgpt).
-  </Step>
-  <Step title="Sign in with your LedgerSync login">
-    The LedgerSync sign-in page opens. Type your email or your LedgerSync username. Click **Next**.
-    Already signed in to LedgerSync in this browser? You go straight to the **Allow** page.
+<div className="lsai-buttons">
+  <AiButton href="/ai/setup-claude">Set up in Claude →</AiButton>
+  <AiButton href="/ai/setup-chatgpt" outline>Set up in ChatGPT →</AiButton>
+</div>
 
-    <Frame>
-      <img src="/images/ai-connector/connect-1-email.png" alt="The Sign in to LedgerSync page with the Next button marked" />
-    </Frame>
+When the LedgerSync sign-in page opens, do step 2.
 
-    Type your LedgerSync password. Click **Sign in**.
+</AiStep>
 
-    <Frame>
-      <img src="/images/ai-connector/connect-2-password.png" alt="The Enter your password page with the Sign in button marked" />
-    </Frame>
+<AiStep id="sign-in" n={2} total={3} title="Sign in with your LedgerSync login" img="/images/ai-connector/full/ls-2-password.png" caption="Sign in circled">
 
-    See **Create your LedgerSync account**? Do not click it. Click **Change** and type your LedgerSync
-    username.
+Type the email or username you use in the LedgerSync app. Click **Next**. Type your password. Click
+**Sign in**.
 
-    You use two-step sign-in? Type your code and click **Verify**. Forgot your password? Click
-    **Forgot password?**.
-  </Step>
-  <Step title="Click Allow">
-    You see your firm's name and your name. Click **Allow**. Then your AI asks to access your account: click
-    **Allow access**. You only see that the first time.
-  </Step>
-</Steps>
+You use two-step sign-in? Type your code and click **Verify**. Forgot your password? Click
+**Forgot password?**.
 
-Your clients are already there. Ask your first question.
+<AiNote tone="yellow">
 
-<CardGroup cols={2}>
-  <Card title="Set up in Claude" icon="message" href="/ai/setup-claude">
-    Add LedgerSync to Claude.
-  </Card>
-  <Card title="Set up in ChatGPT" icon="comments" href="/ai/setup-chatgpt">
-    Add LedgerSync to ChatGPT.
-  </Card>
-</CardGroup>
+See **Create your LedgerSync account**? Don't click it. Click **Change** and type your LedgerSync username.
 
-Stuck? Email [support@ledgersync.com](mailto:support@ledgersync.com) with the step and what the screen says.
-Never send passwords or card numbers.
+</AiNote>
+
+</AiStep>
+
+<AiStep id="allow" n={3} total={3} title="Click Allow" img="/images/ai-connector/full/ls-5-allow.png" caption="Allow circled">
+
+You see your firm's name and your name. Click **Allow**. Then your AI asks to access your account: click
+**Allow access**. You only see that the first time.
+
+That's it. Your clients are already there.
+
+</AiStep>
+
+<AiNote tone="gray">
+
+**Only the firm owner, for now.** Only the firm owner can connect LedgerSync. Access for teammates is
+coming. New clients you add through the AI count on your plan, just like clients you add in the app.
+
+</AiNote>
+
+<AiStuck />
+
+</AiPage>

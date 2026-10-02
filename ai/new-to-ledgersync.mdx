@@ -2,71 +2,72 @@
 title: "New to LedgerSync: create your account"
 sidebarTitle: "New to LedgerSync"
 description: "Create your LedgerSync account while you set up Claude or ChatGPT."
+mode: "frame"
 ---
 
-The firm owner does this, once. You create your LedgerSync account while you set up your AI. It takes a few
-minutes.
+import { AiPage, AiProgress, AiStep, AiNote, AiBox, AiStuck } from "/snippets/ai-ui.jsx";
 
-<Warning>
-  **Does your firm already use the LedgerSync app?** Do not create a new account and do not pay. Go to
-  [Firm already uses LedgerSync](/ai/existing-customers) instead.
-</Warning>
+<AiPage title="New to LedgerSync: create your account" subtitle="The firm owner does this, once. It takes a few minutes, right inside your AI's sign-in.">
 
-Prices are on [ledgersync.com/pricing](https://ledgersync.com/pricing).
+<AiProgress current={3} />
 
-<Steps>
-  <Step title="Add LedgerSync to your AI">
-    Follow [Set up in Claude](/ai/setup-claude) or [Set up in ChatGPT](/ai/setup-chatgpt). When the
-    LedgerSync sign-in page opens, do the next step.
-  </Step>
-  <Step title="Type your work email">
-    Type your work email. Click **Next**.
+<AiNote tone="green">
 
-    <Frame>
-      <img src="/images/ai-connector/connect-1-email.png" alt="The Sign in to LedgerSync page with the Next button marked" />
-    </Frame>
+**Start in your AI.** Follow [Set up in Claude](/ai/setup-claude) or [Set up in ChatGPT](/ai/setup-chatgpt).
+When the LedgerSync sign-in page opens, do these 5 steps. Prices are on
+[ledgersync.com/pricing](https://ledgersync.com/pricing).
 
-    Use your work email, not a free email like Gmail. Do not use an email with a plus sign (+).
-  </Step>
-  <Step title="Click Create account">
-    The page says **Create your LedgerSync account**. Click **Create account**.
+</AiNote>
 
-    <Frame>
-      <img src="/images/ai-connector/connect-3-create-account.png" alt="The Create your LedgerSync account page with the Create account button marked" />
-    </Frame>
-  </Step>
-  <Step title="Fill in the form">
-    Your email is already there. Type your name, your phones and your firm's name. Type a password twice:
-    10 or more characters, with a capital letter, a small letter, a number and a symbol. Click **NEXT**.
+<AiStep id="email" n={1} total={5} title="Type your work email" img="/images/ai-connector/full/ls-1-email.png" caption="Next circled">
 
-    <Frame>
-      <img src="/images/ai-connector/connect-4-sign-up-form.png" alt="The Accountant registration form filled in, with the NEXT button marked" />
-    </Frame>
-  </Step>
-  <Step title="Add your card">
-    Check your order. Type your card details. Click **Subscribe**.
+Type your work email. Click **Next**.
 
-    This page is from Zoho, our billing partner.
-  </Step>
-  <Step title="Wait one moment">
-    The page says **Creating your account**. It may then say **Getting your account ready**. Do not close
-    it. It moves on by itself. If it says **Wait 2 minutes, then click Try again**, do that.
-  </Step>
-  <Step title="Click Allow">
-    Click **Allow**. Then your AI asks to access your account: click **Allow access**.
+Use your work email, not a free email like Gmail. Don't use an email with a plus sign (+).
 
-    <Frame>
-      <img src="/images/ai-connector/connect-5-allow.png" alt="The Connect your AI assistant page with the Allow button marked" />
-    </Frame>
-  </Step>
-</Steps>
+</AiStep>
 
-## What happens next
+<AiStep id="create" n={2} total={5} title="Click Create account" img="/images/ai-connector/full/ls-3-create-account.png" caption="Create account circled">
+
+The page says **Create your LedgerSync account**. Click **Create account**.
+
+</AiStep>
+
+<AiStep id="form" n={3} total={5} title="Fill in the form" img="/images/ai-connector/full/ls-4-sign-up-form.png" caption="NEXT circled">
+
+Your email is already there. Type your name, your phones and your firm's name.
+
+Type a password twice: 10 or more characters, with a capital letter, a small letter, a number and a symbol.
+Click **NEXT**.
+
+</AiStep>
+
+<AiStep id="card" n={4} total={5} title="Add your card">
+
+Check your order. Type your card details. Click **Subscribe**.
+
+This page is from Zoho, our billing partner.
+
+</AiStep>
+
+<AiStep id="allow" n={5} total={5} title="Click Allow" img="/images/ai-connector/full/ls-5-allow.png" caption="Allow circled">
+
+The page says **Creating your account**. It may then say **Getting your account ready**. Don't close it: it
+moves on by itself. If it says **Wait 2 minutes, then click Try again**, do that.
+
+Then click **Allow**. Your AI asks to access your account: click **Allow access**.
+
+</AiStep>
+
+<AiBox title="What happens next">
 
 We check every new firm by hand. Until then, your AI says: **We're reviewing your new firm. You can add
 clients now. Bank connections open after the review.**
 
 You can add your clients now. Bank connections open after the review.
 
-Stuck? Email [support@ledgersync.com](mailto:support@ledgersync.com) with the step and what the screen says.
-Never send passwords or card numbers.
+</AiBox>
+
+<AiStuck />
+
+</AiPage>

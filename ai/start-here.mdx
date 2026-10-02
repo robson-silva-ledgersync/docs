@@ -2,54 +2,59 @@
 title: "Use LedgerSync in Claude or ChatGPT"
 sidebarTitle: "Start here"
 description: "Ask Claude or ChatGPT about your clients' bank accounts, in plain words."
+mode: "frame"
 ---
 
-Ask Claude or ChatGPT about your clients' bank accounts in plain words. It finds the answer in LedgerSync.
+import { AiPage, AiProgress, AiChoice, AiNote, AiStuck } from "/snippets/ai-ui.jsx";
 
-```mermaid
-graph LR
-  A[Add LedgerSync<br/>to your AI] --> B[Sign in to<br/>LedgerSync]
-  B --> C[Click<br/>Allow]
-  C --> D[Ask a<br/>question]
-```
+<AiPage title="Use LedgerSync in Claude or ChatGPT" subtitle="Ask Claude or ChatGPT about your clients' bank accounts in plain words. It finds the answer in LedgerSync. Setup takes about 5 minutes.">
+
+<AiProgress current={1} />
 
 ## Which one are you?
 
-<CardGroup cols={3}>
-  <Card title="My firm uses LedgerSync" icon="building" href="/ai/existing-customers">
-    Sign in with your normal LedgerSync login. No new plan, no extra charge.
-  </Card>
-  <Card title="I am new to LedgerSync" icon="user-plus" href="/ai/new-to-ledgersync">
-    You create your LedgerSync account while you set up your AI.
-  </Card>
-  <Card title="I work at a firm that uses LedgerSync" icon="users">
-    For now, only the firm owner can connect LedgerSync. Access for teammates is coming.
-  </Card>
-</CardGroup>
+<div className="lsai-grid-3">
+  <AiChoice title="I'm new to LedgerSync" href="/ai/new-to-ledgersync" cta="Start sign-up →">
+    My firm doesn't use LedgerSync yet. You create your account when you first sign in from your AI.
+  </AiChoice>
+  <AiChoice title="My firm already uses LedgerSync" href="/ai/existing-customers" cta="Use my login →">
+    We already use the LedgerSync app. No new plan, no extra charge. You sign in with your normal login.
+  </AiChoice>
+  <AiChoice title="Someone at my firm set this up">
+    For now, only the firm owner can connect LedgerSync. Access for teammates is coming. Please don't sign up
+    again.
+  </AiChoice>
+</div>
 
 ## Which AI do you use?
 
-<CardGroup cols={2}>
-  <Card title="Set up in Claude" icon="message" href="/ai/setup-claude">
-    Works on every Claude plan. The Free plan allows only one added connector. On Claude Team or
-    Enterprise, your firm's Claude Owner adds LedgerSync first.
-  </Card>
-  <Card title="Set up in ChatGPT" icon="comments" href="/ai/setup-chatgpt">
+<div className="lsai-grid-2">
+  <AiChoice title="Claude" href="/ai/setup-claude" link="Set up in Claude →">
+    Works on any Claude plan. The Free plan allows only one added connector. On Claude Team or Enterprise,
+    your firm's Claude Owner adds LedgerSync first.
+  </AiChoice>
+  <AiChoice title="ChatGPT" href="/ai/setup-chatgpt" link="Set up in ChatGPT →">
     Needs ChatGPT Plus or higher, on chatgpt.com in a web browser. On ChatGPT Business, Enterprise or Edu,
     only your workspace admin can add it.
-  </Card>
-</CardGroup>
+  </AiChoice>
+</div>
 
-<Note>
-  **Good to know.** Claude calls this a connector. ChatGPT calls it an app or plugin. They are the same thing.
-</Note>
+<AiNote tone="gray">
 
-<Note>
-  **Nobody types a bank password in the chat.** When a bank needs a password, the AI gives you a link to a
-  LedgerSync page. That page opens your bank's secure sign-in. The password goes there.
-</Note>
+**Good to know.** Claude calls this a **connector**. ChatGPT calls it an **app** or **plugin**. They are the
+same thing.
 
-Building on the LedgerSync API? Go to [For developers](/ai/developers).
+</AiNote>
 
-Stuck? Email [support@ledgersync.com](mailto:support@ledgersync.com) with the step and what the screen says.
-Never send passwords or card numbers.
+<AiNote tone="green">
+
+**Nobody types a bank password in the chat.** When a bank needs a password, the AI gives you a link to a
+LedgerSync page. That page opens your bank's secure sign-in. The password goes there.
+
+</AiNote>
+
+Developer building on the LedgerSync API? Go to [For developers](/ai/developers).
+
+<AiStuck />
+
+</AiPage>

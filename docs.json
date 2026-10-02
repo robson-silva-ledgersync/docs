@@ -29,19 +29,6 @@
             ]
           },
           {
-            "group": "AI connector",
-            "pages": [
-              "ai/start-here",
-              "ai/new-to-ledgersync",
-              "ai/existing-customers",
-              "ai/setup-claude",
-              "ai/setup-chatgpt",
-              "ai/troubleshooting",
-              "ai/desktop-app",
-              "ai/developers"
-            ]
-          },
-          {
             "group": "Guides",
             "pages": [
               "guides/connection-lifecycle",
@@ -58,6 +45,29 @@
             "pages": [
               "guides/testing",
               "guides/going-live"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "AI connector",
+        "groups": [
+          {
+            "group": "AI connector",
+            "pages": [
+              "ai/start-here",
+              "ai/new-to-ledgersync",
+              "ai/existing-customers",
+              "ai/setup-claude",
+              "ai/setup-chatgpt",
+              "ai/troubleshooting",
+              "ai/desktop-app"
+            ]
+          },
+          {
+            "group": "Developers",
+            "pages": [
+              "ai/developers"
             ]
           }
         ]

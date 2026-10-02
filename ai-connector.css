@@ -1,0 +1,575 @@
+/* AI connector pages (card #1310), laid out as in Maurice's "AI connector docs: the new page layout" proposal.
+   Every selector is scoped to .lsai-* so the rest of the docs site is unchanged. */
+
+.lsai-page {
+  --lsai-green: #1b7a52;
+  --lsai-green-dark: #155f40;
+  --lsai-green-soft: #e8f5ee;
+  --lsai-green-line: #c9e3d5;
+  --lsai-ink: #1f2937;
+  --lsai-muted: #6b7280;
+  --lsai-line: #e3e8ec;
+  --lsai-card: #ffffff;
+  --lsai-gray-soft: #f3f5f7;
+  --lsai-yellow-soft: #fdf6dd;
+  --lsai-yellow-line: #efd78f;
+  --lsai-red-soft: #fdecec;
+  --lsai-red-line: #f3b9b9;
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 32px 24px 48px;
+  color: var(--lsai-ink);
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.dark .lsai-page {
+  --lsai-green: #3fb27f;
+  --lsai-green-dark: #57c592;
+  --lsai-green-soft: #12291f;
+  --lsai-green-line: #24513a;
+  --lsai-ink: #e5e7eb;
+  --lsai-muted: #9ca3af;
+  --lsai-line: #2b3138;
+  --lsai-card: #14181c;
+  --lsai-gray-soft: #1a1f24;
+  --lsai-yellow-soft: #2a2412;
+  --lsai-yellow-line: #5c4c1c;
+  --lsai-red-soft: #2c1717;
+  --lsai-red-line: #6a2c2c;
+}
+
+.lsai-title {
+  font-size: 2rem;
+  line-height: 1.2;
+  font-weight: 700;
+  margin: 0 0 8px;
+  color: var(--lsai-ink);
+}
+
+.lsai-subtitle {
+  font-size: 1.05rem;
+  color: var(--lsai-muted);
+  margin: 0 0 20px;
+}
+
+.lsai-page h2 {
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin: 28px 0 12px;
+  color: var(--lsai-ink);
+}
+
+.lsai-page h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 20px 0 8px;
+  color: var(--lsai-ink);
+}
+
+.lsai-page p,
+.lsai-page span[data-as="p"] {
+  display: block;
+  margin: 0 0 10px;
+}
+
+/* Mintlify renders paragraphs inside components as <span data-as="p">. */
+.lsai-step-text > span[data-as="p"]:last-child,
+.lsai-note > span[data-as="p"]:last-child,
+.lsai-choice-text > span[data-as="p"]:last-child,
+.lsai-box-text > span[data-as="p"]:last-child,
+.lsai-test-more > span[data-as="p"]:last-child {
+  margin-bottom: 0;
+}
+
+.lsai-page a:not(.lsai-btn):not(.lsai-thumb) {
+  color: var(--lsai-green);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.lsai-page a:not(.lsai-btn):not(.lsai-thumb):hover {
+  text-decoration: underline;
+}
+
+.lsai-page ul,
+.lsai-page ol:not(.lsai-progress) {
+  margin: 4px 0 10px;
+  padding-left: 22px;
+}
+
+.lsai-page li {
+  margin: 2px 0;
+}
+
+.lsai-page ul li {
+  list-style: disc;
+}
+
+.lsai-page ol:not(.lsai-progress) li {
+  list-style: decimal;
+}
+
+.lsai-page code:not(.lsai-copy-text) {
+  font-size: 0.9em;
+  background: var(--lsai-gray-soft);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+.lsai-page table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0 16px;
+  font-size: 0.95rem;
+}
+
+.lsai-page th {
+  text-align: left;
+  background: var(--lsai-gray-soft);
+  font-weight: 700;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--lsai-line);
+}
+
+.lsai-page td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--lsai-line);
+  vertical-align: top;
+}
+
+/* Progress bar: five stages, the current one green. */
+.lsai-progress {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  list-style: none;
+  margin: 0 0 24px;
+  padding: 0;
+}
+
+.lsai-progress-item {
+  list-style: none;
+  margin: 0;
+}
+
+.lsai-progress-bar {
+  display: block;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--lsai-line);
+  margin-bottom: 6px;
+}
+
+.lsai-progress-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--lsai-muted);
+  line-height: 1.3;
+}
+
+.lsai-progress-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: var(--lsai-line);
+  color: var(--lsai-muted);
+}
+
+.lsai-done .lsai-progress-bar {
+  background: var(--lsai-green-line);
+}
+
+.lsai-done .lsai-progress-label {
+  color: var(--lsai-green);
+}
+
+.lsai-done .lsai-progress-num {
+  background: var(--lsai-green-line);
+  color: var(--lsai-green-dark);
+}
+
+.lsai-current .lsai-progress-bar {
+  background: var(--lsai-green);
+}
+
+.lsai-current .lsai-progress-label {
+  color: var(--lsai-ink);
+  font-weight: 700;
+}
+
+.lsai-current .lsai-progress-num {
+  background: var(--lsai-green);
+  color: #ffffff;
+}
+
+.lsai-progress-now {
+  display: none;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--lsai-ink);
+  margin: -14px 0 20px;
+}
+
+/* Steps: number, "Step X of N", title, text, and a full-window picture on the right. */
+.lsai-step {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--lsai-line);
+}
+
+.lsai-step-num {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--lsai-green);
+  color: #ffffff;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
+}
+
+.lsai-step-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.lsai-step-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--lsai-muted);
+  font-weight: 600;
+}
+
+.lsai-step-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 2px 0 6px;
+}
+
+.lsai-step-text p:last-child {
+  margin-bottom: 0;
+}
+
+.lsai-thumb {
+  flex: none;
+  width: 190px;
+  text-decoration: none;
+  display: block;
+}
+
+.lsai-thumb img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--lsai-line);
+  border-radius: 6px;
+  margin: 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.lsai-thumb:hover img {
+  border-color: var(--lsai-green);
+}
+
+.lsai-thumb-caption {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--lsai-muted);
+  text-align: center;
+  margin-top: 4px;
+}
+
+/* Buttons and links. */
+.lsai-btn {
+  display: inline-block;
+  background: var(--lsai-green);
+  color: #ffffff !important;
+  font-weight: 600;
+  font-size: 0.9rem;
+  border: 1px solid var(--lsai-green);
+  border-radius: 6px;
+  padding: 6px 14px;
+  text-decoration: none !important;
+  cursor: pointer;
+  line-height: 1.4;
+}
+
+.lsai-btn:hover {
+  background: var(--lsai-green-dark);
+  border-color: var(--lsai-green-dark);
+}
+
+.lsai-btn-outline {
+  background: transparent;
+  color: var(--lsai-green) !important;
+}
+
+.lsai-btn-outline:hover {
+  background: var(--lsai-green-soft);
+}
+
+.lsai-link {
+  font-weight: 600;
+}
+
+.lsai-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+/* Choice cards (Start here) and two-up cards. */
+.lsai-grid-3,
+.lsai-grid-2 {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 8px;
+}
+
+.lsai-grid-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.lsai-grid-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.lsai-choice {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--lsai-green-line);
+  border-radius: 10px;
+  padding: 16px;
+  background: var(--lsai-card);
+}
+
+.lsai-choice-title {
+  font-weight: 700;
+  font-size: 1.02rem;
+  margin-bottom: 4px;
+}
+
+.lsai-choice-text {
+  color: var(--lsai-muted);
+  font-size: 0.93rem;
+  flex: 1;
+}
+
+.lsai-choice-text p {
+  margin: 0 0 6px;
+}
+
+.lsai-choice-action {
+  margin-top: 12px;
+}
+
+/* Notes. */
+.lsai-note {
+  border-left: 4px solid #c3ccd4;
+  background: var(--lsai-gray-soft);
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin: 12px 0;
+  font-size: 0.95rem;
+}
+
+.lsai-note p:last-child {
+  margin-bottom: 0;
+}
+
+.lsai-note-green {
+  border-left-color: var(--lsai-green);
+  background: var(--lsai-green-soft);
+}
+
+.lsai-note-yellow {
+  border-left-color: var(--lsai-yellow-line);
+  background: var(--lsai-yellow-soft);
+}
+
+.lsai-note-red {
+  border-left-color: var(--lsai-red-line);
+  background: var(--lsai-red-soft);
+}
+
+.lsai-step-text .lsai-note {
+  margin: 8px 0 0;
+  font-size: 0.9rem;
+}
+
+/* Address box with a Copy button. */
+.lsai-copy {
+  margin: 0 0 16px;
+}
+
+.lsai-copy-label {
+  font-size: 0.85rem;
+  color: var(--lsai-muted);
+  margin-bottom: 4px;
+}
+
+.lsai-copy-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--lsai-line);
+  border-radius: 8px;
+  background: var(--lsai-gray-soft);
+  padding: 6px 6px 6px 12px;
+}
+
+.lsai-copy-text {
+  flex: 1;
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.95rem;
+  overflow-wrap: anywhere;
+  background: transparent;
+  padding: 0;
+}
+
+.lsai-copy-button {
+  flex: none;
+  background: var(--lsai-green);
+  color: #ffffff;
+  border: 0;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.lsai-copy-button:hover {
+  background: var(--lsai-green-dark);
+}
+
+/* Last step box. */
+.lsai-test {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--lsai-green-line);
+  background: var(--lsai-green-soft);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin: 20px 0;
+}
+
+.lsai-test-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.lsai-test-title {
+  font-weight: 700;
+}
+
+.lsai-test-text {
+  font-style: italic;
+}
+
+.lsai-test-more {
+  font-size: 0.9rem;
+  color: var(--lsai-muted);
+  margin-top: 6px;
+}
+
+.lsai-test-more p:last-child {
+  margin-bottom: 0;
+}
+
+.lsai-test-button {
+  flex: none;
+}
+
+/* Plain box ("What happens next", Remove and Turn off cards). */
+.lsai-box {
+  border: 1px solid var(--lsai-line);
+  background: var(--lsai-gray-soft);
+  border-radius: 10px;
+  padding: 16px;
+  margin: 16px 0;
+}
+
+.lsai-box-title {
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.lsai-box-text p:last-child {
+  margin-bottom: 0;
+}
+
+.lsai-grid-2 .lsai-box {
+  margin: 0;
+  background: var(--lsai-card);
+}
+
+/* Footer line. */
+.lsai-stuck {
+  border-top: 1px solid var(--lsai-line);
+  margin-top: 28px;
+  padding-top: 14px;
+  font-size: 0.88rem;
+  color: var(--lsai-muted);
+}
+
+/* Phones and narrow windows. */
+@media (max-width: 760px) {
+  .lsai-page {
+    padding: 20px 16px 40px;
+  }
+
+  .lsai-title {
+    font-size: 1.6rem;
+  }
+
+  .lsai-grid-3,
+  .lsai-grid-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .lsai-progress-label {
+    display: none;
+  }
+
+  .lsai-progress-now {
+    display: block;
+  }
+
+  .lsai-step {
+    flex-wrap: wrap;
+  }
+
+  .lsai-step-main {
+    flex-basis: calc(100% - 48px);
+  }
+
+  .lsai-thumb {
+    width: calc(100% - 48px);
+    margin-left: 48px;
+    max-width: 360px;
+  }
+
+  .lsai-test {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
