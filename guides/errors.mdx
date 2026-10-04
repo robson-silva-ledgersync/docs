@@ -81,19 +81,19 @@ and each `error.doc_url` deep-links to one entry.
 | `insufficient_scope` | 403 | Key authenticated but lacks the scope for this operation. | Grant the scope named in `message`, or mint a key with it. |
 | `access_request_not_approved` | 403 | Minting a key for an env whose access request isn't `APPROVED`. | Finish/resubmit the access request for that env in the portal. |
 | `billing_not_configured` | 403 | Live request with no billing subscription linked. | Add a payment method in the portal (Activate Live → Payment). |
-| `access_not_active` | 403 | AI connector only. The signed-in user has no working LedgerSync account yet: never applied, the sign-up is not finished, the first application is still under review or waiting for an answer, or it was not approved, closed or turned off; or the connector is not switched on for the account. For a firm that signs in with its LedgerSync app login: the signed-in user is not the firm owner, the login or the firm's account is locked, LedgerSync is not active for the firm, or connecting AI assistants is turned off for the firm. | Follow the `next_step` the AI reads out. Firms sign in on the LedgerSync sign-in page with their LedgerSync app login: [connect again](/ai/troubleshooting#connect-again) and sign in. Developers apply in the portal or wait for the review. Otherwise email support. |
-| `connector_app_pending_approval` | 403 | AI connector only. The AI app is not supported yet. Claude and ChatGPT are approved automatically; other apps are blocked. | Use Claude or ChatGPT, or email support. |
-| `connector_access_revoked` | 403 | AI connector only. The AI app was disconnected from this account. Also sent when the firm owner changed the LedgerSync password or turned off two-step sign-in after the AI app connected. | [Connect again](/ai/troubleshooting#connect-again) and sign in. |
-| `firm_under_review` | 403 | AI connector only. A new firm is still being reviewed by our team. It can add clients; bank connections open after the review. | Add clients now and connect banks after the review. |
+| `access_not_active` | 403 | LedgerSync MCP only. The signed-in user has no working LedgerSync account yet: never applied, the sign-up is not finished, the first application is still under review or waiting for an answer, or it was not approved, closed or turned off; or the connector is not switched on for the account. For a firm that signs in with its LedgerSync app login: the signed-in user is not the firm owner, the login or the firm's account is locked, LedgerSync is not active for the firm, or connecting AI assistants is turned off for the firm. | Follow the `next_step` the AI reads out. Firms sign in on the LedgerSync sign-in page with their LedgerSync app login: [connect again](/ai/troubleshooting#connect-again) and sign in. Developers apply in the portal or wait for the review. Otherwise email support. |
+| `connector_app_pending_approval` | 403 | LedgerSync MCP only. The AI app is not supported yet. Claude and ChatGPT are approved automatically; other apps are blocked. | Use Claude or ChatGPT, or email support. |
+| `connector_access_revoked` | 403 | LedgerSync MCP only. The AI app was disconnected from this account. Also sent when the firm owner changed the LedgerSync password or turned off two-step sign-in after the AI app connected. | [Connect again](/ai/troubleshooting#connect-again) and sign in. |
+| `firm_under_review` | 403 | LedgerSync MCP only. A new firm is still being reviewed by our team. It can add clients; bank connections open after the review. | Add clients now and connect banks after the review. |
 
-The [AI connector](/ai/developers) also answers with
+The [LedgerSync MCP](/ai/developers) also answers with
 `access_request_not_approved` when the user already has a LedgerSync account and their application for
 that environment is under review, needs more information or has not finished its payment step, or when
 their access for that environment was turned off (a first application still under review answers
 `access_not_active`), and with `billing_not_configured` when live access was approved but no card is on
 file (the payment step was not completed). Its errors reach the AI app as a tool error carrying the same
 `code`; access and rate-limit errors also carry a `next_step` sentence the AI reads out to the user. So do
-the [desktop app linking](#desktop-app-linking-ai-connector-only) errors.
+the [desktop app linking](#desktop-app-linking-ledgersync-mcp-only) errors.
 
 ### Request problems
 
@@ -218,9 +218,9 @@ not count against the daily refresh budget.
 | `desktop_app_required` | The bank needs the desktop app for refreshes, and the app is not connected right now. `FDE-LSDA_UNAVAILABLE`. A refresh fails at once, and the connection reads `requires_action` with this code. The account holder has nothing to re-enter: the firm opens the desktop app on the computer it is set up on, then refreshes again. |
 | `desktop_app_route_choice` | The refresh is waiting for someone to choose whether LedgerSync reaches the bank through the desktop app. `FDE-FORM_PROXY_SELECTION`. Arrives inside the refresh operation's `error`. Send the account holder the connection's fix link from [`POST /v3/connections/{id}/reauthorize`](/guides/connection-lifecycle#handling-failed-and-disconnected); they choose on that LedgerSync page, then refresh again. |
 
-### Desktop app linking (AI connector only)
+### Desktop app linking (LedgerSync MCP only)
 
-These come only from the [AI connector](/ai/developers)'s `ledgersync_pair_desktop_app`
+These come only from the [LedgerSync MCP](/ai/developers)'s `ledgersync_pair_desktop_app`
 tool, which links the LedgerSync desktop app with the code the app shows. Each one reaches the AI app as a
 tool error with a `next_step` the AI reads out. None of them repeats the code.
 

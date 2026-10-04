@@ -50,10 +50,10 @@
         ]
       },
       {
-        "tab": "AI connector",
+        "tab": "LedgerSync MCP",
         "groups": [
           {
-            "group": "AI connector",
+            "group": "LedgerSync MCP",
             "pages": [
               "ai/start-here",
               "ai/setup-claude",
