@@ -846,9 +846,10 @@ paths:
         the connection has reported, and resolves itself if those reports
         never arrive.
 
-        On success `result` carries `accounts_refreshed` and an `accounts`
-        array. A refresh where the aggregation ran but an account did not come
-        back is reported as `failed` with `refresh_partially_failed`, carrying
+        On success `result` (`kind: account_refresh`) carries
+        `accounts_refreshed` and an `accounts` array. A refresh where the
+        aggregation ran but an account did not come back is reported as
+        `failed` with `refresh_partially_failed`, carrying
         the same per-account breakdown under `error.accounts`, so branching on
         `status` alone cannot silently accept a connection that is missing an
         account's transactions.
@@ -3106,6 +3107,7 @@ components:
             - $ref: '#/components/schemas/OperationResultStatement'
             - $ref: '#/components/schemas/OperationResultStatementExtraction'
             - $ref: '#/components/schemas/OperationResultTransactionSync'
+            - $ref: '#/components/schemas/OperationResultAccountRefresh'
           discriminator:
             propertyName: kind
             mapping:
@@ -3114,6 +3116,7 @@ components:
               statement: '#/components/schemas/OperationResultStatement'
               statement_extraction: '#/components/schemas/OperationResultStatementExtraction'
               transaction_sync: '#/components/schemas/OperationResultTransactionSync'
+              account_refresh: '#/components/schemas/OperationResultAccountRefresh'
         error:
           allOf:
             - $ref: '#/components/schemas/ErrorInfo'
@@ -3202,6 +3205,48 @@ components:
         kind: { type: string, enum: [transaction_sync] }
         account_id: { type: string }
         new_transaction_count: { type: integer }
+
+    OperationResultAccountRefresh:
+      type: object
+      description: |
+        Result of a succeeded `account.refresh` operation, started via
+        `POST /connections/{connection_id}/refresh`: every account the
+        refresh was started for reported a successful refresh. An account
+        the refresh newly creates (MX and FDE) is not listed here; re-list
+        the connection's accounts to find it.
+      required: [kind, connection_id, accounts_refreshed, accounts]
+      properties:
+        kind: { type: string, enum: [account_refresh] }
+        connection_id:
+          type: [string, 'null']
+          description: |
+            The refreshed connection. `null` when the operation was closed
+            from the recorded per-account outcomes instead of by the last
+            account's refresh event.
+          example: con_FINICITY_42566
+        accounts_refreshed:
+          type: integer
+          description: Number of accounts that refreshed successfully.
+          example: 3
+        accounts:
+          type: array
+          items: { $ref: '#/components/schemas/AccountRefreshOutcome' }
+
+    AccountRefreshOutcome:
+      type: object
+      description: One account's outcome in an `account.refresh` operation.
+      required: [account_id, status]
+      properties:
+        account_id:
+          type: string
+          example: acc_FINICITY_113900
+        status:
+          type: string
+          description: |
+            `succeeded` for every account of a succeeded refresh. The same
+            breakdown on a failed refresh, under `error.accounts`, can also
+            report `failed` or `pending`.
+          example: succeeded
 
     OperationAck:
       type: object
