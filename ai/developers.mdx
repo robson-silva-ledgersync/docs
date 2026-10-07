@@ -20,16 +20,17 @@ import { AiPage, AiBox, AiCopy, AiStuck } from "/snippets/ai-ui.jsx";
   </AiBox>
   <AiBox title="Who can connect">
 
-  Firms that use the LedgerSync app (the firm owner, with the app login) and approved developer accounts. A
-  firm new to LedgerSync signs up in the LedgerSync app first. Claude Team and Enterprise Owners add it under
-  **Organization settings** first.
+  Firms that use the LedgerSync app (the owner, administrators and employees, each with their own app login)
+  and approved developer accounts. A firm new to LedgerSync signs up in the LedgerSync app first. Claude Team
+  and Enterprise Owners add it under **Organization settings** first.
 
   </AiBox>
 </div>
 
 <Accordion title="Who can connect: the details">
-  - Firms that use the LedgerSync app: the firm owner signs in with the LedgerSync app login (email or
-    username, password, and the two-step code if the account has one).
+  - Firms that use the LedgerSync app: the owner, administrators and employees each sign in with their own
+    LedgerSync app login (email or username, password, and the two-step code if the login has one). Each sees
+    only what they see in the app: an employee sees the clients assigned to them.
   - Firms new to LedgerSync sign up in the LedgerSync app first
     ([ledgersyncappv2.com/sign-up](https://ledgersyncappv2.com/sign-up)), then connect like any other firm. Until
     our team has checked a new firm, `ledgersync_create_connect_link` answers `firm_under_review` and
@@ -37,8 +38,9 @@ import { AiPage, AiBox, AiCopy, AiStuck } from "/snippets/ai-ui.jsx";
   - Approved developer accounts: type the developer portal email on the LedgerSync sign-in page. It sends you
     to the developer portal sign-in. The account must be approved for that environment; live also needs the
     payment step. An application still waiting for its first approval cannot connect yet.
-  - Only the firm owner can connect for now. A teammate gets **For now, only the firm owner can use LedgerSync
-    in their own Claude or ChatGPT.**
+  - Sub-account (firm) logins and their employees cannot connect yet; they get **Connecting an AI assistant is
+    not available for sub-account logins yet.** Client logins, support sessions and logins with access days and
+    hours cannot connect.
   - ChatGPT needs a paid plan (Plus or higher) and the web version on chatgpt.com. If **Create MCP App** is
     missing, turn on **Developer mode** (**Settings**, then **Security and login**). On ChatGPT Business,
     Enterprise or Edu, only the workspace admin can add it for everyone.
@@ -107,7 +109,8 @@ import { AiPage, AiBox, AiCopy, AiStuck } from "/snippets/ai-ui.jsx";
       API keys too.
     - Linking the desktop app needs the code the app shows, and the AI asks you to confirm first. The code is
       never logged or repeated back.
-    - The desktop app is linked to the account owner's LedgerSync login, the one the connector acts as.
+    - The desktop app is linked to the firm owner's LedgerSync login. Only the owner can link it; a teammate's
+      AI can check whether it is connected.
       Linking a computer replaces any computer linked before: only one computer is connected at a time.
       Every link is recorded and the LedgerSync team is alerted at once.
   </Accordion>
@@ -141,11 +144,11 @@ import { AiPage, AiBox, AiCopy, AiStuck } from "/snippets/ai-ui.jsx";
 
     | Code | What it means | What to do |
     | --- | --- | --- |
-    | `access_not_active` | This sign-in has no working LedgerSync account yet: it is not set up, the sign-up is not finished, it is being checked, we need an answer, it was not approved, it closed, or it was turned off. For a firm that signs in with its app login: the signed-in user is not the firm owner, the login or account is locked, LedgerSync is not active for the firm, or connecting AI assistants is turned off for the firm. | Follow the step the AI reads out. Firms: [connect again](/ai/troubleshooting#connect-again) and sign in with the LedgerSync app login. Developers apply at [portal.ledgersyncappv2.com](https://portal.ledgersyncappv2.com). |
+    | `access_not_active` | This sign-in has no working LedgerSync account yet: it is not set up, the sign-up is not finished, it is being checked, we need an answer, it was not approved, it closed, or it was turned off. For a firm that signs in with its app login: the login cannot connect (a sub-account login), the person's login or the firm's account is locked, the firm owner turned off AI assistants for the person, the login has access days and hours, the person no longer has access to the firm, LedgerSync is not active for the firm, or connecting AI assistants is turned off for the firm. | Follow the step the AI reads out. Firms: [connect again](/ai/troubleshooting#connect-again) and sign in with the LedgerSync app login. Developers apply at [portal.ledgersyncappv2.com](https://portal.ledgersyncappv2.com). |
     | `access_request_not_approved` | This sign-in has a LedgerSync account, but not for this environment yet: its application is still being reviewed, needs more information, or has not finished the payment step. Or its access for this environment was turned off. | Follow the step the AI reads out: wait for the review, answer the question in the portal, or finish the payment step. If access was turned off, email support. |
     | `billing_not_configured` | Live access is approved, but no card is on file (the payment step was not completed). | Complete the payment step in the portal. |
     | `connector_app_pending_approval` | This AI app is not supported yet. Only Claude and ChatGPT are. | Use Claude or ChatGPT, or email support. |
-    | `connector_access_revoked` | This AI app was disconnected from your LedgerSync account, or the firm owner changed the LedgerSync password or turned off two-step sign-in after it connected. | [Connect again](/ai/troubleshooting#connect-again) and sign in. |
+    | `connector_access_revoked` | This AI app was disconnected from your LedgerSync account, or the person who connected it changed their LedgerSync password or turned off two-step sign-in after it connected. | [Connect again](/ai/troubleshooting#connect-again) and sign in. |
     | `firm_under_review` | A new firm is still being reviewed by our team. It can add clients; bank connections open after the review. | Add clients now and connect banks after the review. |
     | `insufficient_scope` | This connection is read-only, or lacks permission for what you asked. | Ask for something the connection may do, or email support. |
     | `rate_limit_exceeded` | A limit was reached. | Try again when the AI says you can, or tomorrow for a daily limit. |
