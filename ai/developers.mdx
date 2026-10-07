@@ -8,7 +8,7 @@ import { AiPage, AiBox, AiCopy, AiStuck } from "/snippets/ai-ui.jsx";
 
 <AiPage title="For developers" subtitle={<span>Reference for developers and admins. Accountants setting up their firm don't need this page: go to <a href="/ai/start-here">Start here</a>.</span>}>
 
-<AiCopy label="Live connector (17 tools)" text="https://api.ledgersyncappv2.com/mcp" />
+<AiCopy label="Live connector (21 tools)" text="https://api.ledgersyncappv2.com/mcp" />
 
 <div className="lsai-grid-2">
   <AiBox title="Sandbox">
@@ -52,7 +52,7 @@ import { AiPage, AiBox, AiCopy, AiStuck } from "/snippets/ai-ui.jsx";
     one.
 </Accordion>
 
-## Tools <span className="lsai-badge">17</span>
+## Tools <span className="lsai-badge">21</span>
 
 | Tool | What it does | Changes data |
 | --- | --- | --- |
@@ -71,11 +71,15 @@ import { AiPage, AiBox, AiCopy, AiStuck } from "/snippets/ai-ui.jsx";
 | `ledgersync_refresh_connection` | Asks the bank for the latest data | Yes |
 | `ledgersync_get_operation_status` | Has a refresh finished | No |
 | `ledgersync_get_fix_link` | Secure page to fix a broken connection | Yes |
+| `ledgersync_preview_client_message` | Who would get your email or text, who is skipped and why, and a sample | No |
+| `ledgersync_send_client_message` | Sends a previewed email or text, each with that client's own link | Yes |
+| `ledgersync_list_message_templates` | Your firm's saved Issue templates, email and text | No |
+| `ledgersync_save_message_template` | Saves a message as a new firm template | Yes |
 | `ledgersync_get_desktop_app_status` | Is the desktop app linked and connected (live only) | No |
 | `ledgersync_pair_desktop_app` | Links the desktop app with its 7-character code (live only) | Yes |
 
 <AccordionGroup>
-  <Accordion title="Tool details: refreshes left, duplicates, the desktop app">
+  <Accordion title="Tool details: refreshes left, duplicates, client messages, the desktop app">
     - `ledgersync_get_account_status` also says whether the connection is full or read-only. Refreshes left
       is your firm's shared daily budget, not the per-app cap.
     - `ledgersync_create_client` checks for an existing client with the same name or email first.
@@ -93,6 +97,47 @@ import { AiPage, AiBox, AiCopy, AiStuck } from "/snippets/ai-ui.jsx";
       connect them. `ledgersync_list_connections` also gives each connection's status.
     - `ledgersync_list_connections_needing_attention` lists the connections that are not working, across all
       your clients, the ones that need the account holder first.
+    - `ledgersync_preview_client_message` comes first. It finds the clients whose bank connection needs
+      attention: all of them, the ones at a bank you name (for example American Express), or the connections
+      you pick. It says how many messages will go out, who is skipped and why, and which link each client
+      gets, and shows a sample. It sends nothing and creates no link.
+    - Each message carries that client's own link where the text says `#LS_URL#`: a link to fix the
+      connection or, for a bank LedgerSync now connects through MX (such as American Express), a link to
+      connect that bank again through MX. A client with several broken connections at such a bank gets one
+      message. At any other bank, a client gets one message for each connection that needs attention, each
+      with that connection's own link. When some clients get a fix link and others an MX link, the preview
+      says so, so you can word the message to fit both.
+    - Messages can also use `#CLIENT_NAME#`, `#BANK_NAME#`, `#COMPANY_NAME#` (your firm's name) and
+      `#EMPLOYEE_FIRST_NAME#` (the first name of the person sending). An email without a subject gets one
+      like "Acme CPA needs you to reconnect your bank", with your firm's name.
+    - `ledgersync_send_client_message` sends only what a preview showed, using the preview's confirmation.
+      Use it within 30 minutes; once sending starts, it keeps working for 24 hours. An expired one is refused
+      with `invalid_request`: preview again.
+    - Each send call works for about 25 seconds and returns running totals. The AI calls again with the same
+      confirmation until no client is left. A client never gets the same message twice from one
+      confirmation, even when a call is repeated.
+    - Emails go to every email address on file for the client. Texts go to the client's main phone number.
+    - Each client comes back sent, sent with an MX link, skipped or failed (with a reason), or unknown:
+      LedgerSync could not confirm it went out, so it is not sent again. A client a call had no time for is
+      sent on the next call. On sandbox, every client that would get the message comes back as would send.
+    - A client is skipped when:
+      - the bank has no working way to reconnect right now, so there is no link to send;
+      - the client got a LedgerSync message about that connection in the last 24 hours, unless you asked to
+        include them;
+      - the AI connector cannot reach the client's record;
+      - for an email, the client has no email address (a client added through the AI without an email has
+        none);
+      - for a text, texts are turned off for the client, there is no phone number, the client replied STOP
+        (texts start again when they reply START), it is outside the client's texting hours, or LedgerSync's
+        assistant is texting with the client right now.
+    - A client fails when something changed since the preview (the client was removed, the connection no
+      longer needs attention, or it is no longer one you can see), when the client's link could not be
+      created, or when the email or text service refused the message or could not confirm a text went out.
+    - `ledgersync_list_message_templates` lists your firm's Issue templates, email and text.
+      `ledgersync_save_message_template` saves a new one and never changes an existing one. They are the same
+      templates as in the Communication Center of the LedgerSync app, shared with your whole firm. A preview
+      can start from a saved template; editing the template later does not change that preview. Only the AI
+      uses a template's email subject for now.
     - `ledgersync_get_desktop_app_status` checks the app live and returns the Windows and Mac download links
       and the setup steps.
     - `ledgersync_pair_desktop_app` replaces any computer linked before, so the AI asks you to confirm first.
@@ -101,7 +146,7 @@ import { AiPage, AiBox, AiCopy, AiStuck } from "/snippets/ai-ui.jsx";
       not working on such a bank also gets a `next_step` that says so.
   </Accordion>
 
-  <Accordion title="Security: bank sign-ins never in the chat, 72-hour connect links, 10-minute one-use statement links">
+  <Accordion title="Security: bank sign-ins never in the chat, 72-hour connect links, 10-minute one-use statement links, client messages carry only LedgerSync links">
     - Bank sign-ins never happen in the chat. The account holder picks the bank on a LedgerSync page and signs
       in there, or on the bank-data partner's secure page it opens for some banks. Connect links expire after
       72 hours.
@@ -116,6 +161,18 @@ import { AiPage, AiBox, AiCopy, AiStuck } from "/snippets/ai-ui.jsx";
       account's LedgerSync login can add it again. To turn it off for good, email support: support turns off
       the account's access for that environment, which stops every connected app and, on live, the account's
       API keys too.
+    - The only link a client message can carry is that client's own LedgerSync link, which LedgerSync puts
+      where the text says `#LS_URL#`. A message with any other web address is refused; email addresses are
+      fine. A message that breaks a rule is refused with `invalid_request` and a sentence naming the problem.
+      The same rules apply when saving a template.
+    - An email shows your text as written, with the names and link filled in and your line breaks kept. HTML
+      in the text shows as plain text.
+    - Nothing is sent without a preview: the AI shows you who gets the message and a sample, and asks you
+      before it sends. A preview's confirmation works only for the person and the AI app that made it.
+    - Each person messages only the clients they see in the LedgerSync app: an employee, the clients assigned
+      to them.
+    - On the sandbox connector, client messages are never delivered and no link is created for them: the send
+      shows what would be sent (would send).
     - Linking the desktop app needs the code the app shows, and the AI asks you to confirm first. The code is
       never logged or repeated back.
     - The desktop app is linked to the firm owner's LedgerSync login. Only the owner can link it; a teammate's
@@ -124,16 +181,28 @@ import { AiPage, AiBox, AiCopy, AiStuck } from "/snippets/ai-ui.jsx";
       Every link is recorded and the LedgerSync team is alerted at once.
   </Accordion>
 
-  <Accordion title="Refreshes and limits: 50 AI refreshes a day on live, 20 on sandbox, per-minute and per-hour caps">
+  <Accordion title="Refreshes and limits: 50 AI refreshes a day on live, 20 on sandbox, 300 client messages a day per firm on live, per-minute and per-hour caps">
     - LedgerSync refreshes every working connection about once a day. A refresh you ask for takes a few
       minutes; see [Keeping data fresh](/guides/data-freshness).
     - A connection refreshed in the last 30 minutes is skipped unless you ask for a new pull anyway.
     - Each AI app can start 50 refreshes a day on live (20 on sandbox). They also count against your firm's
       daily budget of 500 on live (100 on sandbox), shared with API keys, which is the number the AI shows as
       refreshes left.
-    - Per connected AI app: 50 new clients a day, 30 connect links an hour, and 120 tool calls a minute on
-      sandbox (60 on live).
+    - Per connected AI app: 50 new clients a day, 30 connect links an hour, 60 message previews an hour, 30
+      saved templates a day, and 120 tool calls a minute on sandbox (60 on live).
     - Long lists of connections, accounts, transactions and statements come back in pages.
+    - Client messages: 300 a day per firm on live (100 on sandbox), counted across everyone at the firm and
+      every AI app, in UTC days. Skipped and failed messages do not count. When the limit is reached, sending
+      stops and the AI says so.
+    - A client who got a LedgerSync message about the same connection in the last 24 hours is skipped, unless
+      you ask the AI to include them.
+    - Texts go out only between 11 am and 9 pm US Eastern time, unless the client has their own texting
+      hours on file: then only within those hours, in their time zone, never before 8 am or after 9 pm. A
+      client outside those hours is skipped; ask again later.
+    - An email can be up to 5,000 characters and a text up to 600, with the names and link filled in. An
+      email subject can be up to 150 characters.
+    - A preview looks at up to 200 connections that need attention. When more match, it says so: name a bank
+      or pick the connections to narrow it.
     - A refresh stopped by the desktop app (`desktop_app_required` or `desktop_app_route_choice`) never
       reached the bank. It counts against neither daily refresh limit, and the 30-minute skip does not block
       trying again.
@@ -157,7 +226,8 @@ import { AiPage, AiBox, AiCopy, AiStuck } from "/snippets/ai-ui.jsx";
 
     The 15 codes you are most likely to see are listed below. The connector can also answer
     `invalid_request`, `internal_error`, `idempotency_conflict` or `upstream_unavailable` (LedgerSync could not
-    check the firm just now; try again in a minute).
+    be reached or could not check the firm just now; try again in a minute. After saving a template, list the
+    templates first: it may already be saved).
 
     | Code | What it means | What to do |
     | --- | --- | --- |

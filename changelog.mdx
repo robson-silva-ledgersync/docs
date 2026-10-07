@@ -4,6 +4,40 @@ description: "New features, improvements, and fixes to the LedgerSync v3 API. Ne
 ---
 
 <Update label="2026-10-07" tags={["AI connector"]}>
+  ## Email or text clients about broken bank connections from Claude and ChatGPT
+
+  Ask the AI to write to the clients whose bank connection needs attention, for example everyone with a
+  broken American Express connection. LedgerSync sends your own email or text, and each message carries
+  that client's own link.
+
+  **Four new AI connector tools, on the live and sandbox connectors:**
+
+  - `ledgersync_preview_client_message` shows who will get the message, who is skipped and why, and a
+    sample. Nothing is sent.
+  - `ledgersync_send_client_message` sends the previewed message after you confirm. Each client gets a link
+    to fix their connection or, for a bank LedgerSync now connects through MX such as American Express, a
+    link to connect that bank again through MX.
+  - `ledgersync_list_message_templates` and `ledgersync_save_message_template` read and add message
+    templates. They are the same templates as in the Communication Center of the LedgerSync app, shared
+    with the whole firm. An email template can now have a subject, which the AI uses when it sends.
+
+  **Limits and safeguards:**
+
+  - Client messages are limited to 300 a day per firm on live (100 on sandbox).
+  - A client who got a LedgerSync message about the same connection in the last 24 hours is skipped unless
+    you ask to include them. Texts go out only in daytime hours: by default 11 am to 9 pm US Eastern time.
+  - A message can carry no web address other than the client's own LedgerSync link.
+  - On the sandbox connector, client messages are never delivered and no link is created for them: the send
+    shows what would be sent.
+  - An employee messages only the clients assigned to them.
+  - Claude and ChatGPT keep a copy of LedgerSync's tools. To get the new tools, reconnect in Claude or click
+    **Refresh** in ChatGPT, then start a new chat. See
+    [After a LedgerSync update](/ai/troubleshooting#after-an-update).
+
+  See [For developers](/ai/developers).
+</Update>
+
+<Update label="2026-10-07" tags={["AI connector"]}>
   ## Connect a bank's check images from Claude or ChatGPT
 
   Ask the AI for a link to connect a client's check images, for example: "Send Acme a link to connect their
