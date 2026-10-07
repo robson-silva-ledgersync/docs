@@ -4,6 +4,27 @@ description: "New features, improvements, and fixes to the LedgerSync v3 API. Ne
 ---
 
 <Update label="2026-10-07" tags={["AI connector"]}>
+  ## Connect a bank's check images from Claude or ChatGPT
+
+  Ask the AI for a link to connect a client's check images, for example: "Send Acme a link to connect their
+  bank's check images."
+
+  - `ledgersync_create_connect_link` takes a new setting, `for_check_images`. That link lists only the banks
+    whose check images LedgerSync can connect, and connects them through LedgerSync's own connection. Before,
+    a link for banks like Regions or Bank of America always used the bank's usual route, which has no check
+    images.
+  - The check images show in the LedgerSync app. A check images link brings no live transaction feed, so send
+    a normal link too for the bank's transactions.
+  - When a bank in its answer gives check images, `ledgersync_search_institutions` now adds a
+    `check_images_note` on how to connect them.
+  - The AI now says exactly where the bank sign-in happens: on LedgerSync's page, or on our bank-data
+    partner's secure page for some banks. Never in the chat.
+  - Claude and ChatGPT keep a copy of LedgerSync's tools. To get the new setting, reconnect in Claude or click
+    **Refresh** in ChatGPT, then start a new chat. See
+    [After a LedgerSync update](/ai/troubleshooting#after-an-update).
+</Update>
+
+<Update label="2026-10-07" tags={["AI connector"]}>
   ## Teammates can use LedgerSync in Claude and ChatGPT
 
   Administrators and employees at a firm now connect LedgerSync in Claude or ChatGPT with their own LedgerSync

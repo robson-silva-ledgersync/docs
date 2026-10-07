@@ -17,6 +17,7 @@ import { AiPage, AiBox, AiEmail, AiStuck } from "/snippets/ai-ui.jsx";
 | **Your LedgerSync password was changed, so this connection was turned off.** | [Connect again](#connect-again). Sign in again, with your new password if you changed it. |
 | **For now, only the firm owner can use LedgerSync in their own Claude or ChatGPT.** | Teammates can connect now. [Connect again](#connect-again) and sign in with your own LedgerSync login. |
 | **This LedgerSync login cannot use LedgerSync in Claude or ChatGPT.** | [Connect again](#connect-again) and sign in with your own LedgerSync login. Still there? Email <AiEmail />. |
+| It asks you to disconnect and reconnect LedgerSync, or it doesn't know something new, like check images links | Your AI still has an older copy of LedgerSync's tools. Do [After a LedgerSync update](#after-an-update). |
 | It doesn't seem to know LedgerSync | Start a new chat and ask again. In Claude, click **+** in the message box, then **Connectors**, and turn **LedgerSync** on. In ChatGPT, type **@** and pick **LedgerSync**. Not in the list? Open [Plugins](https://chatgpt.com/plugins), click **Personal**, then **LedgerSync**, then **Install plugin**. |
 
 <AiBox id="connect-again" title="To connect again">
@@ -28,6 +29,19 @@ import { AiPage, AiBox, AiEmail, AiStuck } from "/snippets/ai-ui.jsx";
 **...** next to your account, then **Reconnect**.
 
 The LedgerSync sign-in page opens. Sign in, then click **Allow**.
+
+</AiBox>
+
+<AiBox id="after-an-update" title="After a LedgerSync update">
+
+Claude and ChatGPT keep a copy of LedgerSync's tools. When we add something new, load the new copy once:
+
+**Claude:** [connect again](#connect-again).
+
+**ChatGPT:** open [Plugins](https://chatgpt.com/plugins), click **Personal**, then **LedgerSync**, then
+**Refresh**.
+
+Then start a new chat.
 
 </AiBox>
 

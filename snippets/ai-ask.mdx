@@ -9,8 +9,9 @@
     Ask: "Add my client Acme."
   </Step>
   <Step title="Connect their bank">
-    Ask: "Send Acme a link to connect their bank." Open the link. Pick your client's bank and sign in with
-    their bank login. This happens on a LedgerSync page, never in the chat.
+    Ask: "Send Acme a link to connect their bank." Open the link and pick your client's bank on the LedgerSync
+    page. Then sign in with their bank login on the secure page that opens: LedgerSync's own, or our bank-data
+    partner's for some banks. Never in the chat.
 
     Don't have their bank login? Send the link to your client by email or text, and they do it. The link
     works for 3 days.
@@ -44,7 +45,13 @@
   <Card title="Connect a bank" icon="link">
     "Send Acme a link to connect their bank."
   </Card>
+  <Card title="Check images" icon="money-check">
+    "Send Acme a link to connect their bank's check images."
+  </Card>
 </CardGroup>
+
+Check images arrive in the LedgerSync app, not in the chat. A check images link connects only the images:
+send a normal link too if you also want the bank's transactions.
 
 <Tip>
   Before the AI changes something, it asks you first. Allow it if it looks right.
