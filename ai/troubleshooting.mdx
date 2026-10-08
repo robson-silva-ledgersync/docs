@@ -121,6 +121,33 @@ Then start a new chat.
     | **Too many tries to link the desktop app.** | Wait the minutes the AI says. Then get a new code and try again. |
     | **LedgerSync could not reach the desktop app service.** Or: **The desktop app could not be checked right now.** | Wait a few minutes and try again. Still not working? Email support. |
   </Accordion>
+
+  <Accordion title="Statement PDFs: the upload page shows a message, the totals can't be checked">
+    | The page or the AI says | Do this |
+    | --- | --- |
+    | You attached the PDF to the chat and the AI cannot use it | The AI cannot pass a file to LedgerSync. Ask it to convert the statement: it gives you a page to upload the PDF. See [Turn a bank statement PDF into transactions](/ai/convert-statement). |
+    | **This link has expired. Ask the AI for a new link.** | Ask the AI for a new upload link. Each link works for 24 hours and takes one PDF. |
+    | **This link is not valid. Ask the AI for a new link.** | Open the whole link the AI gave you, or ask for a new one. |
+    | **This link can no longer be used. Ask the AI for a new link.** | Your LedgerSync connection was disconnected or made read-only, or your login can no longer connect. [Connect again](#connect-again), then ask for a new link. Still the same? Email support. |
+    | **A statement was already uploaded with this link. Go back to your chat.** Or: **This statement was already uploaded. Go back to your chat.** | Go back to the chat and ask for the transactions. For another statement, ask for a new link. |
+    | **Your statement is already uploading. Go back to your chat.** | Go back to the chat and tell the AI "Done." Don't upload it again. |
+    | **Too many uploads with this link failed. Ask the AI for a new link.** | Ask the AI for a new upload link. Choose the statement's own PDF this time. |
+    | **LedgerSync could not check this link just now. Try again in a minute.** | Wait a minute, then click **Try again**. |
+    | **This file is not a PDF.** | Choose the PDF of your bank statement. A photo or a screenshot is not a PDF. |
+    | **This file is bigger than 30 MB.** | Choose a smaller PDF. |
+    | **Choose the PDF of your bank statement first.** | The file you picked is empty. Click **Choose a different file** and pick the statement's own PDF. |
+    | **JavaScript is required to upload your statement.** | Turn on JavaScript in your browser, or open the link in another browser. |
+    | **LedgerSync could not read this PDF. Make sure it is a bank statement and try again.** | Choose the statement's own PDF, or another copy of it. |
+    | **Your firm already has 3 statements converting.** | Wait a few minutes, then click **Try again**. |
+    | **Your firm has converted 500 statements today, its daily limit.** | Try again tomorrow. |
+    | **Too many tries. Wait a minute and try again.** | Wait a minute, then click **Try again**. |
+    | **Something went wrong. Try again in a minute.** | Click **Try again**. |
+    | **Something went wrong. Ask the AI for a new link.** | Ask the AI for a new upload link, then upload the PDF again. |
+    | **Check your internet connection and try again.** | Check your internet, then click **Try again**. |
+    | The transactions don't match the statement's balances, or the balances could not be checked | Compare them with the PDF before you use them: a line may be misread. |
+    | No transactions were found in the statement | The PDF may be a scan LedgerSync cannot read, or not a bank statement. Ask for a new link and try the statement's own PDF. |
+    | The conversion failed | Ask for a new link and upload the PDF again. A slow one may still finish on your **PDF Converter** page in LedgerSync. Still failing? Email support. |
+  </Accordion>
 </AccordionGroup>
 
 ## Remove or turn off LedgerSync

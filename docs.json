@@ -58,6 +58,7 @@
               "ai/start-here",
               "ai/setup-claude",
               "ai/setup-chatgpt",
+              "ai/convert-statement",
               "ai/troubleshooting",
               "ai/desktop-app"
             ]

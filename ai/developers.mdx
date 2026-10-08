@@ -8,7 +8,7 @@ import { AiPage, AiBox, AiCopy, AiStuck } from "/snippets/ai-ui.jsx";
 
 <AiPage title="For developers" subtitle={<span>Reference for developers and admins. Accountants setting up their firm don't need this page: go to <a href="/ai/start-here">Start here</a>.</span>}>
 
-<AiCopy label="Live connector (21 tools)" text="https://api.ledgersyncappv2.com/mcp" />
+<AiCopy label="Live connector (24 tools)" text="https://api.ledgersyncappv2.com/mcp" />
 
 <div className="lsai-grid-2">
   <AiBox title="Sandbox">
@@ -52,7 +52,7 @@ import { AiPage, AiBox, AiCopy, AiStuck } from "/snippets/ai-ui.jsx";
     one.
 </Accordion>
 
-## Tools <span className="lsai-badge">21</span>
+## Tools <span className="lsai-badge">24</span>
 
 | Tool | What it does | Changes data |
 | --- | --- | --- |
@@ -68,6 +68,9 @@ import { AiPage, AiBox, AiCopy, AiStuck } from "/snippets/ai-ui.jsx";
 | `ledgersync_list_transactions` | An account's transactions (last 30 days by default) | No |
 | `ledgersync_list_statements` | An account's statements | No |
 | `ledgersync_get_statement_download_link` | One-time link to a statement PDF | No |
+| `ledgersync_create_statement_upload_link` | Secure page where you upload a bank statement PDF to turn it into transactions | Yes |
+| `ledgersync_get_statement_conversion` | Has a statement conversion finished; its transactions, a page at a time | No |
+| `ledgersync_get_conversion_download_link` | One-time link to a converted statement as a CSV, Excel, QuickBooks or OFX file | No |
 | `ledgersync_refresh_connection` | Asks the bank for the latest data | Yes |
 | `ledgersync_get_operation_status` | Has a refresh finished | No |
 | `ledgersync_get_fix_link` | Secure page to fix a broken connection | Yes |
@@ -79,7 +82,7 @@ import { AiPage, AiBox, AiCopy, AiStuck } from "/snippets/ai-ui.jsx";
 | `ledgersync_pair_desktop_app` | Links the desktop app with its 7-character code (live only) | Yes |
 
 <AccordionGroup>
-  <Accordion title="Tool details: refreshes left, duplicates, client messages, the desktop app">
+  <Accordion title="Tool details: refreshes left, duplicates, client messages, the desktop app, statement conversions">
     - `ledgersync_get_account_status` also says whether the connection is full or read-only. Refreshes left
       is your firm's shared daily budget, not the per-app cap.
     - `ledgersync_create_client` checks for an existing client with the same name or email first.
@@ -148,6 +151,21 @@ import { AiPage, AiBox, AiCopy, AiStuck } from "/snippets/ai-ui.jsx";
     - A bank or connection that needs the desktop app for refreshes carries `requires_desktop_app: true` in
       the search, connection and refresh-status results; the field is left out otherwise. A connection that is
       not working on such a bank also gets a `next_step` that says so.
+    - `ledgersync_create_statement_upload_link` returns a secure LedgerSync page where the user uploads one bank
+      statement PDF (up to 30 MB), and a `conversion_id` (`cnv_...`). The AI cannot pass a file to LedgerSync,
+      even one attached to the chat. LedgerSync reads it with the same reader as the PDF Converter in the app
+      and `POST /v3/statements/extract`; nothing is added to a client. See
+      [Turn a bank statement PDF into transactions](/ai/convert-statement).
+    - `ledgersync_get_statement_conversion` says `waiting_for_upload` (with `upload_problem` when an upload was
+      refused, in words the AI can repeat), `in_progress`, `completed`, `failed` or `expired`. A completed one
+      gives the page count, the number of transactions, whether they match the statement's balances
+      (`validated`, `validation_message`) and the transactions, 50 at a time by default (up to 200): pass
+      `next_cursor` for more.
+    - `ledgersync_get_conversion_download_link` makes a link to the file the LedgerSync app's PDF Converter
+      makes: `csv`, `xlsx` (Excel), `qbo` (a QuickBooks bank file) or `ofx`.
+    - A conversion belongs to the person who made the upload link: the owner, an administrator or an employee.
+      It also shows on that person's **PDF Converter** page in the LedgerSync app, where it can be exported
+      again.
   </Accordion>
 
   <Accordion title="Security: bank sign-ins never in the chat, 72-hour connect links, 10-minute one-use statement links, client messages carry only LedgerSync links">
@@ -155,6 +173,10 @@ import { AiPage, AiBox, AiCopy, AiStuck } from "/snippets/ai-ui.jsx";
       in there, or on the bank-data partner's secure page it opens for some banks. Connect links expire after
       72 hours.
     - Statement download links expire after 10 minutes and work once; if a download fails, ask for a new link.
+    - Statement upload links work for 24 hours and take one PDF. Converted-file links expire after 10 minutes
+      and work once. Both stop working when the connection does: when it is disconnected or made read-only
+      (uploads only), when the person's LedgerSync login can no longer connect, or when the connector is turned
+      off.
     - The connector cannot see or change API keys, webhooks or account settings.
     - Firms that sign in with the LedgerSync app login: changing the LedgerSync password, or turning off
       two-step sign-in, turns off every AI app connected with that login within a minute.
@@ -194,6 +216,10 @@ import { AiPage, AiBox, AiCopy, AiStuck } from "/snippets/ai-ui.jsx";
       refreshes left.
     - Per connected AI app: 50 new clients a day, 30 connect links an hour, 60 message previews an hour, 30
       saved templates a day, and 120 tool calls a minute on sandbox (60 on live).
+    - Statement conversions: 3 at a time and 500 a day per firm on live (2 and 50 on sandbox), shared with
+      the firm's API keys, in UTC days. Each AI app can make 30 upload links an hour. The upload page takes 5
+      tries a minute per link, and a link stops after 3 failed uploads. Every conversion is a real OCR read, on
+      sandbox too.
     - Long lists of connections, accounts, transactions and statements come back in pages.
     - Client messages: 300 a day per firm on live (100 on sandbox), counted across everyone at the firm and
       every AI app, in UTC days. Skipped and failed messages do not count. When the limit is reached, sending
@@ -243,7 +269,7 @@ import { AiPage, AiBox, AiCopy, AiStuck } from "/snippets/ai-ui.jsx";
     | `firm_under_review` | A new firm is still being reviewed by our team. It can add clients; bank connections open after the review. | Add clients now and connect banks after the review. |
     | `insufficient_scope` | This connection is read-only, or lacks permission for what you asked. | Ask for something the connection may do, or email support. |
     | `rate_limit_exceeded` | A limit was reached. | Try again when the AI says you can, or tomorrow for a daily limit. |
-    | `not_found` | No client, connection, account or statement matches, or it belongs to another account. | Ask the AI to find the client first, then try again. |
+    | `not_found` | No client, connection, account, statement or conversion matches, or it belongs to another account. A conversion belongs to the person who made its upload link. | Ask the AI to find the client first, then try again. For a conversion, use the `conversion_id` from an upload link you made yourself. |
     | `desktop_app_required` | This bank needs the LedgerSync desktop app for refreshes, and the app is not connected right now. The bank was not called. | Open the desktop app on the computer it is set up on, then refresh again. The account holder has nothing to do. |
     | `desktop_app_route_choice` | The refresh is waiting for someone to choose whether LedgerSync reaches the bank through the desktop app. The bank was not called. | The AI gives you a fix link for the account holder. They make the choice on that LedgerSync page. Then refresh again. |
     | `pairing_code_invalid` | The desktop app code did not work: it is wrong, expired or already used. | Get a new code in the desktop app (**Settings**, **Connect with: AI chat**) and tell it to the AI. |

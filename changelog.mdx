@@ -4,6 +4,35 @@ description: "New features, improvements, and fixes to the LedgerSync v3 API. Ne
 ---
 
 <Update label="2026-10-08" tags={["AI connector"]}>
+  ## Turn a bank statement PDF into transactions from Claude and ChatGPT
+
+  Ask the AI to convert a bank statement PDF. It gives you a secure LedgerSync page to upload it, then shows the
+  transactions in the chat and can give you a CSV, Excel, QuickBooks or OFX file. It is the same reader as the
+  PDF Converter in the LedgerSync app, and the conversion also shows on your **PDF Converter** page there. See
+  [Turn a bank statement PDF into transactions](/ai/convert-statement).
+
+  **Three new AI connector tools, on the live and sandbox connectors:**
+
+  - `ledgersync_create_statement_upload_link` gives the upload page link. Each link takes one PDF (up to 30 MB)
+    and works for 24 hours.
+  - `ledgersync_get_statement_conversion` says when the conversion is done and returns the transactions, a page
+    at a time, and whether they match the statement's balances.
+  - `ledgersync_get_conversion_download_link` gives a one-time, 10-minute link to the file.
+
+  **Limits and safeguards:**
+
+  - Your firm can convert 3 statements at a time and 500 a day on live (2 and 50 on sandbox), shared with its
+    API keys. Each AI app can make 30 upload links an hour.
+  - Each person's conversions are their own. A read-only connection cannot upload.
+  - The AI cannot pass a file to LedgerSync, even one attached to the chat: the PDF goes through the upload
+    page.
+  - To see the new tools, reconnect in Claude or click **Refresh** in ChatGPT, then start a new chat. See
+    [After a LedgerSync update](/ai/troubleshooting#after-an-update).
+
+  See [For developers](/ai/developers).
+</Update>
+
+<Update label="2026-10-08" tags={["AI connector"]}>
   ## Connect links from Claude and ChatGPT use the LedgerSync app's bank picker
 
   A link from `ledgersync_create_connect_link` now shows the same bank list as the **Add Bank Connection**

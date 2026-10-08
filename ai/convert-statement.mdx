@@ -1,0 +1,105 @@
+---
+title: "Turn a bank statement PDF into transactions"
+sidebarTitle: "Convert a statement PDF"
+description: "Upload a bank statement PDF on a LedgerSync page and get its transactions in your chat, and a CSV, Excel or QuickBooks file."
+mode: "frame"
+---
+
+import { AiPage, AiStep, AiNote, AiStuck } from "/snippets/ai-ui.jsx";
+
+<AiPage title="Turn a bank statement PDF into transactions" subtitle="LedgerSync reads the PDF and shows the transactions in your chat. It can also make a CSV (spreadsheet), Excel or QuickBooks file. Nothing is added to a client.">
+
+<AiNote tone="gray">
+
+**Don't attach the PDF to the chat.** The AI cannot pass a file to LedgerSync. It gives you a LedgerSync page
+to upload it instead.
+
+</AiNote>
+
+<AiStep id="ask" n={1} total={5} title="Ask the AI">
+
+Ask: *"Convert a bank statement PDF into transactions."* The AI gives you a link to a LedgerSync page.
+
+</AiStep>
+
+<AiNote tone="yellow">
+
+**The AI does not know how to do this?** Your AI still has an older copy of LedgerSync's tools. Do
+[After a LedgerSync update](/ai/troubleshooting#after-an-update), then start a new chat and ask again.
+
+</AiNote>
+
+<AiStep id="open" n={2} total={5} title="Open the link">
+
+Click the link the AI gave you. The page says **Upload your bank statement**.
+
+</AiStep>
+
+<AiStep id="choose" n={3} total={5} title="Choose the PDF" img="/images/ai-convert/upload-1-choose.png" caption="Choose PDF">
+
+Click **Choose PDF** and pick the statement on your computer or phone.
+
+</AiStep>
+
+<AiStep id="upload" n={4} total={5} title="Click Upload" imgs={[{ src: "/images/ai-convert/upload-2-confirm.png", caption: "Upload" }, { src: "/images/ai-convert/upload-3-done.png", caption: "Done" }]}>
+
+The page shows the file's name. Click **Upload**. Wait until the page says **Done**.
+
+Picked the wrong file? Click **Choose a different file** before you click **Upload**.
+
+</AiStep>
+
+<AiStep id="done" n={5} total={5} title="Tell the AI you are done">
+
+Go back to your chat and tell the AI: *"Done."* It shows the transactions. A long statement? The AI may offer a
+file instead of listing every line.
+
+Still reading? Wait a minute, then say *"Done."* again.
+
+</AiStep>
+
+<AiNote tone="gray">
+
+**Want a file?** Ask: *"Give me an Excel file."* Or a CSV, or a QuickBooks file. The AI gives you a download
+link. It works once, for 10 minutes. Link not working? Ask the AI for a new one.
+
+</AiNote>
+
+<AiNote tone="green">
+
+**The AI tells you when the totals can't be checked.** If the transactions don't match the statement's
+balances, or the balances could not be read, check them before you use them.
+
+</AiNote>
+
+<AiNote tone="gray">
+
+**One link, one statement.** Each link takes one PDF and works for 24 hours. After 3 failed uploads it stops
+working. For another statement, or a new try, ask again.
+
+</AiNote>
+
+<AiNote tone="gray">
+
+**It is also in the LedgerSync app.** The conversion shows on your **PDF Converter** page, like one you made
+there.
+
+</AiNote>
+
+Something went wrong? See [Troubleshooting](/ai/troubleshooting).
+
+<Accordion title="For developers: tools, files and limits">
+  - Tools: `ledgersync_create_statement_upload_link` makes the upload page link and a `conversion_id`
+    (`cnv_...`). `ledgersync_get_statement_conversion` says `waiting_for_upload`, `in_progress`, `completed`
+    (with the transactions, a page at a time), `failed` or `expired`. `ledgersync_get_conversion_download_link`
+    makes a one-time link to the file: `csv`, `xlsx`, `qbo` or `ofx`.
+  - It is the same reader as the PDF Converter in the LedgerSync app and `POST /v3/statements/extract`.
+  - Each person's conversions are their own: the owner, administrators and employees each see only the ones
+    they made. A read-only connection can read conversions but cannot upload.
+  - Limits: your firm can convert 3 statements at a time and 500 a day on live (2 and 50 on sandbox), shared
+    with your API keys. Each AI app can make 30 upload links an hour. PDFs can be up to 30 MB.
+</Accordion>
+
+<AiStuck />
+
+</AiPage>
