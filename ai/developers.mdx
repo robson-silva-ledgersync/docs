@@ -56,14 +56,14 @@ import { AiPage, AiBox, AiCopy, AiStuck } from "/snippets/ai-ui.jsx";
 
 | Tool | What it does | Changes data |
 | --- | --- | --- |
-| `ledgersync_get_account_status` | Is the connection ready; sandbox or live; refreshes left | No |
-| `ledgersync_find_clients` | Finds clients by name or email | No |
+| `ledgersync_get_account_status` | Which firm and login it is connected as; is the connection ready; sandbox or live; refreshes left | No |
+| `ledgersync_find_clients` | Finds clients by name or email, and the firm's own accounts | No |
 | `ledgersync_create_client` | Adds a client, checking for duplicates first | Yes |
 | `ledgersync_create_connect_link` | Secure page where the account holder picks a bank and what to connect: transactions, statements, check images | Yes |
 | `ledgersync_search_institutions` | Is a bank supported; does it give check images; does it need the desktop app | No |
 | `ledgersync_list_connections` | A client's bank connections and last refresh | No |
 | `ledgersync_get_connection` | Checks one bank connection | No |
-| `ledgersync_list_connections_needing_attention` | Broken connections across all clients | No |
+| `ledgersync_list_connections_needing_attention` | Broken connections across all clients, and the firm's own | No |
 | `ledgersync_list_accounts` | A client's accounts with balances | No |
 | `ledgersync_list_transactions` | An account's transactions (last 30 days by default) | No |
 | `ledgersync_list_statements` | An account's statements | No |
@@ -82,9 +82,21 @@ import { AiPage, AiBox, AiCopy, AiStuck } from "/snippets/ai-ui.jsx";
 | `ledgersync_pair_desktop_app` | Links the desktop app with its 7-character code (live only) | Yes |
 
 <AccordionGroup>
-  <Accordion title="Tool details: refreshes left, duplicates, client messages and invitations, the desktop app, statement conversions">
+  <Accordion title="Tool details: refreshes left, which firm and login, the firm's own accounts, duplicates, client messages and invitations, the desktop app, statement conversions">
     - `ledgersync_get_account_status` also says whether the connection is full or read-only. Refreshes left
       is your firm's shared daily budget, not the per-app cap.
+    - When `access.status` is `active`, `ledgersync_get_account_status` also names the firm and the login the
+      connection uses, in `account`: `firm_name`, `signed_in_as` (the login's email) and `role` (`owner`, `admin` or `employee`).
+      A name LedgerSync could not read is left out.
+    - `ledgersync_find_clients` also returns the firm's own accounts: the banks connected on the firm owner's
+      own LedgerSync login rather than for a client, as the LedgerSync app's client list shows them. They come
+      back as one entry, first in the list, whose name ends in "(the firm's own accounts)", marked
+      `firm_own: true` and with no email. Only the owner and administrators get it, never employees, and only
+      when the owner's login holds a bank connection and the search is blank or matches the firm's name or the
+      owner's name, username or email.
+    - The firm's own entry's id works with the other client tools, except client messages: LedgerSync never
+      messages the firm itself, so a reconnect preview leaves out the firm's own connections and an invitation
+      cannot go to it.
     - `ledgersync_create_client` checks for an existing client with the same name or email first. A client
       added through the AI is like a client added in the app: they can sign in to LedgerSync, and a bank they
       connect brings your firm's usual number of past statements.
@@ -108,7 +120,9 @@ import { AiPage, AiBox, AiCopy, AiStuck } from "/snippets/ai-ui.jsx";
       images. When a bank in the answer gives check images, the result adds a `check_images_note` on how to
       connect them. `ledgersync_list_connections` also gives each connection's status.
     - `ledgersync_list_connections_needing_attention` lists the connections that are not working, across all
-      your clients, the ones that need the account holder first.
+      your clients, the ones that need the account holder first. For the owner and administrators it also lists
+      the ones on the firm's own accounts, marked `firm_own: true`, with the firm's own entry's id as
+      `client_id`.
     - `ledgersync_preview_client_message` comes first. It finds the clients whose bank connection needs
       attention: all of them, the ones at a bank you name (for example American Express), or the connections
       you pick. It says how many messages will go out, who is skipped and why, and which link each client

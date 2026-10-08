@@ -101,10 +101,12 @@ Then start a new chat.
     | **This AI app is not supported yet.** | LedgerSync works in Claude and ChatGPT. To use another app, email support. |
   </Accordion>
 
-  <Accordion title="Clients and banks: it cannot find the client, a bank needs the desktop app">
+  <Accordion title="Clients and banks: it cannot find the client, it says you have no clients, a bank needs the desktop app">
     | The AI says | Do this |
     | --- | --- |
     | It cannot find the client, or something was **not found** | Ask "Find my client ..." first, then ask again. Not the firm owner or an administrator? You see only the clients assigned to you in LedgerSync. Ask your firm's LedgerSync owner to assign the client to you. |
+    | It says your firm has no clients, but your banks are connected in LedgerSync | Banks connected on your firm's own LedgerSync login, not for a client, show as one entry that ends in **(the firm's own accounts)**. Ask the AI to list your clients: that entry comes first. Only the firm owner and administrators see it. |
+    | It shows another firm's clients, or you're not sure which LedgerSync login it uses | Ask "Which LedgerSync account am I connected to?" It names your firm and your login. Wrong one? [Connect again](#connect-again). If the LedgerSync page opens already signed in, click **Not you? Sign out** and sign in with the right login. |
     | **This bank needs the LedgerSync desktop app, and it is not connected right now.** | Open the desktop app on the computer where you set it up. Keep that computer on. Then ask the AI to try again. Not the firm owner? Ask your firm's LedgerSync owner to open it. |
     | **This refresh is waiting for someone to choose whether LedgerSync reaches the bank through the LedgerSync desktop app.** | The AI gives you a fix link. Send it to the account holder. They make the choice on that LedgerSync page. Then ask the AI to refresh again. |
     | **This connection is read-only or lacks permission for this action.** | Ask for something else, or email support. |
