@@ -6,7 +6,7 @@
 
 <Steps>
   <Step title="Add your client">
-    Ask: "Add my client Acme."
+    Ask: "Add my client Acme, acme@example.com."
   </Step>
   <Step title="Connect their bank">
     Ask: "Send Acme a link to connect their bank." Open the link, pick your client's bank on the LedgerSync
@@ -14,8 +14,9 @@
     the secure page that opens: LedgerSync's own, or our bank-data partner's for some banks. Some banks need
     one sign-in for each connection. Never in the chat.
 
-    Don't have their bank login? Send the link to your client by email or text, and they do it. The link
-    works for 3 days.
+    Don't have their bank login? Ask: "Email Acme an invitation to connect their bank." LedgerSync emails them
+    a link that signs them in to their LedgerSync account, where they connect the bank themselves. The
+    invitation's link works for 6 days, the link above for 3.
   </Step>
   <Step title="Ask about their bank">
     When the bank is connected, ask: "Show Acme's bank balances."
@@ -45,6 +46,9 @@
   </Card>
   <Card title="Message clients" icon="envelope">
     "Email every client with a broken American Express connection a link to reconnect it."
+  </Card>
+  <Card title="Invite a new client to connect their bank" icon="user-plus">
+    "Add my new client Acme, acme@example.com, and email them an invitation to connect their bank."
   </Card>
   <Card title="Connect a bank" icon="link">
     "Send Acme a link to connect their bank."

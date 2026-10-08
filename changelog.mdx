@@ -4,6 +4,40 @@ description: "New features, improvements, and fixes to the LedgerSync v3 API. Ne
 ---
 
 <Update label="2026-10-08" tags={["AI connector"]}>
+  ## Invite clients to connect their bank from Claude and ChatGPT
+
+  Ask the AI to invite a client to connect their bank, for example a client you just added. You write the
+  email or text, or start from a template, and LedgerSync sends it with a link that signs the client in to
+  their LedgerSync account.
+
+  - `ledgersync_preview_client_message` takes two new settings. `purpose` is `reconnect` (the default, as
+    before) or `invite`. `client_ids` names the clients to invite, up to 200. Any client you see can be
+    invited, even one with banks already connected: the preview shows how many connections each one has.
+  - Each invitation carries that client's own sign-in link where the text says `#LS_URL#`. It signs the
+    client in with nothing to type, and they connect their bank there. The link works for 6 days.
+  - An invitation can use `#ACCOUNTANT_NAME#` (the full name of the person sending), but not `#BANK_NAME#`.
+    An invitation email without a subject gets one like "Acme CPA invites you to connect your bank".
+  - An invitation can start from one of your firm's Invitation templates in the Communication Center.
+    `ledgersync_list_message_templates` now lists Issue and Invitation templates, and
+    `ledgersync_save_message_template` takes `purpose` too.
+  - A client already invited through the AI in the last 24 hours is skipped unless you ask to include them.
+    Invitations count toward the same daily limit as other client messages: 300 a day per firm on live (100
+    on sandbox).
+  - As with other client messages, nothing is sent until you confirm the preview, an employee invites only
+    the clients assigned to them, and the sandbox connector never delivers.
+  - Clients added through Claude or ChatGPT now work like clients added in the app: they can sign in to
+    LedgerSync, and a bank they connect brings your firm's usual number of past statements (before, some
+    banks brought only one).
+  - When you ask the AI to email or text a client, the connector now points it to LedgerSync's preview and
+    send, never to your own email app. LedgerSync sends the message with its own link for that client.
+  - Claude and ChatGPT keep a copy of LedgerSync's tools. To get the new settings, reconnect in Claude or
+    click **Refresh** in ChatGPT, then start a new chat. See
+    [After a LedgerSync update](/ai/troubleshooting#after-an-update).
+
+  See [For developers](/ai/developers).
+</Update>
+
+<Update label="2026-10-08" tags={["AI connector"]}>
   ## Turn a bank statement PDF into transactions from Claude and ChatGPT
 
   Ask the AI to convert a bank statement PDF. It gives you a secure LedgerSync page to upload it, then shows the
