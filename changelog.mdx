@@ -3,6 +3,24 @@ title: "Changelog"
 description: "New features, improvements, and fixes to the LedgerSync v3 API. Newest first."
 ---
 
+<Update label="2026-10-08" tags={["AI connector"]}>
+  ## Connect links from Claude and ChatGPT use the LedgerSync app's bank picker
+
+  A link from `ledgersync_create_connect_link` now shows the same bank list as the **Add Bank Connection**
+  screen in the LedgerSync app, asks what to connect (transactions, statements, checks), and picks the
+  connections the same way the app does.
+
+  - With `for_check_images: true`, Checks comes already ticked. The link no longer lists only banks with check
+    images, and it no longer leaves out the bank's transactions: tick Transactions or Statements too and the
+    page connects them in the same visit.
+  - When the choice needs more than one connection, for example Regions Bank statements and checks, the page
+    goes through them one at a time, and each sign-in opens in a new tab.
+  - Links that developers make through the API keep the bank search they had.
+  - Your AI keeps working without reconnecting. To get the updated tool descriptions, reconnect in Claude or
+    click **Refresh** in ChatGPT, then start a new chat. See
+    [After a LedgerSync update](/ai/troubleshooting#after-an-update).
+</Update>
+
 <Update label="2026-10-07" tags={["AI connector"]}>
   ## Email or text clients about broken bank connections from Claude and ChatGPT
 
