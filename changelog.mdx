@@ -4,6 +4,16 @@ description: "New features, improvements, and fixes to the LedgerSync v3 API. Ne
 ---
 
 <Update label="2026-10-08" tags={["AI connector"]}>
+  ## Better QuickBooks files from converted statements, and deleted conversions
+
+  - QuickBooks (`.qbo`) and OFX files of a converted statement now carry the statement's ending balance when it
+    prints running balances that add up, and give each transaction the same id in every file, so QuickBooks
+    skips a transaction it already imported instead of adding it twice.
+  - If you delete a conversion on your **PDF Converter** page, the AI now says it was deleted, instead of still
+    showing its transactions and making a file link that does not work.
+</Update>
+
+<Update label="2026-10-08" tags={["AI connector"]}>
   ## Invite clients to connect their bank from Claude and ChatGPT
 
   Ask the AI to invite a client to connect their bank, for example a client you just added. You write the

@@ -82,7 +82,7 @@ working. For another statement, or a new try, ask again.
 <AiNote tone="gray">
 
 **It is also in the LedgerSync app.** The conversion shows on your **PDF Converter** page, like one you made
-there.
+there. If you delete it there, the AI can no longer show it.
 
 </AiNote>
 
@@ -91,7 +91,8 @@ Something went wrong? See [Troubleshooting](/ai/troubleshooting).
 <Accordion title="For developers: tools, files and limits">
   - Tools: `ledgersync_create_statement_upload_link` makes the upload page link and a `conversion_id`
     (`cnv_...`). `ledgersync_get_statement_conversion` says `waiting_for_upload`, `in_progress`, `completed`
-    (with the transactions, a page at a time), `failed` or `expired`. `ledgersync_get_conversion_download_link`
+    (with the transactions, a page at a time), `failed`, `expired` or `deleted` (removed on the **PDF Converter**
+    page). `ledgersync_get_conversion_download_link`
     makes a one-time link to the file: `csv`, `xlsx`, `qbo` or `ofx`.
   - It is the same reader as the PDF Converter in the LedgerSync app and `POST /v3/statements/extract`.
   - Each person's conversions are their own: the owner, administrators and employees each see only the ones

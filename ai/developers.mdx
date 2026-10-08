@@ -178,7 +178,8 @@ import { AiPage, AiBox, AiCopy, AiStuck } from "/snippets/ai-ui.jsx";
       and `POST /v3/statements/extract`; nothing is added to a client. See
       [Turn a bank statement PDF into transactions](/ai/convert-statement).
     - `ledgersync_get_statement_conversion` says `waiting_for_upload` (with `upload_problem` when an upload was
-      refused, in words the AI can repeat), `in_progress`, `completed`, `failed` or `expired`. A completed one
+      refused, in words the AI can repeat), `in_progress`, `completed`, `failed`, `expired` or `deleted` (the
+      person deleted it on the PDF Converter page in the app, so it has no transactions or file). A completed one
       gives the page count, the number of transactions, whether they match the statement's balances
       (`validated`, `validation_message`) and the transactions, 50 at a time by default (up to 200): pass
       `next_cursor` for more.
